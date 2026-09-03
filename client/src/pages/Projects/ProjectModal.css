@@ -1,0 +1,179 @@
+.wi-modal-overlay {
+
+    position: fixed;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(0, 0, 0, .55);
+
+    z-index: 1000;
+
+}
+
+.wi-modal {
+
+    width: 100%;
+    max-width: 560px;
+
+    max-height: 90vh;
+
+    overflow-y: auto;
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    border: 1px solid var(--border);
+
+    box-shadow: var(--shadow-hover);
+
+}
+
+.wi-modal-header {
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 16px;
+
+    padding: 22px 24px;
+
+    border-bottom: 1px solid var(--border);
+
+}
+
+.wi-modal-header h2 {
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 19px;
+
+}
+
+.wi-modal-header p {
+
+    margin: 6px 0 0;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+
+}
+
+.wi-modal-close {
+
+    border: none;
+    background: none;
+
+    color: var(--text-muted);
+
+    font-size: 22px;
+    line-height: 1;
+
+    cursor: pointer;
+
+}
+
+.wi-modal-close:hover {
+    color: var(--text);
+}
+
+.wi-modal-form {
+
+    padding: 24px;
+
+}
+
+.wi-form-group {
+
+    margin-bottom: 18px;
+
+}
+
+.wi-form-group label {
+
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+    font-weight: 600;
+
+}
+
+.wi-form-group input,
+.wi-form-group textarea,
+.wi-form-group select {
+
+    width: 100%;
+
+    padding: 11px 13px;
+
+    box-sizing: border-box;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+    background: var(--input);
+
+    color: var(--text);
+
+    font-family: inherit;
+    font-size: 13.5px;
+
+    outline: none;
+
+    transition: .2s;
+
+}
+
+.wi-form-group input:focus,
+.wi-form-group textarea:focus,
+.wi-form-group select:focus {
+    border-color: var(--primary);
+}
+
+.wi-form-group textarea {
+    resize: vertical;
+}
+
+.wi-form-grid {
+
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 16px;
+
+}
+
+.wi-modal-footer {
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    gap: 12px;
+
+    margin-top: 8px;
+
+}
+
+@media (max-width: 560px) {
+
+    .wi-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+}

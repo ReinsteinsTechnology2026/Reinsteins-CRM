@@ -1,0 +1,133 @@
+.mention-input-wrapper {
+
+    position: relative;
+
+}
+
+.mention-input-textarea {
+
+    width: 100%;
+
+    padding: 12px 14px;
+
+    box-sizing: border-box;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+    background: var(--input);
+
+    color: var(--text);
+
+    font-family: inherit;
+    font-size: 13.5px;
+
+    line-height: 1.6;
+
+    resize: vertical;
+
+    outline: none;
+
+    transition: .2s;
+
+}
+
+.mention-input-textarea:focus {
+    border-color: var(--primary);
+}
+
+.mention-input-dropdown {
+
+    position: absolute;
+
+    left: 0;
+    right: 0;
+
+    top: calc(100% + 6px);
+
+    max-height: 220px;
+
+    overflow-y: auto;
+
+    border: 1px solid var(--border);
+
+    border-radius: 10px;
+
+    background: var(--card-light);
+
+    box-shadow: var(--shadow-hover);
+
+    z-index: 20;
+
+}
+
+.mention-input-option {
+
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 10px 14px;
+
+    border: none;
+    background: none;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition: .15s;
+
+}
+
+.mention-input-option:hover {
+    background: var(--hover);
+}
+
+.mention-input-avatar {
+
+    width: 28px;
+    height: 28px;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: var(--primary);
+
+    color: #17211D;
+
+    font-size: 12px;
+    font-weight: 700;
+
+}
+
+.mention-input-option strong {
+
+    display: block;
+
+    color: var(--text);
+
+    font-size: 13px;
+
+}
+
+.mention-input-option small {
+
+    display: block;
+
+    margin-top: 2px;
+
+    color: var(--text-muted);
+
+    font-size: 11px;
+
+}

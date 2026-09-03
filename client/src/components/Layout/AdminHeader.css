@@ -1,0 +1,239 @@
+/* ==========================================
+   ADMIN HEADER
+========================================== */
+
+.admin-header {
+
+  height: 82px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  padding: 0 32px;
+
+  border-bottom: 1px solid var(--border);
+
+  background: var(--card);
+
+  box-shadow: var(--shadow);
+
+  position: relative;
+
+  z-index: 100;
+
+}
+
+.admin-header h1 {
+
+  color: var(--text);
+
+  font-size: 24px;
+
+}
+
+.admin-header > div:first-child p {
+
+  margin-top: 4px;
+
+  color: var(--text-secondary);
+
+  font-size: 13px;
+
+}
+
+/* ==========================================
+   HEADER LEFT (hamburger + title)
+========================================== */
+
+.admin-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* ==========================================
+   MOBILE/TABLET NAV TOGGLE
+   Hidden on desktop (>=1024px) -- the existing
+   sidebar controls (inline "hide" chevron,
+   floating "show" arrow) remain the only nav
+   controls there, unchanged.
+========================================== */
+
+.mobile-nav-toggle {
+
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  width: 40px;
+  height: 40px;
+
+  border: 1px solid var(--border);
+  border-radius: 9px;
+
+  background: var(--hover);
+
+  color: var(--text);
+
+  font-size: 16px;
+
+  cursor: pointer;
+
+  transition: .25s;
+
+}
+
+.mobile-nav-toggle:hover {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+@media (max-width: 1023px) {
+  .mobile-nav-toggle {
+    display: flex;
+  }
+}
+
+/* ==========================================
+   HEADER ACTIONS
+========================================== */
+
+.header-actions {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 20px;
+
+}
+
+/* ==========================================
+   BUTTONS
+========================================== */
+
+.notification-button,
+.header-logout {
+
+  width: 40px;
+
+  height: 40px;
+
+  border: 1px solid var(--border);
+
+  border-radius: 9px;
+
+  background: var(--hover);
+
+  color: var(--text);
+
+  cursor: pointer;
+
+  transition: .25s;
+
+}
+
+.notification-button:hover{
+
+  background: var(--primary);
+
+  color: #ffffff;
+
+}
+
+.header-logout:hover {
+
+  background: var(--danger);
+
+  color: #ffffff;
+
+}
+
+/* ==========================================
+   PROFILE
+========================================== */
+
+.admin-profile {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+}
+
+.profile-avatar {
+
+  width: 40px;
+
+  height: 40px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: var(--primary);
+
+  color: #ffffff;
+
+  font-weight: 700;
+
+}
+
+.admin-profile p {
+
+  color: var(--text);
+
+  font-size: 14px;
+
+  font-weight: 600;
+
+}
+
+.admin-profile span {
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+
+}
+
+/* ==========================================
+   RESPONSIVE
+   Mirrors EmployeeHeader.css's equivalent
+   block at the same breakpoint.
+========================================== */
+
+@media (max-width: 1023px) {
+
+  .admin-header {
+    padding: 0 16px;
+  }
+
+  .admin-header h1 {
+    font-size: 19px;
+  }
+
+  .admin-header > div:first-child p {
+    display: none;
+  }
+
+  .header-actions {
+    gap: 10px;
+  }
+
+  .admin-profile > div:last-child {
+    display: none;
+  }
+
+}

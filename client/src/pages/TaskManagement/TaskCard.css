@@ -1,0 +1,255 @@
+.task-card{
+
+    background:linear-gradient(
+        180deg,
+        #F7FAF8,
+        var(--card)
+    );
+
+    border:1px solid var(--border);
+
+    border-radius:18px;
+
+    padding:20px;
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:16px;
+
+    cursor:pointer;
+
+    transition:.3s;
+
+    box-shadow:var(--shadow);
+
+}
+
+.task-card:hover{
+
+    transform:translateY(-5px);
+
+    border-color:var(--primary);
+
+    box-shadow:var(--glow);
+
+}
+
+/* ==========================================
+   HEADER
+========================================== */
+
+.task-card-header{
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+}
+
+.task-id{
+
+    font-size:12px;
+
+    font-weight:700;
+
+    color:var(--text-muted);
+
+    letter-spacing:.8px;
+
+    text-transform:uppercase;
+
+}
+
+/* ==========================================
+   PRIORITY
+========================================== */
+
+.priority{
+
+    padding:6px 14px;
+
+    border-radius:30px;
+
+    font-size:11px;
+
+    font-weight:700;
+
+    text-transform:uppercase;
+
+    letter-spacing:.5px;
+
+}
+
+.priority.low{
+
+    background:rgba(79,166,107,.18);
+
+    color:var(--success);
+
+}
+
+.priority.medium{
+
+    background:rgba(210,165,80,.18);
+
+    color:var(--warning);
+
+}
+
+.priority.high{
+
+    background:rgba(192,57,43,.18);
+
+    color:#ff8a7a;
+
+}
+
+.priority.critical{
+
+    background:#7b1f16;
+
+    color:#ffffff;
+
+}
+
+/* ==========================================
+   TITLE
+========================================== */
+
+.task-card h3{
+
+    margin:0;
+
+    font-size:21px;
+
+    font-weight:700;
+
+    color:var(--text);
+
+}
+
+/* ==========================================
+   DESCRIPTION
+========================================== */
+
+.task-card p{
+
+    margin:0;
+
+    color:var(--text-secondary);
+
+    font-size:14px;
+
+    line-height:1.7;
+
+}
+
+/* ==========================================
+   INFO
+========================================== */
+
+.task-info{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    gap:20px;
+
+}
+
+.task-info label{
+
+    display:block;
+
+    margin-bottom:5px;
+
+    font-size:11px;
+
+    font-weight:700;
+
+    letter-spacing:.5px;
+
+    text-transform:uppercase;
+
+    color:var(--text-muted);
+
+}
+
+.task-info span{
+
+    font-size:14px;
+
+    font-weight:700;
+
+    color:var(--text);
+
+}
+
+/* ==========================================
+   PROGRESS BAR
+========================================== */
+
+.task-progress{
+
+    width:100%;
+
+    height:10px;
+
+    border-radius:30px;
+
+    overflow:hidden;
+
+    background:#F7FAF8;
+
+}
+
+.task-progress-bar{
+
+    height:100%;
+
+    border-radius:30px;
+
+    background:linear-gradient(
+        90deg,
+        var(--primary),
+        var(--primary-hover)
+    );
+
+    transition:.35s;
+
+}
+
+/* ==========================================
+   FOOTER
+========================================== */
+
+.task-card small{
+
+    color:var(--text-secondary);
+
+    font-size:12px;
+
+    font-weight:600;
+
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media(max-width:768px){
+
+.task-info{
+
+flex-direction:column;
+
+gap:14px;
+
+}
+
+}

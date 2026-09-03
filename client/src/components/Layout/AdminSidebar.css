@@ -1,0 +1,497 @@
+/* ==========================================
+   ADMIN SIDEBAR
+========================================== */
+
+.admin-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+
+  width: 260px;
+  height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 28px 18px;
+
+  background: var(--sidebar);
+  color: var(--text);
+
+  box-sizing: border-box;
+
+  z-index: 1000;
+
+  overflow-y: auto;
+
+  border-right: 1px solid var(--border);
+
+  transition: width .25s ease, padding .25s ease;
+}
+
+/* Collapsed: width goes to 0 (not visibility/display), so it stops
+   reserving any space at all — .admin-main's own .sidebar-collapsed
+   rule below is what actually gives that freed width back to the
+   page content. overflow:hidden here (in addition to the existing
+   overflow-y:auto) keeps the nav items from becoming visible/
+   wrapping oddly mid-transition. The toggle button itself lives
+   outside this element (SidebarToggleButton), so it is never
+   affected by this clipping. */
+
+.admin-sidebar.collapsed {
+  width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-right: none;
+  overflow: hidden;
+}
+
+/* ==========================================
+   BRAND
+========================================== */
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+
+  gap: 13px;
+
+  padding: 0 10px 30px;
+}
+
+.sidebar-logo {
+  width: 44px;
+  height: 44px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border-radius: 11px;
+
+  background: transparent;
+
+  overflow: hidden;
+}
+
+.sidebar-brand h2 {
+  margin: 0;
+
+  font-size: 19px;
+
+  color: var(--text);
+}
+
+.sidebar-brand span {
+  color: var(--text-secondary);
+
+  font-size: 12px;
+}
+
+/* ==========================================
+   NAVIGATION
+========================================== */
+
+.sidebar-navigation {
+  display: flex;
+  flex-direction: column;
+
+  gap: 6px;
+
+  flex: 1;
+}
+
+.sidebar-item {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+
+  gap: 14px;
+
+  padding: 13px 15px;
+
+  border: none;
+  border-radius: 9px;
+
+  background: transparent;
+
+  color: var(--text-secondary);
+
+  font-size: 14px;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    background .25s,
+    color .25s;
+}
+
+.sidebar-item svg {
+  flex-shrink: 0;
+}
+
+/* ==========================================
+   DASHBOARD ROW + INLINE COLLAPSE ARROW
+
+   Shared by AdminSidebar and EmployeeSidebar
+   (defined once here — CSS is bundled globally
+   in this app, same convention already used
+   elsewhere, e.g. .employee-notification-badge
+   being reused from AdminHeader.jsx). Dashboard
+   keeps its existing full-width pill exactly as
+   before (flex:1 here just lets it share the row
+   with the arrow instead of taking 100% width);
+   the arrow is a separate sibling button, never
+   nested inside the Dashboard link, so it never
+   affects Dashboard's own click behavior.
+========================================== */
+
+.sidebar-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 6px;
+}
+
+.sidebar-item-row .sidebar-item,
+.sidebar-item-row .employee-sidebar-item {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+
+.sidebar-collapse-inline-button {
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 30px;
+  height: 30px;
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+
+  background: transparent;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+
+  cursor: pointer;
+
+  transition: background .2s, border-color .2s, color .2s;
+
+}
+
+.sidebar-collapse-inline-button:hover {
+  border-color: var(--primary);
+  background: var(--hover);
+  color: var(--primary-hover);
+}
+
+.sidebar-item:hover {
+
+  background: var(--hover);
+
+  color: var(--text);
+
+}
+
+.sidebar-item.active {
+
+  background: var(--mint);
+
+  color: var(--primary);
+
+  box-shadow: none;
+
+}
+
+/* ==========================================
+   EXPANDABLE SIDEBAR SECTION
+   (Organization: Org Chart / Departments /
+   Designations) -- same visual language as
+   .sidebar-item above, just indented and one
+   size down for the sub-items, plus a caret on
+   the parent row.
+========================================== */
+
+.sidebar-expand-caret {
+  margin-left: auto;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.sidebar-subitems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  padding-left: 18px;
+  margin: 2px 0 4px;
+}
+
+.sidebar-subitem {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 10px 15px;
+
+  border: none;
+  border-left: 2px solid var(--border);
+  border-radius: 0 9px 9px 0;
+
+  background: transparent;
+
+  color: var(--text-secondary);
+
+  font-size: 13px;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    background .25s,
+    color .25s,
+    border-color .25s;
+}
+
+.sidebar-subitem:hover {
+  background: var(--hover);
+  color: var(--text);
+  border-left-color: var(--primary);
+}
+
+.sidebar-subitem.active {
+  background: var(--hover);
+  color: var(--primary-hover);
+  border-left-color: var(--primary);
+  font-weight: 600;
+}
+
+/* ==========================================
+   SIDEBAR FOOTER
+========================================== */
+
+.sidebar-footer {
+
+  margin-top: auto;
+
+  padding: 20px 10px 5px;
+
+  border-top: 1px solid var(--border);
+
+}
+
+.sidebar-footer p {
+
+  margin: 0 0 4px;
+
+  color: var(--text);
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+}
+
+.sidebar-footer span {
+
+  color: var(--text-secondary);
+
+  font-size: 11px;
+
+}
+
+/* ==========================================
+   IMPORTANT
+========================================== */
+
+.admin-main,
+.admin-attendance-main,
+.admin-tasks-main,
+.admin-leave-main {
+
+  width: calc(100% - 260px) !important;
+
+  min-width: 0;
+
+  margin-left: 260px !important;
+
+  box-sizing: border-box;
+
+  transition: width .25s ease, margin-left .25s ease;
+
+}
+
+/* When the sidebar is collapsed, the freed width is handed straight
+   back to the page — no leftover blank 260px band. Two classes beat
+   the single-class rule above (and the 768px one below) regardless
+   of source order or the existing !important, so this always wins
+   while collapsed. Also reaches the legacy *-main variants above
+   via the descendant combinator, since those live nested inside
+   this element on their respective pages. */
+
+.admin-main.sidebar-collapsed,
+.admin-main.sidebar-collapsed .admin-attendance-main,
+.admin-main.sidebar-collapsed .admin-tasks-main,
+.admin-main.sidebar-collapsed .admin-leave-main {
+
+  width: 100% !important;
+
+  margin-left: 0 !important;
+
+}
+
+/* ==========================================
+   PREVENT PAGE OVERFLOW
+========================================== */
+
+.admin-layout,
+.admin-attendance-layout,
+.admin-tasks-layout,
+.admin-leave-layout {
+
+  width: 100%;
+
+  min-height: 100vh;
+
+  display: block !important;
+
+  background: var(--background);
+
+  box-sizing: border-box;
+
+}
+
+/* ==========================================
+   RESPONSIVE — MOBILE/TABLET DRAWER
+
+   Below 1024px the sidebar stops being a
+   layout-reserving fixed column (that's the
+   desktop-only .collapsed width:0 behavior
+   above) and becomes an off-canvas drawer:
+   full width, always present in the DOM,
+   shown/hidden purely via transform so it
+   never causes layout reflow while sliding.
+   It stays width:260px here even while the
+   independent desktop "collapsed" class is
+   also present, since that preference is
+   unrelated to (and must not affect) the
+   mobile drawer's own open/closed state --
+   see useMobileNav.js. Main content gets the
+   full viewport width unconditionally -- no
+   margin is ever reserved for the sidebar
+   below this breakpoint.
+========================================== */
+
+@media (max-width: 1023px) {
+
+  .admin-sidebar,
+  .admin-sidebar.collapsed {
+    width: 260px !important;
+    padding: 28px 18px !important;
+    border-right: 1px solid var(--border) !important;
+    overflow: visible;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+  }
+
+  .admin-sidebar.mobile-open,
+  .admin-sidebar.collapsed.mobile-open {
+    transform: translateX(0);
+  }
+
+  .admin-main,
+  .admin-main.sidebar-collapsed,
+  .admin-attendance-main,
+  .admin-tasks-main,
+  .admin-leave-main {
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  /* Desktop-only controls: the inline "hide sidebar" chevron toggles
+     the unrelated desktop collapse preference, which has no visible
+     effect on the mobile drawer's own transform-based visibility --
+     hiding it here keeps mobile users to the one control that does
+     something (the hamburger + backdrop + Escape + nav click). */
+  .sidebar-collapse-inline-button {
+    display: none;
+  }
+
+}
+
+/* ==========================================
+   MENU NAME
+========================================== */
+
+.admin-sidebar-menu-name{
+
+flex:1;
+
+text-align:left;
+
+}
+
+/* ==========================================
+   CHAT BADGE
+========================================== */
+
+.admin-chat-unread-badge{
+
+min-width:21px;
+
+height:21px;
+
+padding:0 6px;
+
+display:flex;
+
+align-items:center;
+
+justify-content:center;
+
+border-radius:20px;
+
+background:var(--danger);
+
+color:#ffffff;
+
+font-size:10px;
+
+font-weight:700;
+
+box-sizing:border-box;
+
+box-shadow:0 2px 6px rgba(0,0,0,.25);
+
+}
+
+/* ==========================================
+   ACTIVE BADGE
+========================================== */
+
+.sidebar-item.active .admin-chat-unread-badge{
+
+background:#ffffff;
+
+color:var(--primary);
+
+box-shadow:none;
+
+}

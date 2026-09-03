@@ -1,0 +1,14 @@
+.chat-file-upload-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 8px;
+    border-radius: 8px;
+    transition: 0.2s;
+}
+
+.chat-file-upload-btn:hover {
+    background: rgba(255,255,255,0.08);
+}

@@ -1,0 +1,2196 @@
+/* ==========================================
+   ROOM PAGE WRAPPER — FIXED APP VIEWPORT
+
+   MeetingLobby.jsx swaps its normal ".wi-page"
+   wrapper for ".wi-page.meeting-room-page" only
+   while stage === "joined". Both
+   .admin-page-content and .employee-page-content
+   normally scroll (overflow:auto) like any other
+   dashboard page — that's exactly what the
+   meeting room must NOT do, so the :has() rule
+   below switches overflow to hidden only while a
+   meeting room is mounted (same technique
+   AdminLayout.css already uses to do this for the
+   Chat page), turning that container into a fixed
+   viewport the room fills exactly via flex:1 +
+   min-height:0 + height:100%. Nothing inside the
+   room is allowed to grow it past that — only
+   specific sub-areas (the video grid, chat
+   messages, participants list) scroll
+   independently; the topbar and control bar never
+   move. Scoped with :has() so neither layout CSS
+   file is ever touched directly. The compound
+   selector on .wi-page.meeting-room-page
+   guarantees it wins over the shared ".wi-page"
+   padding rule regardless of CSS bundle order.
+
+   Note: .admin-page-content is already
+   display:flex (its own CSS); .employee-page-
+   content is NOT — it's a flex ITEM inside
+   .employee-main but not itself a flex container
+   for its children (root cause of an earlier
+   regression: every flex:1 from .meeting-room-page
+   down was a no-op for employee accounts). Both
+   are covered explicitly below rather than relying
+   on that difference.
+========================================== */
+
+.admin-page-content:has(.meeting-room-page),
+.employee-page-content:has(.meeting-room-page) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.wi-page.meeting-room-page {
+
+    display: flex;
+    flex-direction: column;
+
+    flex: 1;
+    min-height: 0;
+
+    height: 100%;
+    overflow: hidden;
+
+    padding: 16px 32px;
+
+    box-sizing: border-box;
+
+}
+
+.meeting-room-page .wi-breadcrumb {
+    flex-shrink: 0;
+    margin-bottom: 10px;
+}
+
+/* ==========================================
+   ROOM SHELL
+
+   Grid, not flex-row: a fixed-width chat/
+   participants column beside a video area that
+   takes the rest. Whichever panel is open (they
+   are mutually exclusive — see MeetingRoom.jsx)
+   adds the second column; closing it collapses
+   back to a single column, so the video area
+   reclaims the width immediately.
+========================================== */
+
+.meeting-room {
+
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+
+    gap: 16px;
+
+    flex: 1;
+    min-height: 0;
+
+    overflow: hidden;
+
+    transition: grid-template-columns .2s ease;
+
+}
+
+.meeting-room.panel-open {
+    /* Stays within the 360-420px range across every desktop target
+       (1366x768 through 1920x1080) via vw interpolation, rather than
+       a single fixed width. */
+    grid-template-columns: minmax(0, 1fr) clamp(360px, 26vw, 420px);
+}
+
+.meeting-room:fullscreen {
+
+    height: 100vh;
+
+    padding: 20px;
+
+    background: #0c0a09;
+
+}
+
+/* Header (topbar) / video stage / controls column. The
+   video stage is the only flex:1 child here, so it grows
+   or shrinks with whatever room the header and control
+   bar leave — that's what keeps the controls directly
+   under the video instead of floating far below it. */
+
+/* Topbar and controls are flex-shrink:0 children of this column, so
+   they stay pinned at their natural size regardless of participant
+   count or zoom level — only .meeting-room-grid /
+   .meeting-room-presentation (flex:1, min-height:0) absorb leftover
+   space, and only THEY get their own scoped overflow-y fallback
+   below. This column itself no longer scrolls as a whole, which is
+   what previously let the control bar drift away from the video
+   under its own sticky positioning instead of staying genuinely
+   fixed. */
+
+.meeting-room-main {
+
+    position: relative;
+
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+    min-height: 0;
+
+    gap: 16px;
+
+    overflow: hidden;
+
+}
+
+/* ==========================================
+   RECONNECTING BANNER
+========================================== */
+
+.meeting-room-connection-banner {
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    padding: 9px 14px;
+
+    border-radius: 9px;
+
+    background: rgba(245, 158, 11, .16);
+
+    border: 1px solid var(--warning);
+
+    color: var(--warning);
+
+    font-size: 13px;
+    font-weight: 600;
+
+}
+
+/* ==========================================
+   VIDEO GRID
+========================================== */
+
+.meeting-room-grid {
+
+    display: grid;
+
+    flex: 1;
+    min-height: 0;
+
+    gap: 12px;
+
+    grid-auto-rows: 1fr;
+
+    /* Never scrolls: every tile below has no enforced min-height,
+       so grid-auto-rows/grid-template-rows (1fr each) can shrink
+       tiles all the way down to whatever this area is actually
+       given between the topbar and the controls — the video always
+       fits, it just gets smaller, exactly like Teams/Zoom. */
+    overflow: hidden;
+
+}
+
+.meeting-room-grid.count-1 {
+    grid-template-columns: 1fr;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.meeting-room-grid.count-2 {
+    grid-template-columns: repeat(2, 1fr);
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.meeting-room-grid.count-3 {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+}
+
+/* Third tile spans both columns on its own row — the two-on-top,
+   one-full-width-below layout — rather than sitting half-width next
+   to an empty cell. */
+.meeting-room-grid.count-3 .meeting-room-tile:nth-child(3) {
+    grid-column: 1 / -1;
+}
+
+.meeting-room-grid.count-4 {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+}
+
+.meeting-room-grid.count-5-6 {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+}
+
+.meeting-room-grid.count-7-8 {
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+}
+
+/* ==========================================
+   VIDEO TILE
+========================================== */
+
+.meeting-room-tile {
+
+    position: relative;
+
+    /* Deliberately no min-height: this is a grid item whose own
+       overflow:hidden (below) makes its automatic minimum size 0
+       instead of max-content, so grid-auto-rows/grid-template-rows
+       (1fr) can shrink it all the way down to whatever the grid is
+       actually given — the video always fits, never forcing a
+       scrollbar. object-fit:cover on the <video> keeps it looking
+       right at any resulting box size. */
+
+    border-radius: var(--radius);
+
+    overflow: hidden;
+
+    background: #111;
+
+    border: 2px solid var(--border);
+
+    box-shadow: var(--shadow);
+
+    transition: border-color .15s;
+
+}
+
+.meeting-room-tile.speaking {
+    border-color: var(--success);
+}
+
+.meeting-room-tile.reconnecting {
+    border-color: var(--warning);
+}
+
+.meeting-room-video {
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+
+    display: block;
+
+}
+
+.meeting-room-video.mirrored {
+    transform: scaleX(-1);
+}
+
+.meeting-room-tile-avatar {
+
+    position: absolute;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: var(--card);
+
+}
+
+.meeting-room-tile-avatar span {
+
+    width: 25%;
+    height: 25%;
+    min-width: 44px;
+    min-height: 44px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: var(--primary);
+
+    color: #17211D;
+
+    font-weight: 700;
+    font-size: clamp(16px, 4vw, 32px);
+
+}
+
+.meeting-room-tile-overlay {
+
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+
+    gap: 6px;
+
+    padding: 8px 10px;
+
+    background: linear-gradient(to top, rgba(0, 0, 0, .65), transparent);
+
+}
+
+.meeting-room-tile-name {
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 6px;
+
+    max-width: 100%;
+
+    color: #fff;
+
+    font-size: 12.5px;
+    font-weight: 600;
+
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
+
+}
+
+.meeting-room-tile-name svg {
+    flex-shrink: 0;
+    color: var(--primary-hover);
+}
+
+.meeting-room-role-badge {
+
+    padding: 1px 7px;
+
+    border-radius: 999px;
+
+    background: rgba(255, 255, 255, .18);
+
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+
+}
+
+.meeting-room-tile-badge {
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 5px;
+
+    padding: 2px 8px;
+
+    border-radius: 999px;
+
+    background: rgba(245, 158, 11, .85);
+
+    color: #17211D;
+
+    font-size: 11px;
+    font-weight: 700;
+
+}
+
+/* ==========================================
+   CONTROL BAR
+========================================== */
+
+.meeting-room-controls {
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+
+    gap: 12px;
+    row-gap: 10px;
+
+    padding: 14px;
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    box-shadow: var(--shadow);
+
+}
+
+.meeting-room-control-button {
+
+    position: relative;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    width: 48px;
+    height: 48px;
+
+    border: 1px solid var(--border);
+    border-radius: 50%;
+
+    background: var(--card-light);
+
+    color: var(--text-secondary);
+
+    font-size: 17px;
+
+    cursor: pointer;
+
+    transition: .2s;
+
+}
+
+.meeting-room-control-button:hover {
+    background: var(--hover);
+}
+
+.meeting-room-control-button.on {
+
+    border-color: var(--primary);
+
+    background: rgba(22, 166, 106, .16);
+
+    color: var(--primary-hover);
+
+}
+
+.meeting-room-control-button:not(.on):not(.leave):not(.end) {
+
+    border-color: var(--danger);
+
+    background: rgba(239, 68, 68, .1);
+
+    color: var(--danger);
+
+}
+
+.meeting-room-control-button.leave {
+
+    width: auto;
+    padding: 0 20px;
+    border-radius: 24px;
+
+    border-color: var(--danger);
+
+    background: var(--danger);
+
+    color: #fff;
+
+}
+
+.meeting-room-control-button.end {
+
+    width: auto;
+    padding: 0 18px;
+    border-radius: 24px;
+
+    border-color: var(--danger);
+
+    background: transparent;
+
+    color: var(--danger);
+
+    font-size: 13px;
+    font-weight: 700;
+
+}
+
+.meeting-room-control-button.end:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+}
+
+.meeting-room-control-count {
+
+    position: absolute;
+    top: -4px;
+    right: -4px;
+
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 999px;
+
+    background: var(--primary);
+
+    color: #17211D;
+
+    font-size: 10px;
+    font-weight: 700;
+
+}
+
+/* ==========================================
+   SIDE PANELS (participants + chat)
+
+   On desktop these fill the second grid column
+   .meeting-room.panel-open adds (340px) — a
+   real layout column, not an overlay, so
+   opening one actually shrinks the video area
+   instead of floating on top of it. On mobile
+   (see RESPONSIVE) they become a fixed
+   full-screen drawer instead.
+========================================== */
+
+.meeting-room-side-panel,
+.meeting-room-participants-panel {
+
+    position: relative;
+
+    width: 100%;
+    min-width: 0;
+
+    height: 100%;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    box-shadow: var(--shadow-hover);
+
+    overflow: hidden;
+
+}
+
+.meeting-room-participants-header {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 16px;
+
+    border-bottom: 1px solid var(--border);
+
+}
+
+.meeting-room-participants-header h3 {
+
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 15px;
+
+}
+
+.meeting-room-participants-header button {
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 30px;
+    height: 30px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: transparent;
+
+    color: var(--text-secondary);
+
+    cursor: pointer;
+
+}
+
+.meeting-room-participants-header button:hover {
+    background: var(--hover);
+}
+
+.meeting-room-participants-list {
+
+    flex: 1;
+    min-height: 0;
+
+    overflow-y: auto;
+
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+
+    padding: 10px;
+
+}
+
+.meeting-room-participant-row {
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 9px 8px;
+
+    border-radius: 9px;
+
+}
+
+.meeting-room-participant-row:hover {
+    background: var(--hover);
+}
+
+.meeting-room-participant-avatar {
+
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: var(--primary);
+
+    color: #17211D;
+
+    font-size: 13px;
+    font-weight: 700;
+
+}
+
+.meeting-room-participant-name {
+
+    flex: 1;
+
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 6px;
+
+    color: var(--text);
+
+    font-size: 13px;
+    font-weight: 600;
+
+}
+
+.meeting-room-participant-name svg {
+    color: var(--primary-hover);
+}
+
+.meeting-room-participant-icons {
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 8px;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+
+}
+
+.meeting-room-participant-icons .off {
+    color: var(--danger);
+}
+
+/* ==========================================
+   MEETING ENDED
+========================================== */
+
+.meeting-room-ended {
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 16px;
+
+    padding: 70px 30px;
+
+    text-align: center;
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    box-shadow: var(--shadow);
+
+}
+
+.meeting-room-ended svg {
+
+    font-size: 40px;
+
+    color: var(--danger);
+
+}
+
+.meeting-room-ended h2 {
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 22px;
+
+}
+
+.meeting-room-ended p {
+
+    margin: 0;
+
+    color: var(--text-secondary);
+
+    font-size: 14px;
+
+}
+
+/* ==========================================
+   TOP BAR — timer, network, lock, presenting
+========================================== */
+
+.meeting-room-topbar {
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 10px;
+
+}
+
+.meeting-room-timer {
+
+    padding: 4px 10px;
+
+    border-radius: 999px;
+
+    background: var(--card-light);
+
+    border: 1px solid var(--border);
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+
+}
+
+.meeting-room-network {
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 6px;
+
+    padding: 4px 10px;
+
+    border-radius: 999px;
+
+    border: 1px solid var(--border);
+
+    font-size: 12px;
+    font-weight: 600;
+
+    color: var(--text-secondary);
+
+}
+
+.meeting-room-network-connected {
+    color: var(--success);
+    border-color: var(--success);
+}
+
+.meeting-room-network-poor,
+.meeting-room-network-reconnecting {
+    color: var(--warning);
+    border-color: var(--warning);
+}
+
+.meeting-room-lock-badge,
+.meeting-room-presenting-badge,
+.meeting-room-layout-badge {
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 6px;
+
+    padding: 4px 10px;
+
+    border-radius: 999px;
+
+    background: rgba(22, 166, 106, .14);
+
+    border: 1px solid var(--primary);
+
+    color: var(--primary-hover);
+
+    font-size: 12px;
+    font-weight: 600;
+
+}
+
+/* ==========================================
+   FLOATING CARDS (control request/approval)
+========================================== */
+
+.meeting-room-floating-card {
+
+    align-self: center;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    gap: 8px;
+
+    max-width: 360px;
+
+    padding: 14px 18px;
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    border: 1px solid var(--primary);
+
+    box-shadow: var(--shadow-hover);
+
+    text-align: center;
+
+}
+
+.meeting-room-floating-card p {
+    margin: 0;
+    color: var(--text);
+    font-size: 13.5px;
+}
+
+.meeting-room-floating-card-note {
+    color: var(--text-muted) !important;
+    font-size: 11.5px !important;
+    line-height: 1.5;
+}
+
+.meeting-room-floating-card-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.meeting-room-floating-card button {
+
+    padding: 7px 16px;
+
+    border-radius: 8px;
+
+    border: 1px solid var(--border);
+
+    font-size: 12.5px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+}
+
+.meeting-room-floating-card button.allow {
+    background: var(--success);
+    border-color: var(--success);
+    color: #06210f;
+}
+
+.meeting-room-floating-card button.deny {
+    background: transparent;
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.meeting-room-request-control {
+
+    align-self: center;
+
+    padding: 8px 18px;
+
+    border-radius: 999px;
+
+    border: 1px solid var(--primary);
+
+    background: var(--card);
+
+    color: var(--primary-hover);
+
+    font-size: 12.5px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+}
+
+.meeting-room-request-control.pending {
+    opacity: .7;
+    cursor: default;
+}
+
+/* ==========================================
+   PRESENTATION / SPEAKER LAYOUT
+========================================== */
+
+.meeting-room-presentation {
+
+    display: flex;
+    flex: 1;
+
+    gap: 12px;
+
+    min-height: 0;
+
+    overflow: hidden;
+
+}
+
+.meeting-room-main-stage {
+
+    flex: 1;
+
+    position: relative;
+
+    border-radius: var(--radius);
+
+    overflow: hidden;
+
+    background: #000;
+
+    border: 1px solid var(--border);
+
+    box-shadow: var(--shadow);
+
+    min-height: 200px;
+
+}
+
+.meeting-room-main-stage video,
+.meeting-room-main-stage .meeting-room-tile {
+
+    width: 100%;
+    height: 100%;
+
+}
+
+.meeting-room-main-stage video {
+    object-fit: contain;
+    background: #000;
+}
+
+.meeting-room-main-stage .meeting-room-tile {
+    border: none;
+    border-radius: 0;
+}
+
+.meeting-room-thumbnail-strip {
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 8px;
+
+    width: 168px;
+    flex-shrink: 0;
+
+    overflow-y: auto;
+
+}
+
+.meeting-room-thumbnail-strip .meeting-room-tile {
+    min-height: 94px;
+}
+
+.meeting-room-tile.small .meeting-room-tile-name {
+    font-size: 11px;
+}
+
+.meeting-room-tile.presenting {
+    border-color: var(--primary);
+}
+
+.meeting-room-tile-badge.presenting {
+    background: rgba(22, 166, 106, .9);
+    color: #17211D;
+}
+
+.meeting-hand-icon {
+    color: var(--warning) !important;
+}
+
+.meeting-presenting-icon {
+    color: var(--primary-hover);
+}
+
+/* ==========================================
+   CONTROL BAR POPOVERS / DROPDOWNS
+========================================== */
+
+.meeting-room-popover-wrap {
+    position: relative;
+}
+
+.meeting-room-dropdown-menu {
+
+    position: absolute;
+    bottom: 58px;
+    left: 50%;
+    transform: translateX(-50%);
+
+    display: flex;
+    flex-direction: column;
+
+    min-width: 210px;
+
+    padding: 6px;
+
+    border-radius: 10px;
+
+    background: var(--card);
+
+    border: 1px solid var(--border);
+
+    box-shadow: var(--shadow-hover);
+
+    z-index: 25;
+
+}
+
+.meeting-room-dropdown-menu button {
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 9px 12px;
+
+    border: none;
+    border-radius: 7px;
+
+    background: transparent;
+
+    color: var(--text);
+
+    font-size: 13px;
+    text-align: left;
+
+    cursor: pointer;
+
+}
+
+.meeting-room-dropdown-menu button:hover {
+    background: var(--hover);
+}
+
+.meeting-room-control-count.hand {
+    right: auto;
+    left: -4px;
+    background: var(--warning);
+    color: #17211D;
+}
+
+/* ==========================================
+   REACTIONS
+========================================== */
+
+.meeting-reaction-picker {
+
+    position: absolute;
+    bottom: 58px;
+    left: 50%;
+    transform: translateX(-50%);
+
+    display: flex;
+
+    gap: 4px;
+
+    padding: 8px;
+
+    border-radius: 999px;
+
+    background: var(--card);
+
+    border: 1px solid var(--border);
+
+    box-shadow: var(--shadow-hover);
+
+    z-index: 25;
+
+}
+
+.meeting-reaction-option {
+
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 50%;
+
+    background: transparent;
+
+    font-size: 18px;
+
+    cursor: pointer;
+
+    transition: .15s;
+
+}
+
+.meeting-reaction-option:hover {
+    background: var(--hover);
+    transform: scale(1.15);
+}
+
+.meeting-reactions-overlay {
+
+    position: absolute;
+    inset: 0;
+
+    z-index: 15;
+
+    pointer-events: none;
+
+    overflow: hidden;
+
+}
+
+.meeting-floating-reaction {
+
+    position: absolute;
+    bottom: 70px;
+
+    font-size: 30px;
+
+    animation: meeting-reaction-float 3s ease-out forwards;
+
+}
+
+@keyframes meeting-reaction-float {
+
+    0% {
+        opacity: 0;
+        transform: translateY(0) scale(.6);
+    }
+
+    15% {
+        opacity: 1;
+        transform: translateY(-30px) scale(1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-320px) scale(1.1);
+    }
+
+}
+
+/* ==========================================
+   PARTICIPANT MODERATION MENU
+========================================== */
+
+.meeting-participant-menu-wrap {
+    position: relative;
+}
+
+.meeting-participant-menu-trigger {
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 26px;
+    height: 26px;
+
+    border: none;
+    border-radius: 6px;
+
+    background: transparent;
+
+    color: var(--text-secondary);
+
+    cursor: pointer;
+
+}
+
+.meeting-participant-menu-trigger:hover {
+    background: var(--hover);
+}
+
+.meeting-participant-menu {
+
+    position: absolute;
+    top: 30px;
+    right: 0;
+
+    min-width: 190px;
+
+    display: flex;
+    flex-direction: column;
+
+    padding: 6px;
+
+    border-radius: 10px;
+
+    background: var(--card-light);
+
+    border: 1px solid var(--border);
+
+    box-shadow: var(--shadow-hover);
+
+    z-index: 30;
+
+}
+
+.meeting-participant-menu button {
+
+    padding: 8px 10px;
+
+    border: none;
+    border-radius: 7px;
+
+    background: transparent;
+
+    color: var(--text);
+
+    font-size: 12.5px;
+    text-align: left;
+
+    cursor: pointer;
+
+}
+
+.meeting-participant-menu button:hover {
+    background: var(--hover);
+}
+
+.meeting-participant-menu button.danger {
+
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    color: var(--danger);
+
+}
+
+/* ==========================================
+   WAITING ROOM (inside participants panel)
+========================================== */
+
+.meeting-waiting-room-section {
+    padding: 4px 4px 8px;
+}
+
+.meeting-waiting-room-section h4 {
+
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    margin: 6px 4px 8px;
+
+    color: var(--warning);
+
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+
+}
+
+.meeting-waiting-room-row {
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 8px;
+
+    border-radius: 9px;
+
+    background: rgba(245, 158, 11, .08);
+
+}
+
+.meeting-waiting-room-name {
+
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+
+    color: var(--text);
+
+    font-size: 13px;
+    font-weight: 600;
+
+}
+
+.meeting-waiting-room-name small {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.meeting-waiting-room-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.meeting-waiting-admit,
+.meeting-waiting-reject {
+
+    padding: 6px 12px;
+
+    border-radius: 7px;
+
+    border: 1px solid var(--border);
+
+    font-size: 11.5px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+}
+
+.meeting-waiting-admit {
+    background: var(--success);
+    border-color: var(--success);
+    color: #06210f;
+}
+
+.meeting-waiting-reject {
+    background: transparent;
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.meeting-participants-divider {
+    height: 1px;
+    margin: 8px 4px;
+    background: var(--border);
+}
+
+/* ==========================================
+   MEETING CHAT
+========================================== */
+
+.meeting-chat-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ==========================================
+   DRAG & DROP OVERLAY
+   Only mounted while a file is actively being
+   dragged over the panel — never permanently
+   covers messages.
+========================================== */
+
+.meeting-chat-drop-overlay {
+
+    position: absolute;
+    inset: 0;
+
+    z-index: 10;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 10px;
+
+    border-radius: var(--radius);
+
+    border: 2px dashed var(--primary);
+
+    background: rgba(36, 31, 28, .92);
+
+    color: var(--primary-hover);
+
+    pointer-events: none;
+
+}
+
+.meeting-chat-drop-overlay svg {
+    font-size: 34px;
+}
+
+.meeting-chat-drop-overlay p {
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 13.5px;
+    font-weight: 700;
+
+}
+
+.meeting-room-participants-header .meeting-panel-close-button {
+
+    border: 1px solid var(--border);
+
+    background: var(--card-light);
+
+}
+
+.meeting-room-participants-header .meeting-panel-close-button:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+    background: rgba(239, 68, 68, .1);
+}
+
+.meeting-chat-messages {
+
+    flex: 1;
+    min-height: 0;
+
+    overflow-y: auto;
+
+    scroll-behavior: smooth;
+
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+
+    padding: 14px;
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 14px;
+
+}
+
+.meeting-chat-messages::-webkit-scrollbar,
+.meeting-room-participants-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.meeting-chat-messages::-webkit-scrollbar-track,
+.meeting-room-participants-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.meeting-chat-messages::-webkit-scrollbar-thumb,
+.meeting-room-participants-list::-webkit-scrollbar-thumb {
+    border-radius: 20px;
+    background-color: var(--border);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+}
+
+.meeting-chat-messages::-webkit-scrollbar-thumb:hover,
+.meeting-room-participants-list::-webkit-scrollbar-thumb:hover {
+    background-color: var(--primary);
+}
+
+.meeting-chat-new-messages-button {
+
+    position: absolute;
+    bottom: 78px;
+    left: 50%;
+    transform: translateX(-50%);
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 8px 16px;
+
+    border: 1px solid var(--primary);
+    border-radius: 999px;
+
+    background: var(--card);
+
+    color: var(--primary-hover);
+
+    font-size: 12.5px;
+    font-weight: 700;
+
+    box-shadow: var(--shadow-hover);
+
+    cursor: pointer;
+
+    z-index: 5;
+
+}
+
+.meeting-chat-new-messages-button:hover {
+    background: rgba(22, 166, 106, .12);
+}
+
+.meeting-chat-empty {
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    flex: 1;
+
+    gap: 10px;
+
+    color: var(--text-muted);
+
+    font-size: 13px;
+
+    text-align: center;
+
+}
+
+.meeting-chat-empty svg {
+    font-size: 26px;
+}
+
+.meeting-chat-message {
+
+    display: flex;
+    flex-direction: column;
+
+    max-width: 84%;
+
+}
+
+.meeting-chat-message.own {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+
+.meeting-chat-sender {
+
+    margin-bottom: 3px;
+
+    color: var(--text-muted);
+
+    font-size: 11px;
+    font-weight: 700;
+
+}
+
+.meeting-chat-bubble {
+
+    padding: 9px 12px;
+
+    border-radius: 12px;
+
+    background: var(--input);
+
+    color: var(--text);
+
+    font-size: 13.5px;
+    line-height: 1.5;
+
+    word-break: break-word;
+
+}
+
+.meeting-chat-message.own .meeting-chat-bubble {
+    background: rgba(22, 166, 106, .18);
+    border: 1px solid var(--primary);
+}
+
+.meeting-chat-time {
+
+    margin-top: 3px;
+
+    color: var(--text-muted);
+
+    font-size: 10.5px;
+
+}
+
+/* ==========================================
+   CHAT ATTACHMENTS
+========================================== */
+
+.meeting-chat-image {
+
+    display: block;
+
+    max-width: 220px;
+    max-height: 220px;
+
+    border-radius: 12px;
+
+    border: 1px solid var(--border);
+
+    object-fit: cover;
+
+    cursor: pointer;
+
+    transition: opacity .15s;
+
+}
+
+.meeting-chat-image:hover {
+    opacity: .88;
+}
+
+.meeting-chat-file {
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    max-width: 240px;
+    padding: 10px 12px;
+
+    border: 1px solid var(--border);
+    border-radius: 12px;
+
+    background: var(--input);
+
+    color: inherit;
+    text-decoration: none;
+
+    transition: border-color .15s, background .15s;
+
+}
+
+.meeting-chat-file:hover {
+    border-color: var(--primary);
+    background: rgba(22, 166, 106, .1);
+}
+
+.meeting-chat-message.own .meeting-chat-file {
+    border-color: var(--primary);
+    background: rgba(22, 166, 106, .18);
+}
+
+.meeting-chat-file-icon {
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 32px;
+    height: 32px;
+
+    border-radius: 8px;
+
+    background: rgba(22, 166, 106, .16);
+
+    color: var(--primary-hover);
+
+    font-size: 15px;
+
+}
+
+.meeting-chat-file-info {
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 2px;
+
+    min-width: 0;
+
+}
+
+.meeting-chat-file-info strong {
+
+    color: var(--text);
+
+    font-size: 12.5px;
+    font-weight: 600;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+}
+
+.meeting-chat-file-info span {
+
+    color: var(--text-muted);
+
+    font-size: 10.5px;
+
+}
+
+/* ==========================================
+   PENDING (STAGED, NOT YET SENT) ATTACHMENTS
+========================================== */
+
+.meeting-chat-pending-row {
+
+    display: flex;
+    align-items: flex-start;
+
+    gap: 10px;
+
+    padding: 10px 12px 0;
+
+    overflow-x: auto;
+
+    flex-shrink: 0;
+
+}
+
+.meeting-chat-pending-item {
+
+    position: relative;
+
+    flex-shrink: 0;
+
+}
+
+.meeting-chat-pending-thumb {
+
+    display: block;
+
+    width: 64px;
+    height: 64px;
+
+    border-radius: 10px;
+
+    border: 1px solid var(--border);
+
+    object-fit: cover;
+
+}
+
+.meeting-chat-pending-file {
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 3px;
+
+    width: 84px;
+    height: 64px;
+
+    padding: 6px;
+
+    border-radius: 10px;
+
+    border: 1px solid var(--border);
+
+    background: var(--input);
+
+    text-align: center;
+
+}
+
+.meeting-chat-pending-file-icon {
+    color: var(--primary-hover);
+    font-size: 15px;
+}
+
+.meeting-chat-pending-file-name {
+
+    max-width: 100%;
+
+    color: var(--text);
+
+    font-size: 9.5px;
+    font-weight: 600;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+}
+
+.meeting-chat-pending-file-size {
+    color: var(--text-muted);
+    font-size: 8.5px;
+}
+
+.meeting-chat-pending-remove {
+
+    position: absolute;
+    top: -6px;
+    right: -6px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 18px;
+    height: 18px;
+
+    border: 2px solid var(--card);
+    border-radius: 50%;
+
+    background: var(--danger);
+
+    color: #fff;
+
+    font-size: 8.5px;
+
+    cursor: pointer;
+
+}
+
+.meeting-chat-pending-remove:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.meeting-chat-input-row {
+
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 12px;
+
+    border-top: 1px solid var(--border);
+
+}
+
+.meeting-chat-input-row input {
+
+    flex: 1;
+
+    padding: 10px 13px;
+
+    border: 1px solid var(--border);
+    border-radius: 999px;
+
+    background: var(--input);
+
+    color: var(--text);
+
+    font-size: 13px;
+
+    outline: none;
+
+}
+
+.meeting-chat-input-row input:focus {
+    border-color: var(--primary);
+}
+
+.meeting-chat-input-row button {
+
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 50%;
+
+    background: var(--primary);
+
+    color: #17211D;
+
+    cursor: pointer;
+
+}
+
+.meeting-chat-input-row button:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.meeting-chat-attach-button {
+
+    background: var(--card-light);
+
+    color: var(--text-secondary);
+
+    border: 1px solid var(--border);
+
+    font-size: 15px;
+
+}
+
+.meeting-chat-attach-button:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--primary-hover);
+    background: rgba(22, 166, 106, .1);
+}
+
+.meeting-chat-spin {
+    animation: meeting-chat-spin-rotate .8s linear infinite;
+}
+
+@keyframes meeting-chat-spin-rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ==========================================
+   MEETING INFO MODAL
+========================================== */
+
+.meeting-info-rows {
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.meeting-info-row {
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 10px 12px;
+
+    border-radius: 9px;
+
+    background: var(--input);
+
+}
+
+.meeting-info-row label {
+
+    width: 90px;
+    flex-shrink: 0;
+
+    color: var(--text-muted);
+
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+
+}
+
+.meeting-info-row span {
+
+    flex: 1;
+
+    color: var(--text);
+
+    font-size: 13px;
+    font-weight: 600;
+
+    overflow-wrap: anywhere;
+
+}
+
+.meeting-info-row .meeting-info-link {
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.meeting-info-row button {
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 30px;
+    height: 30px;
+
+    border: none;
+    border-radius: 7px;
+
+    background: transparent;
+
+    color: var(--primary-hover);
+
+    cursor: pointer;
+
+}
+
+.meeting-info-row button:hover {
+    background: var(--hover);
+}
+
+.meeting-device-settings-modal {
+    max-width: 460px;
+}
+
+.meeting-device-settings-modal .meeting-lobby-device-selects {
+    padding: 20px 24px;
+    grid-template-columns: 1fr;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 1100px) and (min-width: 901px) {
+
+    /* Tablet: narrower fixed side column rather than the desktop
+       clamp(360-420px) or the phone full-screen drawer below. */
+    .meeting-room.panel-open {
+        grid-template-columns: minmax(0, 1fr) 300px;
+    }
+
+}
+
+@media (max-width: 900px) {
+
+    .meeting-room-grid.count-3,
+    .meeting-room-grid.count-4,
+    .meeting-room-grid.count-5-6,
+    .meeting-room-grid.count-7-8 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* Below tablet width, resizing the video area to make room
+       for a 340px side panel stops being usable — switch the
+       panel to a full-screen drawer instead (still closable via
+       the same X button / toolbar toggle, same state). Since the
+       panel becomes position:fixed (out of flow), the grid must
+       drop back to one column here too, or it would reserve an
+       empty 340px column with nothing visible in it. */
+
+    .meeting-room.panel-open {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .meeting-room-side-panel,
+    .meeting-room-participants-panel {
+
+        position: fixed;
+        inset: 0;
+
+        z-index: 30;
+
+        width: 100%;
+        max-width: 100%;
+        height: 100%;
+
+        border-radius: 0;
+        border: none;
+
+    }
+
+}
+
+@media (max-width: 640px) {
+
+    /* One main participant on top, everyone
+       else in a smaller horizontally-fixed
+       strip — never a horizontal scrollbar. */
+
+    .meeting-room-grid.count-2,
+    .meeting-room-grid.count-3,
+    .meeting-room-grid.count-4,
+    .meeting-room-grid.count-5-6,
+    .meeting-room-grid.count-7-8 {
+
+        grid-template-columns: 1fr;
+        grid-auto-flow: row;
+        grid-template-rows: none;
+
+    }
+
+    .meeting-room-grid.count-3 .meeting-room-tile:nth-child(3) {
+        grid-column: auto;
+    }
+
+    /* Phones only: a deliberate exception to the "never scroll"
+       desktop rule above — these tiles get a real, readable min
+       height instead of shrinking arbitrarily thin, so this one
+       breakpoint keeps its own scoped scroll fallback. */
+
+    .meeting-room-grid {
+        overflow-y: auto;
+    }
+
+    .meeting-room-grid.count-2 .meeting-room-tile,
+    .meeting-room-grid.count-3 .meeting-room-tile,
+    .meeting-room-grid.count-4 .meeting-room-tile,
+    .meeting-room-grid.count-5-6 .meeting-room-tile,
+    .meeting-room-grid.count-7-8 .meeting-room-tile {
+        min-height: 110px;
+    }
+
+    .meeting-room-grid.count-2 .meeting-room-tile:first-child,
+    .meeting-room-grid.count-3 .meeting-room-tile:first-child,
+    .meeting-room-grid.count-4 .meeting-room-tile:first-child,
+    .meeting-room-grid.count-5-6 .meeting-room-tile:first-child,
+    .meeting-room-grid.count-7-8 .meeting-room-tile:first-child {
+        min-height: 220px;
+    }
+
+    .meeting-room-controls {
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .meeting-room-control-button {
+        width: 42px;
+        height: 42px;
+        font-size: 15px;
+    }
+
+    .meeting-room-topbar {
+        gap: 8px;
+    }
+
+    .meeting-room-presentation {
+        flex-direction: column;
+    }
+
+    .meeting-room-thumbnail-strip {
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+        max-height: 96px;
+    }
+
+    .meeting-room-thumbnail-strip .meeting-room-tile {
+        min-width: 110px;
+        max-width: 110px;
+    }
+
+}

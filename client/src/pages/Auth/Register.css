@@ -1,0 +1,249 @@
+.register-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #f8fafc;
+}
+
+.register-brand-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 50px;
+  background: #0f172a;
+  color: white;
+}
+
+.register-brand-content {
+  max-width: 480px;
+}
+
+.register-logo {
+  width: 65px;
+  height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 25px;
+  border-radius: 16px;
+  background: #2878D8;
+  font-size: 34px;
+  font-weight: 800;
+}
+
+.register-brand-content h1 {
+  margin-bottom: 15px;
+  font-size: 36px;
+}
+
+.register-brand-content p {
+  color: #94a3b8;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.register-form-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.register-card {
+  width: 100%;
+  max-width: 480px;
+  padding: 35px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.register-header {
+  margin-bottom: 28px;
+}
+
+.register-header h2 {
+  color: #0f172a;
+  font-size: 26px;
+}
+
+.register-header p {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.register-name-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.register-form-group {
+  margin-bottom: 18px;
+}
+
+.register-form-group label {
+  display: block;
+  margin-bottom: 7px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.register-input-container {
+  height: 47px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.register-input-container:focus-within {
+  border-color: #2878D8;
+}
+
+.register-input-container svg {
+  color: #94a3b8;
+}
+
+.register-input-container input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+.register-password-toggle {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.register-submit-button {
+  width: 100%;
+  height: 47px;
+  margin-top: 5px;
+  border: none;
+  border-radius: 8px;
+  background: #2878D8;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.register-submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.register-login-link {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 22px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.register-login-link button {
+  border: none;
+  background: transparent;
+  color: #2878D8;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.registration-success-card {
+  grid-column: 1 / -1;
+  width: 90%;
+  max-width: 500px;
+  margin: auto;
+  padding: 45px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: var(--card);
+  text-align: center;
+}
+
+.registration-success-icon {
+  margin-bottom: 15px;
+  color: #16A66A;
+  font-size: 55px;
+}
+
+.registration-success-card h1 {
+  color: #0f172a;
+}
+
+.success-description {
+  margin-top: 8px;
+  color: #64748b;
+}
+
+.generated-id-box {
+  margin: 28px 0;
+  padding: 20px;
+  border-radius: 12px;
+  background: #EAF3FF;
+}
+
+.generated-id-box span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.generated-id-box strong {
+  display: block;
+  margin-top: 7px;
+  color: #2878D8;
+  font-size: 30px;
+  letter-spacing: 2px;
+}
+
+.approval-message {
+  padding: 18px;
+  border-radius: 10px;
+  background: #FFF5DD;
+}
+
+.approval-message h3 {
+  color: #A66E10;
+  font-size: 15px;
+}
+
+.approval-message p {
+  margin-top: 7px;
+  color: #A66E10;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.back-login-button {
+  width: 100%;
+  height: 46px;
+  margin-top: 25px;
+  border: none;
+  border-radius: 8px;
+  background: #2878D8;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 800px) {
+  .register-page {
+    grid-template-columns: 1fr;
+  }
+
+  .register-brand-section {
+    display: none;
+  }
+
+  .register-name-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,475 @@
+﻿@import "./EmployeeHome.css";
+
+
+.employee-leave-content {
+  padding: 30px;
+}
+
+
+/* ==========================================
+   LEAVE CARDS
+========================================== */
+
+.leave-apply-card,
+.leave-history-card {
+  margin-bottom: 25px;
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+
+/* ==========================================
+   SECTION HEADER
+========================================== */
+
+.leave-section-header {
+  padding: 20px 25px;
+  border-bottom: 1px solid #E2E9E5;
+}
+
+
+.leave-section-header h2 {
+  margin: 0;
+  color: #17211D !important;
+  font-size: 20px;
+}
+
+
+.leave-section-header p {
+  margin: 6px 0 0;
+  color: #53615A !important;
+  font-size: 13px;
+}
+
+
+/* ==========================================
+   FORM
+========================================== */
+
+.leave-form {
+  padding: 25px;
+}
+
+
+.leave-form-group {
+  margin-bottom: 20px;
+}
+
+
+.leave-form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #17211D;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+
+.leave-form-group input,
+.leave-form-group select,
+.leave-form-group textarea {
+  width: 100%;
+  padding: 12px 14px;
+  box-sizing: border-box;
+
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+  border-radius: 8px;
+
+  color: #17211D;
+
+  font-family: inherit;
+  font-size: 14px;
+
+  outline: none;
+}
+
+
+.leave-form-group input::placeholder,
+.leave-form-group textarea::placeholder {
+  color: #7A8780;
+}
+
+
+.leave-form-group input:focus,
+.leave-form-group select:focus,
+.leave-form-group textarea:focus {
+  border-color: #16A66A;
+  box-shadow: 0 0 0 2px rgba(22,166,106,0.12);
+}
+
+
+.leave-form-group textarea {
+  resize: vertical;
+}
+
+
+.leave-date-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+
+/* ==========================================
+   DATE ICON
+========================================== */
+
+.leave-form-group input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  cursor: pointer;
+  filter: invert(1);
+}
+
+
+/* ==========================================
+   SUBMIT BUTTON
+========================================== */
+
+.leave-submit-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 12px 20px;
+
+  background: #16A66A;
+
+  border: none;
+  border-radius: 8px;
+
+  color: #17211D;
+
+  font-weight: 600;
+  cursor: pointer;
+}
+
+
+.leave-submit-button:hover {
+  background: #16A66A;
+}
+
+
+.leave-submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* ==========================================
+   TABLE
+========================================== */
+
+.leave-table-wrapper {
+  overflow-x: auto;
+}
+
+
+.leave-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+
+.leave-table th {
+  padding: 14px 18px;
+
+  background: #F7FAF8;
+  color: #53615A;
+
+  font-size: 11px;
+  text-align: left;
+
+  white-space: nowrap;
+
+  border-bottom: 1px solid #E2E9E5;
+}
+
+
+.leave-table td {
+  padding: 16px 18px;
+
+  color: #53615A;
+
+  font-size: 13px;
+
+  border-top: 1px solid #E2E9E5;
+
+  vertical-align: top;
+}
+
+
+.leave-table tbody tr:hover {
+  background: rgba(22,166,106,0.08);
+}
+
+
+.leave-reason-cell {
+  min-width: 250px;
+  max-width: 400px;
+}
+
+
+/* ==========================================
+   STATUS
+========================================== */
+
+.leave-status {
+  display: inline-flex;
+
+  padding: 5px 10px;
+
+  border-radius: 20px;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  text-transform: capitalize;
+}
+
+
+.leave-status.pending {
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+
+.leave-status.approved {
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+
+.leave-status.rejected {
+  background: rgba(214,69,69,0.18);
+  color: #D64545;
+}
+
+.leave-status.pending_manager,
+.leave-status.pending_final {
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+.leave-status.manager_rejected {
+  background: rgba(214,69,69,0.18);
+  color: #D64545;
+}
+
+.leave-status.cancelled {
+  background: rgba(148, 148, 148, 0.18);
+  color: #7A8780;
+}
+
+
+/* ==========================================
+   CANCEL ACTION (TABLE CELL)
+========================================== */
+
+.leave-cancel-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 7px 12px;
+
+  background: transparent;
+  border: 1px solid #D64545;
+  border-radius: 6px;
+
+  color: #D64545;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+
+.leave-cancel-button:hover {
+  background: rgba(214,69,69,0.15);
+}
+
+
+.leave-action-none {
+  color: #7A8780;
+  font-size: 12px;
+}
+
+
+/* ==========================================
+   CANCEL LEAVE CONFIRMATION MODAL
+========================================== */
+
+.leave-cancel-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(15, 12, 9, 0.65);
+}
+
+
+.leave-cancel-modal {
+  width: 100%;
+  max-width: 440px;
+
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  border-radius: 14px;
+
+  overflow: hidden;
+}
+
+
+.leave-cancel-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #E2E9E5;
+}
+
+
+.leave-cancel-modal-header h2 {
+  margin: 0;
+  color: #17211D;
+  font-size: 18px;
+}
+
+
+.leave-cancel-modal-body {
+  padding: 22px 24px;
+}
+
+
+.leave-cancel-modal-question {
+  margin: 0 0 18px;
+  color: #53615A;
+  font-size: 14px;
+}
+
+
+.leave-cancel-modal-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  padding: 16px;
+
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+  border-radius: 10px;
+}
+
+
+.leave-cancel-modal-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+
+.leave-cancel-modal-detail-row span:first-child {
+  color: #7A8780;
+  font-size: 13px;
+}
+
+
+.leave-cancel-modal-detail-row strong {
+  color: #17211D;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+
+
+.leave-cancel-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+
+  padding: 18px 24px;
+  border-top: 1px solid #E2E9E5;
+}
+
+
+.leave-keep-button,
+.leave-confirm-cancel-button {
+  padding: 10px 18px;
+
+  border-radius: 8px;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+
+.leave-keep-button {
+  background: transparent;
+  border: 1px solid #E2E9E5;
+  color: #17211D;
+}
+
+
+.leave-keep-button:hover {
+  background: #F7FAF8;
+}
+
+
+.leave-confirm-cancel-button {
+  background: #D64545;
+  border: none;
+  color: #17211D;
+}
+
+
+.leave-confirm-cancel-button:hover {
+  background: #B53939;
+}
+
+
+.leave-keep-button:disabled,
+.leave-confirm-cancel-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* ==========================================
+   MESSAGE / EMPTY
+========================================== */
+
+.leave-message {
+  padding: 50px 20px;
+
+  color: #7A8780;
+
+  text-align: center;
+}
+
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 768px) {
+  .employee-leave-content {
+    padding: 20px;
+  }
+
+
+  .leave-date-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

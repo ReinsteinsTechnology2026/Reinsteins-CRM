@@ -1,0 +1,63 @@
+.tag-chip-group {
+
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+
+    gap: 6px;
+
+}
+
+.tag-chip {
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 5px;
+
+    padding: 3px 9px;
+
+    border-radius: 20px;
+
+    background: rgba(122, 135, 128, .18);
+    color: var(--text-secondary);
+
+    font-size: 11px;
+    font-weight: 700;
+
+    white-space: nowrap;
+
+}
+
+.tag-chip-overflow {
+    background: rgba(122, 135, 128, .1);
+    color: var(--text-muted);
+}
+
+.tag-chip-remove {
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    background: none;
+    padding: 0;
+
+    color: inherit;
+    opacity: .65;
+
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+
+}
+
+.tag-chip-remove:hover {
+    opacity: 1;
+}
+
+.tag-chip-empty {
+    color: var(--text-muted);
+    font-size: 13px;
+}

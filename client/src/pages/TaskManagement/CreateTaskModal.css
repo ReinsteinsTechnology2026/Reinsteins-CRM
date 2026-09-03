@@ -1,0 +1,349 @@
+.task-modal-overlay{
+
+    position:fixed;
+    inset:0;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    background:rgba(12,10,8,.72);
+
+    backdrop-filter:blur(8px);
+
+    z-index:99999;
+
+}
+
+/* ==========================================
+   MODAL
+========================================== */
+
+.task-modal{
+
+    width:760px;
+
+    max-width:95vw;
+
+    max-height:92vh;
+
+    overflow-y:auto;
+
+    border-radius:20px;
+
+    background:linear-gradient(
+        180deg,
+        #F7FAF8,
+        var(--card)
+    );
+
+    border:1px solid var(--border);
+
+    box-shadow:0 30px 80px rgba(0,0,0,.45);
+
+    animation:taskModal .28s ease;
+
+}
+
+@keyframes taskModal{
+
+from{
+
+opacity:0;
+
+transform:translateY(20px) scale(.97);
+
+}
+
+to{
+
+opacity:1;
+
+transform:translateY(0) scale(1);
+
+}
+
+}
+
+/* ==========================================
+   HEADER
+========================================== */
+
+.task-modal-header{
+
+    display:flex;
+
+    justify-content:space-between;
+
+    align-items:center;
+
+    padding:24px;
+
+    border-bottom:1px solid var(--border);
+
+}
+
+.task-modal-header h2{
+
+    margin:0;
+
+    color:var(--text);
+
+    font-size:25px;
+
+    font-weight:700;
+
+}
+
+.task-modal-header p{
+
+    margin-top:6px;
+
+    color:var(--text-secondary);
+
+    font-size:13px;
+
+}
+
+.task-modal-header button{
+
+    width:40px;
+
+    height:40px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:var(--hover);
+
+    color:var(--text);
+
+    cursor:pointer;
+
+    transition:.25s;
+
+}
+
+.task-modal-header button:hover{
+
+    background:var(--primary);
+
+    color:#ffffff;
+
+    box-shadow:var(--glow);
+
+}
+
+/* ==========================================
+   FORM
+========================================== */
+
+.task-form{
+
+    padding:26px;
+
+}
+
+.task-form-group{
+
+    display:flex;
+
+    flex-direction:column;
+
+    margin-bottom:18px;
+
+}
+
+.task-form-group label{
+
+    margin-bottom:8px;
+
+    font-size:13px;
+
+    font-weight:600;
+
+    color:var(--text);
+
+}
+
+.task-form-group input,
+.task-form-group textarea,
+.task-form-group select{
+
+    width:100%;
+
+    padding:13px;
+
+    box-sizing:border-box;
+
+    border-radius:12px;
+
+    border:1px solid var(--border);
+
+    outline:none;
+
+    background:var(--input);
+
+    color:var(--text);
+
+    font-size:14px;
+
+    transition:.25s;
+
+}
+
+.task-form-group textarea{
+
+    resize:vertical;
+
+    min-height:120px;
+
+}
+
+.task-form-group input::placeholder,
+.task-form-group textarea::placeholder{
+
+    color:var(--text-muted);
+
+}
+
+.task-form-group input:focus,
+.task-form-group textarea:focus,
+.task-form-group select:focus{
+
+    border-color:var(--primary);
+
+    box-shadow:var(--glow);
+
+}
+
+/* ==========================================
+   GRID
+========================================== */
+
+.task-form-grid{
+
+    display:grid;
+
+    grid-template-columns:repeat(2,1fr);
+
+    gap:18px;
+
+}
+
+/* ==========================================
+   FOOTER
+========================================== */
+
+.task-modal-footer{
+
+    display:flex;
+
+    justify-content:flex-end;
+
+    gap:12px;
+
+    margin-top:30px;
+
+}
+
+.cancel-btn{
+
+    padding:12px 24px;
+
+    border-radius:12px;
+
+    border:1px solid var(--border);
+
+    background:transparent;
+
+    color:var(--text);
+
+    cursor:pointer;
+
+    font-weight:600;
+
+    transition:.25s;
+
+}
+
+.cancel-btn:hover{
+
+    border-color:var(--primary);
+
+    color:var(--primary);
+
+}
+
+.create-btn{
+
+    padding:12px 26px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:linear-gradient(
+        135deg,
+        var(--primary),
+        var(--primary-hover)
+    );
+
+    color:#ffffff;
+
+    font-weight:700;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+    box-shadow:var(--shadow);
+
+}
+
+.create-btn:hover{
+
+    transform:translateY(-2px);
+
+    box-shadow:var(--glow);
+
+}
+
+/* ==========================================
+   SCROLLBAR
+========================================== */
+
+.task-modal::-webkit-scrollbar{
+
+    width:8px;
+
+}
+
+.task-modal::-webkit-scrollbar-thumb{
+
+    background:var(--border);
+
+    border-radius:20px;
+
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media(max-width:768px){
+
+.task-form-grid{
+
+grid-template-columns:1fr;
+
+}
+
+.task-modal{
+
+width:95%;
+
+}
+
+}

@@ -1,0 +1,123 @@
+﻿/* ==========================================
+   EXECUTIVE DASHBOARD
+   Matches the existing Employee-portal palette
+   (same hex values as MyTeam.css/EmployeeLeave.css)
+========================================== */
+
+.exec-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.exec-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 14px;
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  box-shadow: 0 8px 30px rgba(15, 12, 10, 0.18);
+}
+
+.exec-stat-icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: rgba(22,166,106,0.15);
+  color: #16A66A;
+  font-size: 18px;
+}
+
+.exec-stat-icon.warning {
+  background: rgba(214,69,69,0.15);
+  color: #D64545;
+}
+
+.exec-stat-card p {
+  margin: 0 0 4px;
+  color: #53615A;
+  font-size: 12px;
+}
+
+.exec-stat-card h3 {
+  margin: 0;
+  color: #17211D;
+  font-size: 24px;
+}
+
+.exec-dashboard-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.exec-status-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exec-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+}
+
+.exec-status-row span {
+  color: #53615A;
+  font-size: 13px;
+}
+
+.exec-status-row strong {
+  color: #17211D;
+  font-size: 15px;
+}
+
+.exec-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exec-activity-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+}
+
+.exec-activity-type {
+  color: #16A66A;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.exec-activity-detail {
+  color: #17211D;
+  font-size: 13px;
+}
+
+.exec-activity-meta {
+  color: #7A8780;
+  font-size: 11.5px;
+}
+
+@media (max-width: 700px) {
+  .exec-stats-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}

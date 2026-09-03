@@ -1,0 +1,345 @@
+.meeting-modal-overlay {
+
+    position: fixed;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(0, 0, 0, .55);
+
+    z-index: 1000;
+
+}
+
+.meeting-modal {
+
+    width: 100%;
+    max-width: 560px;
+
+    max-height: 90vh;
+
+    overflow-y: auto;
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    border: 1px solid var(--border);
+
+    box-shadow: var(--shadow-hover);
+
+}
+
+.meeting-modal-header {
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 16px;
+
+    padding: 22px 24px;
+
+    border-bottom: 1px solid var(--border);
+
+}
+
+.meeting-modal-header h2 {
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 19px;
+
+}
+
+.meeting-modal-header p {
+
+    margin: 6px 0 0;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+
+}
+
+.meeting-modal-close {
+
+    border: none;
+    background: none;
+
+    color: var(--text-muted);
+
+    font-size: 22px;
+    line-height: 1;
+
+    cursor: pointer;
+
+}
+
+.meeting-modal-close:hover {
+    color: var(--text);
+}
+
+.meeting-modal-form {
+
+    padding: 24px;
+
+}
+
+.meeting-form-group {
+
+    margin-bottom: 18px;
+
+}
+
+.meeting-form-group label {
+
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+    font-weight: 600;
+
+}
+
+.meeting-form-group input,
+.meeting-form-group textarea,
+.meeting-form-group select {
+
+    width: 100%;
+
+    padding: 11px 13px;
+
+    box-sizing: border-box;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+    background: var(--input);
+
+    color: var(--text);
+
+    font-family: inherit;
+    font-size: 13.5px;
+
+    outline: none;
+
+    transition: .2s;
+
+}
+
+.meeting-form-group input:focus,
+.meeting-form-group textarea:focus,
+.meeting-form-group select:focus {
+    border-color: var(--primary);
+}
+
+.meeting-form-group textarea {
+    resize: vertical;
+}
+
+.meeting-form-hint {
+
+    margin: 6px 0 0;
+
+    color: var(--text-muted);
+
+    font-size: 11.5px;
+
+}
+
+.meeting-form-grid {
+
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 16px;
+
+}
+
+.meeting-type-toggle {
+
+    display: inline-flex;
+
+    margin-bottom: 18px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+    overflow: hidden;
+
+}
+
+.meeting-type-toggle button {
+
+    padding: 9px 18px;
+
+    border: none;
+
+    background: var(--input);
+
+    color: var(--text-secondary);
+
+    font-size: 12.5px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+}
+
+.meeting-type-toggle button.active {
+    background: var(--primary);
+    color: #17211D;
+}
+
+.meeting-form-toggle-row {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+
+    padding: 12px 14px;
+
+    margin-bottom: 12px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+    background: var(--input);
+
+}
+
+.meeting-form-toggle-row div strong {
+
+    display: block;
+
+    color: var(--text);
+
+    font-size: 13px;
+
+}
+
+.meeting-form-toggle-row div span {
+
+    display: block;
+
+    margin-top: 2px;
+
+    color: var(--text-muted);
+
+    font-size: 11.5px;
+
+}
+
+.meeting-switch {
+
+    position: relative;
+
+    width: 42px;
+    height: 24px;
+
+    flex-shrink: 0;
+
+    border: none;
+
+    border-radius: 20px;
+
+    background: var(--border);
+
+    cursor: pointer;
+
+    transition: .2s;
+
+}
+
+.meeting-switch.on {
+    background: var(--primary);
+}
+
+.meeting-switch::after {
+
+    content: "";
+
+    position: absolute;
+
+    top: 3px;
+    left: 3px;
+
+    width: 18px;
+    height: 18px;
+
+    border-radius: 50%;
+
+    background: #ffffff;
+
+    transition: .2s;
+
+}
+
+.meeting-switch.on::after {
+    transform: translateX(18px);
+}
+
+.meeting-modal-footer {
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    gap: 12px;
+
+    margin-top: 8px;
+
+}
+
+.meeting-code-display {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+
+    padding: 14px 16px;
+
+    margin-bottom: 18px;
+
+    border: 1px dashed var(--primary);
+
+    border-radius: 9px;
+
+    background: rgba(22, 166, 106, .08);
+
+}
+
+.meeting-code-display strong {
+
+    color: var(--primary-hover);
+
+    font-size: 16px;
+    letter-spacing: .04em;
+
+}
+
+@media (max-width: 560px) {
+
+    .meeting-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+}

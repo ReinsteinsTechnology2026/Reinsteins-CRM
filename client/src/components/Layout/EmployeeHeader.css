@@ -1,0 +1,683 @@
+/* ==========================================
+   EMPLOYEE HEADER
+========================================== */
+
+.employee-header{
+  height:70px;
+  background:var(--card);
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 30px;
+  position:relative;
+  z-index:100;
+  box-shadow:var(--shadow);
+}
+
+/* ==========================================
+   HEADER LEFT (hamburger + title)
+========================================== */
+
+.employee-header-left{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  min-width:0;
+}
+
+/* ==========================================
+   MOBILE/TABLET NAV TOGGLE
+   Hidden on desktop (>=1024px) -- the existing
+   sidebar controls (inline "hide" chevron,
+   floating "show" arrow) remain the only nav
+   controls there, unchanged.
+========================================== */
+
+.mobile-nav-toggle{
+
+  display:none;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+
+  width:40px;
+  height:40px;
+
+  border:1px solid var(--border);
+  border-radius:9px;
+
+  background:var(--hover);
+
+  color:var(--text);
+
+  font-size:16px;
+
+  cursor:pointer;
+
+  transition:.25s;
+
+}
+
+.mobile-nav-toggle:hover{
+  background:var(--primary);
+  color:#ffffff;
+}
+
+@media (max-width:1023px){
+  .mobile-nav-toggle{
+    display:flex;
+  }
+}
+
+/* ==========================================
+   TITLE
+========================================== */
+
+.employee-header-title{
+  min-width:0;
+}
+
+.employee-header-title h1,
+.employee-header-title h2{
+  margin:0;
+  color:var(--text);
+  font-size:24px;
+  font-weight:700;
+}
+
+.employee-header-title p{
+  margin:5px 0 0;
+  color:var(--text-secondary);
+  font-size:13px;
+}
+
+/* ==========================================
+   RIGHT SIDE
+========================================== */
+
+.employee-header-right,
+.employee-header-actions{
+
+  display:flex;
+  align-items:center;
+  gap:18px;
+
+}
+
+/* ==========================================
+   NOTIFICATION BUTTON
+========================================== */
+
+.employee-notification-button{
+
+  width:44px;
+  height:44px;
+
+  border:1px solid var(--border);
+
+  border-radius:12px;
+
+  background:var(--hover);
+
+  color:var(--text);
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  font-size:19px;
+
+  cursor:pointer;
+
+  transition:.25s;
+
+}
+
+.employee-notification-button:hover{
+
+  background:var(--primary);
+
+  color:#ffffff;
+
+}
+
+/* ==========================================
+   BADGE
+========================================== */
+
+.employee-notification-badge{
+
+  position:absolute;
+
+  top:-5px;
+  right:-5px;
+
+  min-width:20px;
+  height:20px;
+
+  padding:0 5px;
+
+  border-radius:999px;
+
+  background:var(--danger);
+
+  color:#ffffff;
+
+  border:2px solid var(--card);
+
+  font-size:11px;
+  font-weight:700;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+}
+
+/* ==========================================
+   DROPDOWN
+========================================== */
+
+.employee-notification-dropdown{
+
+  position:absolute;
+
+  top:55px;
+  right:0;
+
+  width:390px;
+
+  max-height:520px;
+
+  background:var(--card);
+
+  border:1px solid var(--border);
+
+  border-radius:16px;
+
+  box-shadow:var(--shadow);
+
+  overflow:hidden;
+
+  z-index:1000;
+
+}
+
+/* ==========================================
+   DROPDOWN HEADER
+========================================== */
+
+.employee-notification-dropdown-header{
+
+  padding:18px 20px;
+
+  border-bottom:1px solid var(--border);
+
+  display:flex;
+
+  align-items:center;
+
+  justify-content:space-between;
+
+  gap:15px;
+
+}
+
+.employee-notification-dropdown-header h3{
+
+  margin:0;
+
+  color:var(--text);
+
+  font-size:17px;
+
+}
+
+.employee-notification-dropdown-header p{
+
+  margin:4px 0 0;
+
+  color:var(--text-secondary);
+
+  font-size:12px;
+
+}
+
+/* ==========================================
+   MARK ALL
+========================================== */
+
+.employee-mark-all-button{
+
+  border:none;
+
+  background:transparent;
+
+  color:var(--primary);
+
+  font-size:12px;
+
+  font-weight:600;
+
+  cursor:pointer;
+
+}
+
+.employee-mark-all-button:hover{
+
+  color:var(--primary-hover);
+
+}
+
+/* ==========================================
+   ENABLE DESKTOP NOTIFICATIONS
+   Shown only while browser permission is
+   still "default" (never asked). Requesting
+   permission only ever happens from this
+   explicit click.
+========================================== */
+
+.employee-enable-desktop-notifications{
+
+  display:flex;
+  align-items:center;
+
+  gap:8px;
+
+  width:100%;
+
+  padding:11px 20px;
+
+  border:none;
+  border-bottom:1px solid var(--border);
+
+  background:rgba(22,166,106,.08);
+
+  color:var(--primary-hover);
+
+  font-size:12.5px;
+  font-weight:600;
+
+  cursor:pointer;
+
+  transition:.15s;
+
+}
+
+.employee-enable-desktop-notifications:hover{
+  background:rgba(22,166,106,.16);
+}
+
+/* ==========================================
+   LIST
+========================================== */
+
+.employee-notification-list{
+
+  max-height:430px;
+
+  overflow-y:auto;
+
+}
+
+.employee-notification-list::-webkit-scrollbar{
+
+  width:6px;
+
+}
+
+.employee-notification-list::-webkit-scrollbar-thumb{
+
+  background:var(--border);
+
+  border-radius:10px;
+
+}
+
+/* ==========================================
+   ITEM
+========================================== */
+
+.employee-notification-item{
+
+  display:flex;
+
+  align-items:flex-start;
+
+  border-bottom:1px solid var(--border);
+
+  background:var(--card);
+
+  transition:.25s;
+
+}
+
+.employee-notification-item:hover{
+
+  background:var(--hover);
+
+}
+
+.employee-notification-item.unread{
+
+  background:rgba(174,130,54,.12);
+
+}
+
+.employee-notification-item.unread:hover{
+
+  background:rgba(174,130,54,.20);
+
+}
+
+/* ==========================================
+   CONTENT
+========================================== */
+
+.employee-notification-content{
+
+  flex:1;
+
+  min-width:0;
+
+  padding:16px 12px 16px 18px;
+
+  border:none;
+
+  background:transparent;
+
+  text-align:left;
+
+  cursor:pointer;
+
+}
+
+.employee-notification-item-top{
+
+  display:flex;
+
+  align-items:center;
+
+  gap:8px;
+
+}
+
+.employee-notification-item-top h4{
+
+  margin:0;
+
+  color:var(--text);
+
+  font-size:14px;
+
+  font-weight:700;
+
+}
+
+.employee-notification-content p{
+
+  margin:7px 0;
+
+  color:var(--text-secondary);
+
+  font-size:13px;
+
+  line-height:1.5;
+
+}
+
+.employee-notification-date{
+
+  display:block;
+
+  color:var(--text-secondary);
+
+  font-size:11px;
+
+}
+
+/* ==========================================
+   UNREAD DOT
+========================================== */
+
+.employee-notification-unread-dot{
+
+  width:8px;
+
+  height:8px;
+
+  flex-shrink:0;
+
+  border-radius:50%;
+
+  background:var(--primary);
+
+}
+
+/* ==========================================
+   DELETE
+========================================== */
+
+.employee-notification-delete{
+
+  width:34px;
+  height:34px;
+
+  margin:12px 10px 0 0;
+
+  border:none;
+
+  border-radius:8px;
+
+  background:transparent;
+
+  color:var(--text-secondary);
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+
+  cursor:pointer;
+
+  transition:.25s;
+
+}
+
+.employee-notification-delete:hover{
+
+  background:rgba(201,76,76,.18);
+
+  color:var(--danger);
+
+}
+
+/* ==========================================
+   EMPTY
+========================================== */
+
+.employee-notification-empty{
+
+  min-height:180px;
+
+  padding:30px 20px;
+
+  display:flex;
+
+  flex-direction:column;
+
+  align-items:center;
+
+  justify-content:center;
+
+  text-align:center;
+
+}
+
+.employee-notification-empty svg{
+
+  color:var(--primary);
+
+  font-size:28px;
+
+  margin-bottom:12px;
+
+}
+
+.employee-notification-empty h4{
+
+  margin:0;
+
+  color:var(--text);
+
+}
+
+.employee-notification-empty p{
+
+  margin-top:6px;
+
+  color:var(--text-secondary);
+
+}
+
+/* ==========================================
+   PROFILE
+========================================== */
+
+.employee-header-profile{
+
+  display:flex;
+
+  align-items:center;
+
+  gap:10px;
+
+}
+
+.employee-header-profile p{
+
+  margin:0;
+
+  color:var(--text);
+
+  font-size:14px;
+
+  font-weight:600;
+
+}
+
+.employee-header-profile span{
+
+  display:block;
+
+  margin-top:2px;
+
+  color:var(--text-secondary);
+
+  font-size:12px;
+
+}
+
+/* ==========================================
+   LOGOUT
+========================================== */
+
+.employee-logout{
+
+  width:42px;
+
+  height:42px;
+
+  border:1px solid var(--border);
+
+  border-radius:10px;
+
+  background:var(--hover);
+
+  color:var(--text);
+
+  display:flex;
+
+  align-items:center;
+
+  justify-content:center;
+
+  font-size:17px;
+
+  cursor:pointer;
+
+  transition:.25s;
+
+}
+
+.employee-logout:hover{
+
+  background:var(--danger);
+
+  color:#ffffff;
+
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media(max-width:1023px){
+
+.employee-header{
+
+padding:0 16px;
+
+}
+
+.employee-header-title h1{
+
+font-size:19px;
+
+}
+
+.employee-header-title p{
+
+display:none;
+
+}
+
+.employee-header-right{
+
+gap:10px;
+
+}
+
+.employee-header-profile>div:last-child{
+
+display:none;
+
+}
+
+}
+
+@media(max-width:600px){
+
+.employee-notification-dropdown{
+
+position:fixed;
+
+top:70px;
+
+left:12px;
+
+right:12px;
+
+width:auto;
+
+max-height:calc(100vh - 90px);
+
+}
+
+.employee-notification-list{
+
+max-height:calc(100vh - 170px);
+
+}
+
+}

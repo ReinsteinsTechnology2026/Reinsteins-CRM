@@ -1,0 +1,80 @@
+.worklog-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.55);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    z-index:9999;
+}
+
+.worklog-modal{
+    width:600px;
+    background:#fff;
+    border-radius:12px;
+    overflow:hidden;
+    box-shadow:0 20px 50px rgba(0,0,0,.25);
+}
+
+.worklog-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:18px 25px;
+    border-bottom:1px solid #E2E9E5;
+}
+
+.worklog-header h2{
+    margin:0;
+}
+
+.worklog-header button{
+    border:none;
+    background:none;
+    cursor:pointer;
+    font-size:22px;
+}
+
+.worklog-body{
+    padding:25px;
+}
+
+.form-group{
+    display:flex;
+    flex-direction:column;
+    margin-bottom:18px;
+}
+
+.form-group label{
+    margin-bottom:8px;
+    font-weight:600;
+}
+
+.form-group textarea,
+.form-group input,
+.form-group select{
+    padding:12px;
+    border:1px solid #E2E9E5;
+    border-radius:8px;
+    font-size:15px;
+}
+
+.worklog-footer{
+    display:flex;
+    justify-content:flex-end;
+    gap:12px;
+    padding:20px;
+    border-top:1px solid #E2E9E5;
+}
+
+.worklog-footer button{
+    padding:10px 18px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+.worklog-footer button:last-child{
+    background:#2878D8;
+    color:white;
+}

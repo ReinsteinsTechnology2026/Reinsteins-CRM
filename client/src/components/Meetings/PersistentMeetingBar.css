@@ -1,0 +1,316 @@
+/* ==========================================
+   PERSISTENT MEETING BAR
+
+   Self-contained fixed-position bar, bottom-left
+   of the viewport -- deliberately not bottom-right,
+   which is already used by ChatNotificationListener's
+   popup stack, and not top-right, used by the
+   app-wide react-toastify <ToastContainer>. Mirrors
+   the same on/off color language already established
+   in MeetingRoom.css's control buttons (primary-
+   tinted = active/on, danger-tinted = off/muted) so
+   the bar reads as an extension of the in-room
+   controls, not a separate design.
+========================================== */
+
+.persistent-meeting-bar {
+
+    position: fixed;
+
+    left: 20px;
+    bottom: 20px;
+
+    z-index: 1200;
+
+    display: flex;
+    align-items: center;
+
+    gap: 16px;
+
+    padding: 12px 16px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 16px;
+
+    background: var(--card);
+
+    box-shadow: var(--shadow-hover);
+
+    max-width: calc(100vw - 40px);
+
+}
+
+.pmb-status {
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+}
+
+.pmb-live-dot {
+
+    width: 9px;
+    height: 9px;
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    background: var(--danger);
+
+    animation: pmb-live-pulse 1.6s ease-in-out infinite;
+
+}
+
+@keyframes pmb-live-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .35; }
+}
+
+.pmb-status-text {
+
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+
+}
+
+.pmb-status-text strong {
+
+    color: var(--text);
+
+    font-size: 12.5px;
+    font-weight: 700;
+
+}
+
+.pmb-status-text span {
+
+    max-width: 160px;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    color: var(--text-secondary);
+
+    font-size: 11.5px;
+
+}
+
+.pmb-connection {
+
+    flex-shrink: 0;
+
+    padding: 3px 9px;
+
+    border-radius: 20px;
+
+    background: rgba(22, 166, 106, .14);
+
+    color: var(--primary-hover);
+
+    font-size: 10.5px;
+    font-weight: 700;
+
+    white-space: nowrap;
+
+}
+
+.pmb-connection.reconnecting {
+    background: rgba(245, 158, 11, .16);
+    color: var(--warning);
+}
+
+.pmb-controls {
+
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    padding-left: 4px;
+    border-left: 1px solid var(--border);
+
+}
+
+.pmb-icon-button {
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 34px;
+    height: 34px;
+
+    flex-shrink: 0;
+
+    border: 1px solid var(--danger);
+    border-radius: 50%;
+
+    background: rgba(239, 68, 68, .1);
+
+    color: var(--danger);
+
+    font-size: 13px;
+
+    cursor: pointer;
+
+    transition: .15s;
+
+}
+
+.pmb-icon-button.on {
+    border-color: var(--primary);
+    background: rgba(22, 166, 106, .16);
+    color: var(--primary-hover);
+}
+
+.pmb-icon-button:hover {
+    filter: brightness(.95);
+}
+
+.pmb-participants {
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 6px;
+
+    padding: 0 4px;
+
+    color: var(--text-secondary);
+
+    font-size: 12.5px;
+    font-weight: 600;
+
+    white-space: nowrap;
+
+}
+
+.pmb-actions {
+
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    padding-left: 4px;
+    border-left: 1px solid var(--border);
+
+}
+
+.pmb-return-button {
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 7px;
+
+    padding: 8px 14px;
+
+    border: 1px solid var(--primary);
+    border-radius: 20px;
+
+    background: var(--primary);
+
+    color: #17211D;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    white-space: nowrap;
+
+    cursor: pointer;
+
+    transition: .15s;
+
+}
+
+.pmb-return-button:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.pmb-leave-button {
+
+    display: inline-flex;
+    align-items: center;
+
+    gap: 6px;
+
+    padding: 8px 12px;
+
+    border: 1px solid var(--danger);
+    border-radius: 20px;
+
+    background: transparent;
+
+    color: var(--danger);
+
+    font-size: 12px;
+    font-weight: 700;
+
+    white-space: nowrap;
+
+    cursor: pointer;
+
+    transition: .15s;
+
+}
+
+.pmb-leave-button:hover {
+    background: rgba(239, 68, 68, .1);
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 900px) {
+
+    .persistent-meeting-bar {
+
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+
+        max-width: calc(100vw - 24px);
+
+        flex-wrap: wrap;
+
+        row-gap: 10px;
+
+    }
+
+    .pmb-status-text span {
+        max-width: 120px;
+    }
+
+}
+
+@media (max-width: 480px) {
+
+    .persistent-meeting-bar {
+        justify-content: center;
+    }
+
+    .pmb-status {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .pmb-connection {
+        order: -1;
+    }
+
+    .pmb-controls,
+    .pmb-actions {
+        border-left: none;
+        padding-left: 0;
+    }
+
+}

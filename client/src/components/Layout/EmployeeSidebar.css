@@ -1,0 +1,347 @@
+/* ==========================================
+   EMPLOYEE SIDEBAR
+========================================== */
+
+.employee-sidebar {
+
+  position: fixed;
+
+  top: 0;
+  left: 0;
+  bottom: 0;
+
+  width: 260px;
+  height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+
+  padding: 28px 18px;
+
+  box-sizing: border-box;
+
+  background: var(--sidebar);
+
+  color: var(--text);
+
+  border-right: 1px solid var(--border);
+
+  z-index: 1000;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  transition: width .25s ease, padding .25s ease;
+
+}
+
+/* Collapsed: width goes to 0 (not visibility/display), so it stops
+   reserving any space at all. The toggle button lives outside this
+   element (SidebarToggleButton), so it is never affected by this
+   clipping. */
+
+.employee-sidebar.collapsed {
+  width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-right: none;
+}
+
+/* ==========================================
+   BRAND
+========================================== */
+
+.employee-sidebar-brand {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 13px;
+
+  padding: 0 10px 30px;
+
+  flex-shrink: 0;
+
+}
+
+.employee-sidebar-logo {
+
+  width: 44px;
+
+  height: 44px;
+
+  flex-shrink: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  border-radius: 11px;
+
+  background: transparent;
+
+  overflow: hidden;
+
+}
+
+.employee-sidebar-brand h2 {
+
+  margin: 0;
+
+  color: var(--text);
+
+  font-size: 19px;
+
+  font-weight: 700;
+
+}
+
+.employee-sidebar-brand span {
+
+  display: block;
+
+  margin-top: 3px;
+
+  color: var(--text-secondary);
+
+  font-size: 12px;
+
+}
+
+/* ==========================================
+   NAVIGATION
+========================================== */
+
+.employee-sidebar-navigation {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 6px;
+
+  width: 100%;
+
+}
+
+.employee-sidebar-item {
+
+  width: 100%;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 14px;
+
+  padding: 13px 15px;
+
+  box-sizing: border-box;
+
+  border: none;
+
+  border-radius: 9px;
+
+  background: transparent;
+
+  color: var(--text-secondary);
+
+  font-size: 14px;
+
+  font-family: inherit;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+
+    background .25s,
+
+    color .25s,
+
+    transform .15s;
+
+}
+
+.employee-sidebar-item svg {
+
+  width: 17px;
+
+  height: 17px;
+
+  flex-shrink: 0;
+
+}
+
+.employee-sidebar-item span {
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+
+}
+
+.employee-sidebar-item:hover {
+
+  background: var(--hover);
+
+  color: var(--text);
+
+}
+
+.employee-sidebar-item.active {
+
+  background: var(--mint);
+
+  color: var(--primary);
+
+  box-shadow: none;
+
+}
+
+.employee-sidebar-item.active svg {
+
+  color: var(--primary);
+
+}
+
+/* ==========================================
+   SCROLLBAR
+========================================== */
+
+.employee-sidebar::-webkit-scrollbar {
+
+  width: 5px;
+
+}
+
+.employee-sidebar::-webkit-scrollbar-thumb {
+
+  border-radius: 10px;
+
+  background: var(--border);
+
+}
+
+/* ==========================================
+   RESPONSIVE — MOBILE/TABLET DRAWER
+
+   Below 1024px the sidebar stops being a
+   layout-reserving fixed column (that's the
+   desktop-only .collapsed width:0 behavior
+   above) and becomes an off-canvas drawer:
+   full width, always present in the DOM,
+   shown/hidden purely via transform so it
+   never causes layout reflow while sliding.
+   It stays width:260px here even while the
+   independent desktop "collapsed" class is
+   also present, since that preference is
+   unrelated to (and must not affect) the
+   mobile drawer's own open/closed state --
+   see useMobileNav.js.
+========================================== */
+
+@media (max-width: 1023px) {
+
+  .employee-sidebar,
+  .employee-sidebar.collapsed {
+    width: 260px !important;
+    padding: 28px 18px !important;
+    border-right: 1px solid var(--border) !important;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+  }
+
+  .employee-sidebar.mobile-open,
+  .employee-sidebar.collapsed.mobile-open {
+    transform: translateX(0);
+  }
+
+}
+
+/* ==========================================
+   SIDEBAR MENU ICON
+========================================== */
+
+.employee-sidebar-menu-icon{
+
+display:flex;
+
+align-items:center;
+
+justify-content:center;
+
+flex-shrink:0;
+
+}
+
+/* ==========================================
+   SIDEBAR MENU NAME
+========================================== */
+
+.employee-sidebar-menu-name{
+
+flex:1;
+
+text-align:left;
+
+}
+
+/* ==========================================
+   CHAT BADGE
+========================================== */
+
+.employee-chat-unread-badge{
+
+min-width:21px;
+
+height:21px;
+
+padding:0 6px;
+
+display:flex;
+
+align-items:center;
+
+justify-content:center;
+
+box-sizing:border-box;
+
+border-radius:20px;
+
+background:var(--danger);
+
+color:#ffffff;
+
+font-size:10px;
+
+font-weight:700;
+
+line-height:1;
+
+flex-shrink:0;
+
+box-shadow:0 2px 6px rgba(0,0,0,.25);
+
+}
+
+/* ==========================================
+   ACTIVE BADGE
+========================================== */
+
+.employee-sidebar-item.active
+.employee-chat-unread-badge{
+
+background:#ffffff;
+
+color:var(--primary);
+
+box-shadow:none;
+
+}

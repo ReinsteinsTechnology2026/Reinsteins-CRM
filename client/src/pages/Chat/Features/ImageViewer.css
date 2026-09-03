@@ -1,0 +1,93 @@
+.workhub-image-viewer-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.88);
+    z-index:99999;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    animation:viewerFade .25s ease;
+}
+
+.workhub-image-viewer-container{
+    position:relative;
+    width:90vw;
+    height:90vh;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    overflow:hidden;
+}
+
+.workhub-image-viewer-image{
+    max-width:100%;
+    max-height:100%;
+    object-fit:contain;
+
+    transition:transform .25s ease;
+
+    user-select:none;
+    cursor:grab;
+}
+
+.workhub-image-viewer-image:active{
+    cursor:grabbing;
+}
+
+.workhub-image-viewer-toolbar{
+
+    position:absolute;
+
+    top:20px;
+    right:20px;
+
+    display:flex;
+    gap:12px;
+
+    z-index:5;
+}
+
+.workhub-image-viewer-toolbar button{
+
+    width:46px;
+    height:46px;
+
+    border:none;
+
+    border-radius:50%;
+
+    background:#ffffff;
+
+    color:#222;
+
+    cursor:pointer;
+
+    font-size:18px;
+
+    transition:.25s;
+}
+
+.workhub-image-viewer-toolbar button:hover{
+
+    transform:scale(1.08);
+
+    background:#2878D8;
+
+    color:#fff;
+}
+
+@keyframes viewerFade{
+
+    from{
+        opacity:0;
+    }
+
+    to{
+        opacity:1;
+    }
+
+}

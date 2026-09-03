@@ -1,0 +1,457 @@
+﻿@import "./EmployeeHome.css";
+
+
+/* ==========================================
+   ATTENDANCE PAGE
+========================================== */
+
+.employee-page-content {
+  padding: 30px;
+}
+
+
+/* ==========================================
+   PAGE HEADER
+========================================== */
+
+.attendance-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+
+.attendance-page-header h2 {
+  margin: 0;
+  color: #1E293B !important;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+
+.attendance-page-header p {
+  margin: 7px 0 0;
+  color: #64748B !important;
+  font-size: 14px;
+}
+
+
+/* ==========================================
+   EMPLOYEE ID
+========================================== */
+
+.attendance-employee-badge {
+  min-width: 130px;
+  padding: 11px 18px;
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  border-radius: 10px;
+  text-align: left;
+}
+
+
+.attendance-employee-badge span {
+  display: block;
+  color: #7A8780;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+
+.attendance-employee-badge strong {
+  display: block;
+  margin-top: 4px;
+  color: #17211D;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+
+/* ==========================================
+   MONTH SELECTOR
+========================================== */
+
+.attendance-month-selector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  margin-bottom: 20px;
+  padding: 15px 18px;
+
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  border-radius: 10px;
+}
+
+
+.attendance-month-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  color: #53615A;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+
+.attendance-month-label svg {
+  color: #16A66A;
+  font-size: 16px;
+}
+
+
+.attendance-month-selector select {
+  min-width: 190px;
+
+  padding: 9px 12px;
+
+  background: #F7FAF8;
+  color: #17211D;
+
+  border: 1px solid #E2E9E5;
+  border-radius: 8px;
+
+  outline: none;
+
+  font-size: 13px;
+  font-weight: 500;
+
+  cursor: pointer;
+}
+
+
+.attendance-month-selector select:hover {
+  border-color: #16A66A;
+}
+
+
+.attendance-month-selector select:focus {
+  border-color: #16A66A;
+  box-shadow: 0 0 0 2px rgba(22,166,106,0.12);
+}
+
+
+/* ==========================================
+   ATTENDANCE TABLE
+========================================== */
+
+.attendance-history-card {
+  overflow: hidden;
+
+  background: #FFFFFF;
+
+  border: 1px solid #E2E9E5;
+  border-radius: 10px;
+}
+
+
+.attendance-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+
+.attendance-table {
+  width: 100%;
+  min-width: 850px;
+
+  border-collapse: collapse;
+}
+
+
+/* ==========================================
+   TABLE HEADER
+========================================== */
+
+.attendance-table th {
+  padding: 14px 17px;
+
+  background: #F7FAF8;
+
+  color: #53615A;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  text-align: left;
+
+  white-space: nowrap;
+
+  border-bottom: 1px solid #E2E9E5;
+}
+
+
+/* ==========================================
+   TABLE BODY
+========================================== */
+
+.attendance-table td {
+  padding: 15px 17px;
+
+  color: #53615A;
+
+  font-size: 13px;
+
+  white-space: nowrap;
+
+  border-bottom: 1px solid #F7FAF8;
+}
+
+
+.attendance-table tbody tr {
+  transition: background 0.18s ease;
+}
+
+
+.attendance-table tbody tr:hover {
+  background: rgba(22,166,106,0.06);
+}
+
+
+.attendance-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
+/* ==========================================
+   DATE
+========================================== */
+
+.attendance-date {
+  color: #17211D !important;
+  font-weight: 600;
+}
+
+
+/* ==========================================
+   WORK HOURS
+========================================== */
+
+.work-hours-value {
+  color: #16A66A;
+  font-weight: 700;
+}
+
+
+/* ==========================================
+   STATUS BADGE
+========================================== */
+
+.attendance-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 62px;
+
+  padding: 5px 10px;
+
+  border-radius: 20px;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+
+/* PRESENT */
+
+.attendance-status-badge.present {
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+
+/* ABSENT */
+
+.attendance-status-badge.absent {
+  background: rgba(181,57,57,0.16);
+  color: #D64545;
+}
+
+
+/* LEAVE */
+
+.attendance-status-badge.leave {
+  background: rgba(22,166,106,0.16);
+  color: #16A66A;
+}
+
+
+/* ==========================================
+   LOADING
+========================================== */
+
+.attendance-loading {
+  padding: 50px;
+
+  color: #53615A;
+
+  text-align: center;
+
+  font-size: 13px;
+}
+
+
+/* ==========================================
+   EMPTY
+========================================== */
+
+.attendance-empty {
+  padding: 60px 20px;
+
+  color: #7A8780;
+
+  text-align: center;
+}
+
+
+.attendance-empty svg {
+  margin-bottom: 15px;
+
+  color: #16A66A;
+
+  font-size: 35px;
+}
+
+
+.attendance-empty h3 {
+  margin: 0;
+
+  color: #17211D;
+
+  font-size: 17px;
+}
+
+
+.attendance-empty p {
+  margin-top: 8px;
+
+  color: #7A8780;
+
+  font-size: 13px;
+}
+
+
+/* ==========================================
+   NO RECORDS ROW
+========================================== */
+
+.attendance-no-records {
+  padding: 45px !important;
+
+  color: #7A8780 !important;
+
+  text-align: center;
+
+  font-size: 13px !important;
+}
+
+
+/* ==========================================
+   MONTHLY SUMMARY
+========================================== */
+
+.attendance-monthly-summary {
+  margin-top: 24px;
+
+  padding: 20px 22px;
+
+  background: #FFFFFF;
+
+  border: 1px solid #E2E9E5;
+  border-radius: 10px;
+}
+
+
+.attendance-monthly-summary h3 {
+  margin: 0 0 16px;
+
+  color: #17211D;
+
+  font-size: 16px;
+  font-weight: 700;
+}
+
+
+.attendance-summary-list {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(220px, 1fr));
+
+  column-gap: 60px;
+  row-gap: 11px;
+}
+
+
+.attendance-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding-bottom: 8px;
+
+  border-bottom: 1px solid #F7FAF8;
+}
+
+
+.attendance-summary-row span {
+  color: #7A8780;
+
+  font-size: 13px;
+}
+
+
+.attendance-summary-row strong {
+  color: #17211D;
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+
+/* ==========================================
+   MOBILE
+========================================== */
+
+@media (max-width: 768px) {
+
+  .employee-page-content {
+    padding: 20px;
+  }
+
+
+  .attendance-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+
+  .attendance-employee-badge {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+
+  .attendance-month-selector {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+
+  .attendance-month-selector select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+
+  .attendance-summary-list {
+    grid-template-columns: 1fr;
+  }
+
+}

@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+server/.env
+server/.env.*
+
+# Build output
+client/dist/
+client/dist-ssr/
+
+# Logs
+logs/
+*.log
+server/boot_stdout.log
+server/boot_stderr.log
+server/boot_platform_phase.log
+
+# Uploaded user content (not source code -- real employee/company
+# files should never be committed to version control)
+server/uploads/**
+!server/uploads/.gitkeep
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

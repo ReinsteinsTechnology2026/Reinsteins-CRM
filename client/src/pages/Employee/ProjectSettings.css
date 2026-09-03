@@ -1,0 +1,311 @@
+﻿/* ==========================================
+   PROJECT SETTINGS
+   Matches the existing Employee-portal palette
+   (same hex values as MyTeam.css/ProjectWorkspace.css)
+========================================== */
+
+.ps-section {
+  margin-top: 0;
+}
+
+.ps-nav {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #E2E9E5;
+}
+
+.ps-nav-item {
+  padding: 8px 14px;
+  border: none;
+  background: none;
+  color: #7A8780;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.ps-nav-item.active {
+  color: #16A66A;
+  border-bottom-color: #16A66A;
+}
+
+.ps-nav-item:hover {
+  color: #17211D;
+}
+
+.ps-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.ps-panel h3 {
+  margin: 0 0 4px;
+  color: #17211D;
+  font-size: 15px;
+}
+
+.ps-hint {
+  margin: 0 0 14px;
+  color: #7A8780;
+  font-size: 12px;
+}
+
+.ps-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid #F7FAF8;
+  font-size: 13px;
+}
+
+.ps-detail-row span {
+  color: #7A8780;
+}
+
+.ps-detail-row strong {
+  color: #17211D;
+  text-align: right;
+}
+
+.ps-group-select,
+.ps-permission-select {
+  padding: 5px 7px;
+  border-radius: 5px;
+  border: 1px solid #E2E9E5;
+  background: #F7FAF8;
+  color: #53615A;
+  font-size: 11.5px;
+}
+
+.ps-icon-button {
+  padding: 6px 8px;
+  border-radius: 5px;
+  border: 1px solid #E2E9E5;
+  background: transparent;
+  color: #7A8780;
+  cursor: pointer;
+}
+
+.ps-icon-button.ps-danger:hover {
+  border-color: #D64545;
+  color: #D64545;
+}
+
+/* ==========================================
+   ADD MEMBER MODAL
+========================================== */
+
+.ps-add-member-modal {
+  max-width: 460px;
+}
+
+.ps-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #E2E9E5;
+  background: #F7FAF8;
+  color: #7A8780;
+}
+
+.ps-search-box input {
+  flex: 1;
+  border: none;
+  background: none;
+  color: #17211D;
+  font-size: 13px;
+  outline: none;
+}
+
+.ps-candidate-list {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 14px;
+  border: 1px solid #E2E9E5;
+  border-radius: 8px;
+}
+
+.ps-candidate-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #F7FAF8;
+  color: #53615A;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ps-candidate-row:last-child {
+  border-bottom: none;
+}
+
+.ps-candidate-row:hover {
+  background: rgba(22,166,106,0.06);
+}
+
+/* ==========================================
+   GROUPS
+========================================== */
+
+.ps-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.ps-group-card {
+  padding: 14px;
+  border-radius: 10px;
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+}
+
+.ps-group-card strong {
+  color: #17211D;
+  font-size: 13.5px;
+}
+
+.ps-group-card p {
+  margin: 6px 0 10px;
+  color: #7A8780;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.ps-group-count {
+  color: #16A66A;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+/* ==========================================
+   PERMISSION MATRIX
+========================================== */
+
+.ps-matrix-scroll {
+  overflow-x: auto;
+}
+
+.ps-matrix-table th,
+.ps-matrix-table td {
+  white-space: nowrap;
+}
+
+.ps-permission-select.ps-permission-allow {
+  border-color: #16A66A;
+  color: #16A66A;
+}
+
+.ps-permission-select.ps-permission-deny {
+  border-color: #D64545;
+  color: #D64545;
+}
+
+.ps-permission-select.ps-permission-not_set {
+  border-color: #E2E9E5;
+  color: #7A8780;
+}
+
+/* ==========================================
+   ACTIVITY
+========================================== */
+
+.ps-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ps-activity-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+  font-size: 12.5px;
+}
+
+.ps-activity-type {
+  color: #16A66A;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.ps-activity-row > span:not(.ps-activity-type):not(.ps-activity-time) {
+  color: #17211D;
+}
+
+.ps-activity-time {
+  color: #7A8780;
+  font-size: 10.5px;
+}
+
+/* ==========================================
+   DANGER ZONE (Delete Project)
+========================================== */
+
+.ps-danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: rgba(214,69,69,0.08);
+  border: 1px solid #D64545;
+}
+
+.ps-danger-zone h3 {
+  margin: 0 0 4px;
+  color: #D64545;
+  font-size: 14px;
+}
+
+.ps-danger-zone p {
+  margin: 0;
+  color: #7A8780;
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 480px;
+}
+
+.ps-danger-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 7px;
+  border: 1px solid #D64545;
+  background: transparent;
+  color: #D64545;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ps-danger-button:hover {
+  background: #D64545;
+  color: #17211D;
+}
+
+@media (max-width: 600px) {
+  .ps-danger-zone {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

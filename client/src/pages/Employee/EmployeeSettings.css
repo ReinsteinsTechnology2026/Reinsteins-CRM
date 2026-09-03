@@ -1,0 +1,572 @@
+﻿/* ==========================================
+   EMPLOYEE SETTINGS PAGE LAYOUT
+========================================== */
+
+.employee-settings-layout {
+  width: 100%;
+  min-height: 100vh;
+  background: #FFFFFF;
+}
+
+
+/* ==========================================
+   MAIN CONTENT
+   SIDEBAR WIDTH = 260PX
+========================================== */
+
+.employee-settings-main {
+  margin-left: 260px;
+  width: calc(100% - 260px);
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: #FFFFFF;
+}
+
+
+/* ==========================================
+   SETTINGS CONTENT
+========================================== */
+
+.employee-settings-content {
+  width: 100%;
+  padding: 30px 34px 40px;
+  box-sizing: border-box;
+}
+
+
+/* ==========================================
+   PAGE TITLE
+========================================== */
+
+.employee-settings-page-title {
+  margin-bottom: 25px;
+}
+
+.employee-settings-page-title h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #1E293B !important;
+}
+
+.employee-settings-page-title p {
+  margin: 7px 0 0;
+  color: #64748B !important;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+
+/* ==========================================
+   SUCCESS MESSAGE
+========================================== */
+
+.employee-settings-success {
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  box-sizing: border-box;
+  border: 1px solid rgba(22,166,106,0.35);
+  border-radius: 10px;
+  background: rgba(22,166,106,0.15);
+  color: #16A66A;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+
+/* ==========================================
+   ERROR MESSAGE
+========================================== */
+
+.employee-settings-error {
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  box-sizing: border-box;
+  border: 1px solid rgba(214,69,69,0.4);
+  border-radius: 10px;
+  background: rgba(214,69,69,0.16);
+  color: #D64545;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+
+/* ==========================================
+   SETTINGS GRID
+========================================== */
+
+.employee-settings-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns:
+    minmax(0, 2fr)
+    minmax(320px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+
+/* ==========================================
+   SETTINGS CARD
+========================================== */
+
+.employee-settings-card {
+  width: 100%;
+  min-width: 0;
+  padding: 24px;
+  box-sizing: border-box;
+
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  border-radius: 16px;
+
+  box-shadow:
+    0 8px 25px
+    rgba(15, 12, 10, 0.16);
+}
+
+
+/* ==========================================
+   CARD HEADER
+========================================== */
+
+.employee-settings-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #E2E9E5;
+}
+
+.employee-settings-card-header > div:last-child {
+  min-width: 0;
+}
+
+.employee-settings-icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 11px;
+
+  background: rgba(22,166,106,0.16);
+  color: #16A66A;
+
+  font-size: 18px;
+}
+
+.employee-settings-card-header h2 {
+  margin: 0;
+  color: #17211D !important;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.employee-settings-card-header p {
+  margin: 6px 0 0;
+  color: #53615A !important;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+
+/* ==========================================
+   NOTIFICATION OPTIONS
+========================================== */
+
+.employee-settings-options {
+  width: 100%;
+  margin-top: 5px;
+}
+
+.employee-setting-option {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 25px;
+  padding: 20px 0;
+
+  box-sizing: border-box;
+
+  border-bottom: 1px solid #E2E9E5;
+}
+
+.employee-setting-option:last-child {
+  border-bottom: none;
+}
+
+.employee-setting-option > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.employee-setting-option h3 {
+  margin: 0;
+  color: #17211D;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.employee-setting-option p {
+  margin: 6px 0 0;
+  color: #53615A;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+
+/* ==========================================
+   NOTIFICATION SWITCH
+========================================== */
+
+.employee-settings-switch {
+  position: relative;
+  width: 46px;
+  height: 25px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.employee-settings-switch input {
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+.employee-settings-slider {
+  position: absolute;
+  inset: 0;
+
+  border-radius: 30px;
+
+  background: #E2E9E5;
+
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.employee-settings-slider::before {
+  content: "";
+
+  position: absolute;
+
+  width: 19px;
+  height: 19px;
+
+  left: 3px;
+  top: 3px;
+
+  border-radius: 50%;
+
+  background: #17211D;
+
+  box-shadow:
+    0 1px 3px
+    rgba(0, 0, 0, 0.3);
+
+  transition: transform 0.2s ease;
+}
+
+.employee-settings-switch
+input:checked
++ .employee-settings-slider {
+  background: #16A66A;
+}
+
+.employee-settings-switch
+input:checked
++ .employee-settings-slider::before {
+  transform: translateX(21px);
+}
+
+
+/* ==========================================
+   SAVE NOTIFICATION SETTINGS BUTTON
+========================================== */
+
+.employee-settings-save-button {
+  margin-top: 22px;
+  padding: 11px 18px;
+
+  border: none;
+  border-radius: 9px;
+
+  background: #16A66A;
+  color: #17211D;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.employee-settings-save-button:hover {
+  background: #16A66A;
+}
+
+.employee-settings-save-button:active {
+  transform: scale(0.98);
+}
+
+
+/* ==========================================
+   PASSWORD FORM
+========================================== */
+
+.employee-password-form {
+  width: 100%;
+  margin-top: 22px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 18px;
+}
+
+
+/* ==========================================
+   PASSWORD FIELD
+========================================== */
+
+.employee-password-field {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+}
+
+.employee-password-field label {
+  color: #17211D;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.employee-password-field input {
+  width: 100%;
+  height: 44px;
+
+  padding: 0 13px;
+
+  box-sizing: border-box;
+
+  border: 1px solid #E2E9E5;
+  border-radius: 9px;
+
+  outline: none;
+
+  background: #F7FAF8;
+  color: #17211D;
+
+  font-family: inherit;
+  font-size: 14px;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.employee-password-field input::placeholder {
+  color: #7A8780;
+}
+
+.employee-password-field input:hover {
+  border-color: #E2E9E5;
+}
+
+.employee-password-field input:focus {
+  border-color: #16A66A;
+
+  box-shadow:
+    0 0 0 3px
+    rgba(22,166,106,0.12);
+}
+
+.employee-password-field input:disabled {
+  background: #F7FAF8;
+  color: #7A8780;
+  cursor: not-allowed;
+}
+
+
+/* ==========================================
+   PASSWORD HINT
+========================================== */
+
+.employee-password-hint {
+  color: #7A8780;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+
+/* ==========================================
+   CHANGE PASSWORD BUTTON
+========================================== */
+
+.employee-password-change-button {
+  width: 100%;
+  min-height: 44px;
+
+  margin-top: 4px;
+  padding: 11px 18px;
+
+  box-sizing: border-box;
+
+  border: none;
+  border-radius: 9px;
+
+  background: #16A66A;
+  color: #17211D;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.employee-password-change-button:hover:not(:disabled) {
+  background: #16A66A;
+}
+
+.employee-password-change-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* ==========================================
+   PASSWORD INFO
+========================================== */
+
+.employee-password-info {
+  margin-top: 22px;
+  padding: 18px;
+
+  display: flex;
+  align-items: flex-start;
+
+  gap: 14px;
+
+  border-radius: 12px;
+
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+}
+
+.employee-password-info > svg {
+  margin-top: 3px;
+  flex-shrink: 0;
+  color: #16A66A;
+}
+
+.employee-password-info h3 {
+  margin: 0;
+  color: #17211D;
+  font-size: 14px;
+}
+
+.employee-password-info p {
+  margin: 7px 0 0;
+  color: #53615A;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+
+/* ==========================================
+   TABLET
+========================================== */
+
+@media (max-width: 1100px) {
+  .employee-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ==========================================
+   MOBILE / SMALL SCREEN
+========================================== */
+
+@media (max-width: 768px) {
+  .employee-settings-main {
+    margin-left: 220px;
+    width: calc(100% - 220px);
+  }
+
+  .employee-settings-content {
+    padding: 20px;
+  }
+
+  .employee-settings-page-title h1 {
+    font-size: 24px;
+  }
+
+  .employee-setting-option {
+    gap: 15px;
+  }
+
+  .employee-settings-card {
+    padding: 20px;
+  }
+}
+
+
+/* ==========================================
+   VERY SMALL SCREEN
+========================================== */
+
+@media (max-width: 520px) {
+  .employee-settings-content {
+    padding: 15px;
+  }
+
+  .employee-settings-card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .employee-settings-card-header {
+    gap: 10px;
+  }
+
+  .employee-settings-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .employee-setting-option {
+    align-items: flex-start;
+  }
+} 

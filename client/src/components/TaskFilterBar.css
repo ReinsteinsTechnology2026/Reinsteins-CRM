@@ -1,0 +1,115 @@
+.tfb-tags-dropdown {
+    position: relative;
+}
+
+.tfb-tags-dropdown summary {
+
+    list-style: none;
+
+    padding: 10px 14px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+    background: var(--input);
+
+    color: var(--text);
+
+    font-size: 13px;
+
+    cursor: pointer;
+
+    user-select: none;
+
+}
+
+.tfb-tags-dropdown summary::-webkit-details-marker {
+    display: none;
+}
+
+.tfb-tags-dropdown summary::after {
+    content: " \25BE";
+    color: var(--text-muted);
+}
+
+.tfb-tags-panel {
+
+    position: absolute;
+    z-index: 20;
+
+    top: calc(100% + 4px);
+    left: 0;
+
+    min-width: 180px;
+    max-height: 220px;
+    overflow-y: auto;
+
+    padding: 8px;
+
+    border: 1px solid var(--border);
+    border-radius: 9px;
+
+    background: var(--card);
+
+    box-shadow: var(--shadow-hover);
+
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+}
+
+.tfb-tags-empty {
+    margin: 4px 6px;
+    color: var(--text-muted);
+    font-size: 12.5px;
+}
+
+.tfb-tag-option {
+
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    padding: 7px 8px;
+
+    border-radius: 6px;
+
+    color: var(--text);
+
+    font-size: 13px;
+
+    cursor: pointer;
+
+}
+
+.tfb-tag-option:hover {
+    background: rgba(22, 166, 106, .12);
+}
+
+.tfb-clear-button {
+
+    border: 1px solid var(--border);
+    background: none;
+
+    padding: 10px 14px;
+
+    border-radius: 9px;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    white-space: nowrap;
+
+}
+
+.tfb-clear-button:hover {
+    color: var(--text);
+    border-color: var(--primary);
+}

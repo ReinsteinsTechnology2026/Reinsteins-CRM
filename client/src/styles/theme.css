@@ -1,0 +1,138 @@
+/* ==========================================
+   REINSTEINS PREMIUM ENTERPRISE THEME
+   (Emerald / Mint — light, white-dominant)
+========================================== */
+
+:root{
+
+    /* ===============================
+       PRIMARY BRAND — EMERALD
+    =============================== */
+
+    --primary:#16A66A;
+    --primary-hover:#128957;
+    --primary-dark:#0E744A;
+
+    /* ===============================
+       LIGHT MINT (active states, soft
+       highlights, icon backgrounds)
+    =============================== */
+
+    --mint:#E8F8F0;
+    --mint-light:#F3FBF7;
+    --mint-border:#CBECDD;
+
+    /* ===============================
+       PAGE BACKGROUNDS / SURFACES
+       (white-dominant per new theme —
+       --sidebar/--card/--card-light/
+       --input now map onto the white/
+       mint surface system instead of
+       the old dark chrome)
+    =============================== */
+
+    --background:#FFFFFF;
+
+    --sidebar:#FFFFFF;
+
+    --card:#FFFFFF;
+
+    --card-light:#F7FAF8;
+
+    --hover:#E8F8F0;
+
+    --input:#F7FAF8;
+
+    --surface:#FFFFFF;
+
+    --surface-secondary:#F7FAF8;
+
+    /* ===============================
+       TEXT
+    =============================== */
+
+    --text:#17211D;
+
+    --text-secondary:#53615A;
+
+    --text-muted:#7A8780;
+
+    /* ===============================
+       TEXT FOR LIGHT BACKGROUNDS
+       (kept as its own token for
+       call-sites that reference it
+       explicitly; aligned with --text
+       now that the whole app is light)
+    =============================== */
+
+    --text-dark:#17211D;
+
+    --text-dark-secondary:#53615A;
+
+    /* ===============================
+       BORDERS
+    =============================== */
+
+    --border:#E2E9E5;
+
+    --border-light:#CBECDD;
+
+    /* ===============================
+       DARK AREAS (only for elements
+       that still need real dark
+       contrast, e.g. code/preview
+       panels or a dark chrome accent)
+    =============================== */
+
+    --dark:#111816;
+    --dark-surface:#18211E;
+    --dark-border:#2B3833;
+
+    /* ===============================
+       STATUS COLORS
+    =============================== */
+
+    --success:#16A66A;
+    --success-light:#E8F8F0;
+
+    --warning:#D99A24;
+    --warning-light:#FFF5DD;
+
+    --danger:#D64545;
+    --danger-light:#FDECEC;
+
+    --info:#2878D8;
+    --info-light:#EAF3FF;
+
+    /* ===============================
+       CHART ACCENTS
+    =============================== */
+
+    --chart-green:#16A66A;
+    --chart-light-green:#8ED9B7;
+    --progress-bg:#E5ECE8;
+
+    /* ===============================
+       SHADOWS — lighter/softer for a
+       white-surface SaaS look (same
+       neutral black shadow, reduced
+       spread/opacity)
+    =============================== */
+
+    --shadow:
+        0 4px 16px rgba(23,33,29,.08);
+
+    --shadow-hover:
+        0 10px 28px rgba(23,33,29,.12);
+
+    --glow:
+        0 0 0 1px rgba(22,166,106,.30),
+        0 14px 35px rgba(22,166,106,.14);
+
+    /* ===============================
+       RADIUS
+    =============================== */
+
+    --radius:14px;
+
+}

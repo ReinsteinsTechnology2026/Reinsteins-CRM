@@ -1,0 +1,809 @@
+/* ==========================================
+   ORGANIZATIONS (Phase 2A)
+   Same design system as Projects.css/ProjectModal.css
+   (identical CSS custom properties, spacing, radii) —
+   kept as its own self-contained file rather than a
+   cross-page import, since Organizations is a
+   standalone top-level admin area, not nested under
+   Projects.
+========================================== */
+
+.org-page-header {
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    margin-bottom: 28px;
+
+}
+
+.org-page-header h1 {
+
+    margin: 0;
+
+    font-size: 30px;
+    font-weight: 700;
+
+    color: var(--text-dark);
+
+}
+
+.org-page-header p {
+
+    margin-top: 8px;
+
+    max-width: 560px;
+
+    color: var(--text-dark-secondary);
+
+    font-size: 14px;
+
+    line-height: 1.6;
+
+}
+
+.org-loading {
+
+    padding: 60px 0;
+
+    text-align: center;
+
+    color: var(--text-dark-secondary);
+
+}
+
+/* ==========================================
+   BUTTONS
+========================================== */
+
+.org-primary-button {
+
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    padding: 12px 20px;
+
+    border: none;
+    outline: none;
+
+    border-radius: 10px;
+
+    background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+
+    color: #17211D;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition: .2s;
+
+    white-space: nowrap;
+
+}
+
+.org-primary-button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--glow);
+}
+
+.org-primary-button:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.org-secondary-button {
+
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    padding: 11px 18px;
+
+    border: 1px solid var(--border);
+    outline: none;
+
+    border-radius: 10px;
+
+    background: var(--card-light);
+
+    color: var(--text);
+
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: .2s;
+
+}
+
+.org-secondary-button:hover {
+    background: var(--hover);
+}
+
+/* ==========================================
+   ORGANIZATION GRID
+========================================== */
+
+.org-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+
+    gap: 20px;
+
+}
+
+.org-card {
+
+    padding: 22px;
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    box-shadow: var(--shadow);
+
+    cursor: pointer;
+
+    transition: .2s;
+
+}
+
+.org-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--primary);
+}
+
+.org-card-top {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 10px;
+
+}
+
+.org-card h3 {
+
+    margin: 0 0 10px;
+
+    color: var(--text);
+
+    font-size: 18px;
+
+}
+
+.org-code {
+
+    display: inline-block;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    letter-spacing: .04em;
+
+    color: var(--primary-hover);
+
+}
+
+.org-description {
+
+    margin: 0 0 16px;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+
+    line-height: 1.6;
+
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+
+}
+
+.org-card-footer {
+
+    display: flex;
+    align-items: center;
+
+    gap: 16px;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+
+}
+
+.org-open-button {
+
+    width: 100%;
+
+    justify-content: center;
+
+    margin-top: 16px;
+
+}
+
+/* ==========================================
+   ORGANIZATION DETAIL HEADER
+========================================== */
+
+.org-detail-header {
+
+    padding: 26px;
+
+    margin-bottom: 24px;
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    box-shadow: var(--shadow);
+
+}
+
+.org-detail-header-top {
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 16px;
+
+}
+
+.org-detail-header-top h1 {
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 26px;
+
+}
+
+.org-detail-description {
+
+    margin-top: 16px;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+
+    line-height: 1.6;
+
+}
+
+.org-detail-meta {
+
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 28px;
+
+    margin-top: 20px;
+
+    padding-top: 18px;
+
+    border-top: 1px solid var(--border);
+
+}
+
+.org-detail-meta label {
+
+    display: block;
+
+    margin-bottom: 4px;
+
+    color: var(--text-muted);
+
+    font-size: 11px;
+
+    text-transform: uppercase;
+    letter-spacing: .04em;
+
+}
+
+.org-detail-meta span {
+
+    color: var(--text);
+
+    font-size: 13px;
+    font-weight: 600;
+
+}
+
+/* ==========================================
+   PLACEHOLDER SECTIONS
+========================================== */
+
+.org-section-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+
+    gap: 20px;
+
+}
+
+.org-placeholder-card {
+
+    padding: 24px;
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    box-shadow: var(--shadow);
+
+}
+
+.org-placeholder-card-header {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 8px;
+
+}
+
+.org-placeholder-card h2 {
+
+    margin: 0;
+
+    color: var(--text-dark);
+
+    font-size: 18px;
+
+}
+
+.org-placeholder-count {
+
+    font-size: 22px;
+    font-weight: 700;
+
+    color: var(--primary-hover);
+
+}
+
+.org-placeholder-card p {
+
+    margin: 4px 0 0;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+
+    line-height: 1.6;
+
+}
+
+/* ==========================================
+   CREATE ORGANIZATION MODAL
+========================================== */
+
+.org-modal-overlay {
+
+    position: fixed;
+    inset: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(0, 0, 0, .55);
+
+    z-index: 1000;
+
+}
+
+.org-modal {
+
+    width: 100%;
+    max-width: 520px;
+
+    max-height: 90vh;
+
+    overflow-y: auto;
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    border: 1px solid var(--border);
+
+    box-shadow: var(--shadow-hover);
+
+}
+
+.org-modal-header {
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 16px;
+
+    padding: 22px 24px;
+
+    border-bottom: 1px solid var(--border);
+
+}
+
+.org-modal-header h2 {
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 19px;
+
+}
+
+.org-modal-header p {
+
+    margin: 6px 0 0;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+
+}
+
+.org-modal-close {
+
+    border: none;
+    background: none;
+
+    color: var(--text-muted);
+
+    font-size: 22px;
+    line-height: 1;
+
+    cursor: pointer;
+
+}
+
+.org-modal-close:hover {
+    color: var(--text);
+}
+
+.org-modal-form {
+
+    padding: 24px;
+
+}
+
+.org-form-group {
+
+    margin-bottom: 18px;
+
+}
+
+.org-form-group label {
+
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+    font-weight: 600;
+
+}
+
+.org-form-group input,
+.org-form-group textarea,
+.org-form-group select {
+
+    width: 100%;
+
+    padding: 11px 13px;
+
+    box-sizing: border-box;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+    background: var(--input);
+
+    color: var(--text);
+
+    font-family: inherit;
+    font-size: 13.5px;
+
+    outline: none;
+
+    transition: .2s;
+
+}
+
+.org-form-group input:focus,
+.org-form-group textarea:focus,
+.org-form-group select:focus {
+    border-color: var(--primary);
+}
+
+.org-form-group textarea {
+    resize: vertical;
+}
+
+.org-modal-footer {
+
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    gap: 12px;
+
+    margin-top: 8px;
+
+}
+
+/* ==========================================
+   MEMBERS SECTION (Phase 2B)
+========================================== */
+
+.org-section-card {
+
+    padding: 24px;
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    box-shadow: var(--shadow);
+
+    margin-bottom: 20px;
+
+}
+
+.org-section-header {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 16px;
+
+    margin-bottom: 16px;
+
+}
+
+.org-section-header h2 {
+
+    margin: 0;
+
+    color: var(--text-dark);
+
+    font-size: 18px;
+
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+}
+
+.org-table-wrap {
+
+    overflow-x: auto;
+
+}
+
+.org-table {
+
+    width: 100%;
+
+    border-collapse: collapse;
+
+}
+
+.org-table th {
+
+    text-align: left;
+
+    padding: 10px 12px;
+
+    color: var(--text-muted);
+
+    font-size: 11px;
+    font-weight: 700;
+
+    text-transform: uppercase;
+    letter-spacing: .04em;
+
+    border-bottom: 1px solid var(--border);
+
+    white-space: nowrap;
+
+}
+
+.org-table td {
+
+    padding: 12px;
+
+    border-bottom: 1px solid var(--border);
+
+    color: var(--text);
+
+    font-size: 13px;
+
+    vertical-align: middle;
+
+}
+
+.org-table tr:last-child td {
+    border-bottom: none;
+}
+
+.org-table-name {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.org-table-muted {
+    color: var(--text-secondary);
+}
+
+.org-icon-button {
+
+    padding: 7px 9px;
+
+    border-radius: 6px;
+
+    border: 1px solid var(--border);
+
+    background: transparent;
+
+    color: var(--text-secondary);
+
+    cursor: pointer;
+
+    transition: .2s;
+
+}
+
+.org-icon-button.org-danger:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.org-empty-cell {
+
+    padding: 30px 12px;
+
+    text-align: center;
+
+    color: var(--text-dark-secondary);
+
+    font-size: 13px;
+
+}
+
+/* ==========================================
+   ADD MEMBER MODAL — search + candidate list
+========================================== */
+
+.org-search-box {
+
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin-bottom: 12px;
+
+    padding: 10px 13px;
+
+    border-radius: 9px;
+
+    border: 1px solid var(--border);
+
+    background: var(--input);
+
+    color: var(--text-secondary);
+
+}
+
+.org-search-box input {
+
+    flex: 1;
+
+    border: none;
+    background: none;
+    outline: none;
+
+    color: var(--text);
+
+    font-size: 13px;
+
+}
+
+.org-candidate-list {
+
+    max-height: 260px;
+
+    overflow-y: auto;
+
+    margin-bottom: 16px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+}
+
+.org-candidate-row {
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 10px 13px;
+
+    border-bottom: 1px solid var(--border);
+
+    color: var(--text);
+
+    font-size: 13px;
+
+    cursor: pointer;
+
+}
+
+.org-candidate-row:last-child {
+    border-bottom: none;
+}
+
+.org-candidate-row:hover {
+    background: var(--hover);
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 900px) {
+
+    .org-page-header,
+    .org-detail-header-top {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+}
+
+@media (max-width: 640px) {
+
+    .org-section-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+}

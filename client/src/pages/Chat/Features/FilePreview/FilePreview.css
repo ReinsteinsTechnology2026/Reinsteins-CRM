@@ -1,0 +1,41 @@
+.file-preview-container{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-bottom:10px;
+}
+
+.file-preview-card{
+    display:flex;
+    align-items:center;
+    background:#202225;
+    border-radius:10px;
+    padding:10px;
+}
+
+.file-icon{
+    font-size:26px;
+    margin-right:12px;
+}
+
+.file-info{
+    flex:1;
+}
+
+.file-name{
+    font-weight:600;
+    color:white;
+}
+
+.file-size{
+    font-size:12px;
+    color:#7A8780;
+}
+
+.remove-file-btn{
+    border:none;
+    background:none;
+    color:#ff4d4f;
+    cursor:pointer;
+    font-size:18px;
+}

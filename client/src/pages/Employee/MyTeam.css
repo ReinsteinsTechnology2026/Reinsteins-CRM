@@ -1,0 +1,284 @@
+﻿/* ==========================================
+   MY TEAM / MY REPORTING MANAGER / TEAM LEAVE
+   APPROVALS — shared styles.
+
+   Matches the existing Employee-portal palette
+   (same hex values already used in
+   EmployeeLeave.css) rather than the Admin
+   pages' CSS custom properties, for visual
+   consistency with sibling employee pages.
+========================================== */
+
+.my-team-card {
+  background: #FFFFFF;
+  border-radius: 18px;
+  padding: 26px;
+  margin-bottom: 22px;
+  box-shadow: 0 8px 30px rgba(15, 12, 10, 0.18);
+  border: 1px solid #E2E9E5;
+}
+
+.my-team-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 6px;
+  color: #17211D;
+  font-size: 20px;
+}
+
+.my-team-header p {
+  margin: 0 0 20px;
+  color: #53615A;
+  font-size: 13.5px;
+}
+
+.my-team-empty {
+  padding: 30px;
+  text-align: center;
+  color: #7A8780;
+  font-size: 13.5px;
+}
+
+/* ==========================================
+   MY TEAM LIST
+========================================== */
+
+.my-team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.my-team-member-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px;
+  border-radius: 12px;
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+}
+
+.my-team-member-avatar {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #16A66A, #0E744A);
+  color: #17211D;
+  font-weight: 700;
+}
+
+.my-team-member-info {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.my-team-member-info strong {
+  color: #17211D;
+  font-size: 14px;
+}
+
+.my-team-member-info span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #53615A;
+  font-size: 12px;
+}
+
+.my-team-attendance {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+  background: rgba(148, 148, 148, 0.18);
+  color: #53615A;
+}
+
+.my-team-attendance.working {
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+.my-team-attendance.break {
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+.my-team-attendance.completed {
+  background: rgba(90, 130, 200, 0.18);
+  color: #8FB4E8;
+}
+
+.my-team-pending-leave {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+/* ==========================================
+   MY REPORTING MANAGER
+========================================== */
+
+.reporting-manager-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px;
+  border-radius: 12px;
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+}
+
+.reporting-manager-avatar {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #16A66A, #0E744A);
+  color: #17211D;
+  font-size: 24px;
+}
+
+.reporting-manager-info h3 {
+  margin: 0 0 8px;
+  color: #17211D;
+  font-size: 17px;
+}
+
+.reporting-manager-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  color: #53615A;
+  font-size: 13px;
+}
+
+.reporting-manager-detail svg {
+  color: #16A66A;
+}
+
+/* ==========================================
+   LEAVE APPROVAL LISTS
+========================================== */
+
+.leave-approval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.leave-approval-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px;
+  border-radius: 12px;
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+}
+
+.leave-approval-info {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.leave-approval-info strong {
+  color: #17211D;
+  font-size: 14px;
+}
+
+.leave-approval-info span {
+  color: #53615A;
+  font-size: 12.5px;
+}
+
+.leave-approval-reason {
+  color: #7A8780 !important;
+  font-style: italic;
+}
+
+.leave-approval-manager {
+  color: #16A66A !important;
+}
+
+.leave-approval-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.leave-approve-button,
+.leave-reject-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: .2s;
+}
+
+.leave-approve-button {
+  background: rgba(22,166,106,0.2);
+  color: #16A66A;
+}
+
+.leave-approve-button:hover {
+  background: #16A66A;
+  color: #fff;
+}
+
+.leave-reject-button {
+  background: rgba(214,69,69,0.2);
+  color: #D64545;
+}
+
+.leave-reject-button:hover {
+  background: #D64545;
+  color: #fff;
+}
+
+.leave-approve-button:disabled,
+.leave-reject-button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 700px) {
+  .my-team-member-row,
+  .leave-approval-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .reporting-manager-card {
+    flex-direction: column;
+    text-align: center;
+  }
+}

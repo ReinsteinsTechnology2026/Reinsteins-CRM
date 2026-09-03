@@ -1,0 +1,485 @@
+.meetings-calendar {
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 16px;
+
+}
+
+/* ==========================================
+   TOOLBAR
+========================================== */
+
+.cal-toolbar {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    flex-wrap: wrap;
+
+    gap: 14px;
+
+    padding: 14px 18px;
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    box-shadow: var(--shadow);
+
+}
+
+.cal-toolbar-nav {
+
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 10px;
+
+}
+
+.cal-nav-btn {
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 32px;
+    height: 32px;
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+
+    background: var(--input);
+
+    color: var(--text-secondary);
+
+    cursor: pointer;
+
+    transition: .15s;
+
+}
+
+.cal-nav-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary-hover);
+}
+
+.cal-today-btn {
+
+    padding: 7px 14px;
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+
+    background: var(--input);
+
+    color: var(--text-secondary);
+
+    font-size: 12.5px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: .15s;
+
+}
+
+.cal-today-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary-hover);
+}
+
+.cal-range-label {
+
+    margin-left: 4px;
+
+    color: var(--text);
+
+    font-size: 15.5px;
+    font-weight: 700;
+
+    white-space: nowrap;
+
+}
+
+.cal-toolbar-actions {
+
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 12px;
+
+}
+
+.cal-scope-toggle {
+
+    display: inline-flex;
+
+    border: 1px solid var(--border);
+    border-radius: 9px;
+
+    overflow: hidden;
+
+}
+
+.cal-scope-toggle button {
+
+    padding: 8px 15px;
+
+    border: none;
+
+    background: var(--input);
+
+    color: var(--text-secondary);
+
+    font-size: 12.5px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+}
+
+.cal-scope-toggle button.active {
+    background: var(--primary);
+    color: #17211D;
+}
+
+/* ==========================================
+   MONTH GRID
+========================================== */
+
+.cal-month-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(7, 1fr);
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+
+    overflow: hidden;
+
+    background: var(--border);
+
+    gap: 1px;
+
+}
+
+.cal-weekday-label {
+
+    padding: 10px 12px;
+
+    background: var(--card-light);
+
+    color: var(--text-muted);
+
+    font-size: 11px;
+    font-weight: 700;
+
+    text-transform: uppercase;
+    letter-spacing: .04em;
+
+}
+
+.cal-day-cell {
+
+    display: flex;
+    flex-direction: column;
+
+    min-height: 110px;
+
+    padding: 8px;
+
+    background: var(--card);
+
+}
+
+.cal-day-outside {
+    background: var(--card-light);
+    opacity: .55;
+}
+
+.cal-day-today {
+    background: rgba(22, 166, 106, .08);
+}
+
+.cal-day-number {
+
+    align-self: flex-start;
+
+    margin-bottom: 6px;
+
+    color: var(--text-secondary);
+
+    font-size: 12.5px;
+    font-weight: 700;
+
+}
+
+.cal-day-today .cal-day-number {
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 22px;
+    height: 22px;
+
+    border-radius: 50%;
+
+    background: var(--primary);
+
+    color: #17211D;
+
+}
+
+.cal-day-chips {
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 4px;
+
+}
+
+.cal-day-overflow {
+
+    margin-top: 2px;
+
+    color: var(--text-muted);
+
+    font-size: 10.5px;
+    font-weight: 600;
+
+}
+
+/* ==========================================
+   MEETING CHIP (shared by month/week/day)
+========================================== */
+
+.cal-meeting-chip {
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 3px;
+
+    width: 100%;
+
+    padding: 6px 8px;
+
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: 6px;
+
+    background: var(--input);
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition: .15s;
+
+}
+
+.cal-meeting-chip:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-hover);
+}
+
+.cal-meeting-chip .status-pill {
+
+    align-self: flex-start;
+
+    padding: 1px 8px;
+
+    font-size: 9.5px;
+
+}
+
+.cal-meeting-chip-title {
+
+    color: var(--text);
+
+    font-size: 11.5px;
+    font-weight: 600;
+
+    line-height: 1.35;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+}
+
+.cal-meeting-chip-title strong {
+    color: var(--primary-hover);
+}
+
+.cal-meeting-chip-meta {
+
+    display: flex;
+    align-items: center;
+
+    gap: 4px;
+
+    color: var(--text-muted);
+
+    font-size: 10px;
+
+}
+
+.cal-meeting-chip-meta svg:not(:first-child) {
+    margin-left: 6px;
+}
+
+/* ==========================================
+   WEEK / DAY AGENDA COLUMNS
+========================================== */
+
+.cal-agenda-columns {
+
+    display: grid;
+
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+
+    gap: 12px;
+
+}
+
+.cal-agenda-column {
+
+    display: flex;
+    flex-direction: column;
+
+    min-height: 200px;
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    overflow: hidden;
+
+}
+
+.cal-agenda-column-header {
+
+    display: flex;
+    align-items: baseline;
+
+    gap: 8px;
+
+    padding: 10px 12px;
+
+    border-bottom: 1px solid var(--border);
+
+    background: var(--card-light);
+
+}
+
+.cal-agenda-column-header span {
+
+    color: var(--text-muted);
+
+    font-size: 11px;
+    font-weight: 700;
+
+    text-transform: uppercase;
+
+}
+
+.cal-agenda-column-header strong {
+    color: var(--text);
+    font-size: 15px;
+}
+
+.cal-agenda-column-body {
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 8px;
+
+    padding: 10px;
+
+    flex: 1;
+
+}
+
+.cal-agenda-empty {
+
+    padding: 12px 4px;
+
+    color: var(--text-muted);
+
+    font-size: 11.5px;
+
+    text-align: center;
+
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 900px) {
+
+    .cal-month-grid {
+        grid-template-columns: repeat(7, minmax(60px, 1fr));
+        overflow-x: auto;
+    }
+
+    .cal-day-cell {
+        min-height: 90px;
+    }
+
+}
+
+@media (max-width: 700px) {
+
+    .cal-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .cal-toolbar-nav,
+    .cal-toolbar-actions {
+        justify-content: space-between;
+    }
+
+    .cal-range-label {
+        margin-left: 0;
+        font-size: 14px;
+    }
+
+    .cal-month-grid {
+        grid-template-columns: repeat(7, minmax(46px, 1fr));
+    }
+
+    .cal-weekday-label {
+        padding: 6px 4px;
+        font-size: 9.5px;
+    }
+
+    .cal-day-cell {
+        min-height: 70px;
+        padding: 5px;
+    }
+
+    .cal-meeting-chip-meta {
+        display: none;
+    }
+
+    .cal-agenda-columns {
+        grid-template-columns: 1fr;
+    }
+
+}

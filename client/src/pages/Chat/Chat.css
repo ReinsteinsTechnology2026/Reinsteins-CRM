@@ -1,0 +1,2268 @@
+/* ==========================================
+   WORKHUB CHAT - GLOBAL LAYOUT
+========================================== */
+
+.workhub-chat-layout{
+    width:100%;
+    height:100vh;
+    overflow:hidden;
+    display:flex;
+    background:#f5f7fb;
+}
+
+
+/* ==========================================
+   MAIN CHAT CONTAINER
+========================================== */
+
+.workhub-chat-page{
+    flex:1;
+    display:flex;
+    width:100%;
+    height:100%;
+    min-width:0;
+    min-height:0;
+    overflow:hidden;
+      background:#f5f7fb;
+}
+
+
+/* ==========================================
+   LEFT CHAT SIDEBAR
+========================================== */
+.workhub-chat-sidebar{
+    width:340px;
+    min-width:340px;
+
+    height:100%;
+    min-height:0;
+
+    display:flex;
+    flex-direction:column;
+    background:#F7FAF8;
+border-right:1px solid #CBECDD;
+}
+
+@media (max-width:1100px){
+    .workhub-chat-sidebar{
+        width:300px;
+        min-width:300px;
+    }
+}
+
+@media (max-width:768px){
+    .workhub-chat-sidebar{
+        width:260px;
+        min-width:260px;
+    }
+}
+/* ==========================================
+   CHAT SIDEBAR HEADER
+========================================== */
+
+.workhub-chat-sidebar-header {
+  min-height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 18px 20px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.workhub-chat-sidebar-header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.workhub-chat-sidebar-header p {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.workhub-chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.workhub-chat-header-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  background: rgba(18,137,87,.18);
+  color: var(--primary);
+  font-size: 16px;
+}
+
+/* ==========================================
+   NEW GROUP BUTTON
+========================================== */
+.workhub-new-group-button {
+  height: 40px;
+  min-width: 46px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--card);
+  color: var(--primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.workhub-new-group-button svg:first-child {
+  font-size: 8px;
+}
+
+.workhub-new-group-button svg:last-child {
+  font-size: 15px;
+}
+
+.workhub-new-group-button:hover {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+.workhub-new-group-button:active {
+  transform: scale(0.96);
+}
+
+/* ==========================================
+   CHAT SEARCH
+========================================== */
+
+.workhub-chat-search {
+  position: relative;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.workhub-chat-search > svg {
+  position: absolute;
+  top: 50%;
+  left: 30px;
+  color: #94a3b8;
+  font-size: 12px;
+  transform: translateY(-50%);
+}
+
+.workhub-chat-search input {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px 0 38px;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  outline: none;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 12px;
+}
+
+.workhub-chat-search input::placeholder {
+  color: #94a3b8;
+}
+
+.workhub-chat-search input:focus {
+  border-color: #8FB4E8;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(40, 120, 216, 0.07);
+}
+
+/* ==========================================
+   SEARCH RESULTS
+========================================== */
+
+.workhub-chat-search-results {
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.workhub-chat-section-label {
+  display: block;
+  padding: 6px 10px 8px;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.workhub-chat-no-results {
+  padding: 20px;
+  color: #94a3b8;
+  font-size: 12px;
+  text-align: center;
+}
+
+.workhub-chat-person {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workhub-chat-person:hover {
+  background: #f8fafc;
+}
+
+.workhub-chat-person-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.workhub-chat-person-info strong {
+  display: block;
+  overflow: visible;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workhub-chat-person-info span {
+  display: block;
+  margin-top: 3px;
+overflow: visible;
+  color: #94a3b8;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.workhub-chat-start-icon {
+  flex-shrink: 0;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+/* ==========================================
+   AVATARS
+========================================== */
+
+.workhub-chat-avatar {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.workhub-chat-avatar.large {
+  width: 44px;
+  height: 44px;
+  font-size: 16px;
+}
+
+.workhub-chat-avatar.group {
+  background: rgba(22, 166, 106, 0.15);
+  color: #16A66A;
+}
+
+.workhub-chat-avatar.group svg {
+  font-size: 16px;
+}
+
+.workhub-chat-avatar.large.group svg {
+  font-size: 18px;
+}
+
+.workhub-chat-online-dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #16A66A;
+}
+
+/* ==========================================
+   CONVERSATION AREA
+========================================== */
+
+.workhub-chat-conversation-area {
+  flex: 1;
+  min-height: 0;
+  padding: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.workhub-chat-conversation-area::-webkit-scrollbar {
+  width: 5px;
+}
+
+.workhub-chat-conversation-area::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background: #cbd5e1;
+}
+
+.workhub-chat-conversation {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 10px;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.workhub-chat-conversation:hover {
+  background: #f8fafc;
+}
+
+.workhub-chat-conversation.active {
+  border-color: #EAF3FF;
+  background: #EAF3FF;
+}
+
+.workhub-chat-conversation-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.workhub-chat-conversation-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.workhub-chat-conversation-top strong {
+ overflow: visible;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workhub-chat-conversation-info p {
+  margin: 4px 0 0;
+ overflow: visible;
+  color: #94a3b8;
+  font-size: 10px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workhub-last-message-sender {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.workhub-chat-unread-badge {
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 20px;
+  background: var(--primary);
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+/* ==========================================
+   SIDEBAR EMPTY STATES
+========================================== */
+
+.workhub-chat-sidebar-message {
+  padding: 30px 15px;
+  color: #94a3b8;
+  font-size: 12px;
+  text-align: center;
+}
+
+.workhub-chat-sidebar-empty {
+  padding: 45px 20px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.workhub-chat-sidebar-empty > svg {
+  margin-bottom: 12px;
+  color: #cbd5e1;
+  font-size: 30px;
+}
+
+.workhub-chat-sidebar-empty h3 {
+  margin: 0 0 6px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.workhub-chat-sidebar-empty p {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+/* ==========================================
+   RIGHT ACTIVE CHAT
+========================================== */
+.workhub-chat-main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+  background:#F7FAF8;
+    overflow:hidden;
+}
+/* ==========================================
+   CHAT WELCOME
+========================================== */
+
+.workhub-chat-welcome {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 30px;
+  color: #64748b;
+  text-align: center;
+   background:#F7FAF8;
+}
+
+.workhub-chat-welcome-icon {
+  width: 76px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  border-radius: 22px;
+  background: rgba(18,137,87,.18);
+  color: var(--primary);
+  font-size: 30px;
+}
+
+.workhub-chat-welcome h2 {
+  margin: 0 0 8px;
+  color: #1e293b;
+  font-size: 21px;
+}
+
+.workhub-chat-welcome p {
+  max-width: 400px;
+  margin: 0;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+/* ==========================================
+   ACTIVE CHAT HEADER
+========================================== */
+
+.workhub-active-chat-header{
+
+    height:72px;
+
+    min-height:72px;
+
+    flex-shrink:0;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:space-between;
+
+    gap:16px;
+
+    padding:0 20px;
+
+    box-sizing:border-box;
+
+    border-bottom:1px solid #e2e8f0;
+
+   background:#F7FAF8;
+
+}
+
+.workhub-active-chat-header h3 {
+  margin: 0 0 4px;
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.workhub-chat-status,
+.workhub-chat-group-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight:500;
+}
+
+.workhub-chat-status.online svg {
+  color: #16A66A;
+}
+
+.workhub-chat-status.offline svg {
+  color: #D64545;
+}
+
+.workhub-chat-status svg {
+  font-size: 7px;
+}
+
+.workhub-chat-group-status svg {
+  color: #7c3aed;
+  font-size: 8px;
+}
+
+/* ==========================================
+   MESSAGE AREA
+========================================== */
+
+.workhub-chat-messages{
+    flex:1;
+    min-height:0;
+
+    overflow-y:auto;
+    overflow-x:hidden;
+
+    padding:18px 15px;
+
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+
+    background:#F7FAF8;
+
+    scrollbar-width:thin;
+}
+
+.workhub-chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.workhub-chat-messages::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background: #cbd5e1;
+}
+
+.workhub-chat-loading {
+  padding: 40px;
+  color: #94a3b8;
+  font-size: 12px;
+  text-align: center;
+}
+
+.workhub-chat-empty-conversation {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.workhub-chat-empty-conversation > svg {
+  margin-bottom: 14px;
+  color: #cbd5e1;
+  font-size: 34px;
+}
+
+.workhub-chat-empty-conversation h3 {
+  margin: 0 0 6px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.workhub-chat-empty-conversation p {
+  margin: 0;
+  font-size: 11px;
+}
+
+/* ==========================================
+   MESSAGE ROW
+========================================== */
+
+.workhub-message-row {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.workhub-message-row.mine {
+  justify-content: flex-end;
+}
+
+.workhub-message-avatar {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.workhub-message-wrapper {
+  max-width: 68%;
+}
+
+.workhub-message-sender {
+  display: block;
+  margin: 0 0 4px 4px;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+/* ==========================================
+   MESSAGE BUBBLE
+========================================== */
+
+.workhub-message-bubble {
+  padding:8px 12px;
+  border: 1px solid #e2e8f0;
+ border-radius:16px;
+  width:fit-content;
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.03);
+}
+
+.workhub-message-bubble.mine {
+   padding:8px 12px;
+  border-color: #2878D8;
+  border-radius:16px;
+ background:#16A66A;
+    color:#ffffff;
+}
+
+.workhub-message-bubble p {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.workhub-message-bubble.mine p {
+  color: #ffffff;
+}
+
+.workhub-message-bubble span {
+  display: block;
+  margin-top: 4px;
+  color: #94a3b8;
+  font-size: 8px;
+  text-align: right;
+}
+
+.workhub-message-bubble.mine span {
+    color: rgba(255, 248, 230, 0.85);
+}
+
+/* ==========================================
+   MESSAGE COMPOSER
+========================================== */
+/* ==========================================
+   CHAT COMPOSER
+========================================== */
+.workhub-chat-composer{
+    display:flex;
+    flex-direction:column;
+
+    width:100%;
+
+    padding:12px 16px;
+
+   background:#F7FAF8;
+    border-top:1px solid #e6e9ef;
+
+
+    flex-shrink:0;
+}
+
+.workhub-chat-input-bar{
+
+    display:flex;
+
+    align-items:center;
+
+    gap:8px;
+
+    margin:0;
+
+    padding:0;
+
+    background:transparent;
+}
+.workhub-chat-input{
+    flex:1;
+    height:42px;
+
+    border:1px solid #CBECDD;
+    border-radius:12px;
+
+    padding:0 14px;
+
+   background:#F7FAF8;
+    color:#171312;
+
+    outline:none;
+}
+
+.workhub-chat-input::placeholder{
+
+    color:#94a3b8;
+}
+
+.workhub-chat-send-button{
+
+    width:28px;
+
+    height:28px;
+
+    border:none;
+
+    border-radius:10px;
+
+  background:#16A66A;
+color:#fff;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    cursor:pointer;
+
+    flex-shrink:0;
+
+    transition:.2s;
+}
+
+.workhub-chat-send-button svg{
+
+    font-size:12px;
+}
+
+.workhub-chat-send-button:hover:not(:disabled){
+
+     background:#128957;
+}
+
+.workhub-chat-send-button:disabled{
+
+    opacity:.45;
+}
+
+.workhub-chat-plus-button{
+    background:#FFFFFF;
+    border:1px solid #CBECDD;
+    color:#16A66A;
+}
+
+.workhub-chat-plus-button:hover{
+    background:#16A66A;
+    color:#FFFFFF;
+}
+
+
+
+/* ==========================================
+   CREATE GROUP MODAL OVERLAY
+========================================== */
+
+.workhub-group-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background: rgba(15, 23, 42, 0.52);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  animation: workhubGroupOverlayFade 0.2s ease;
+}
+
+@keyframes workhubGroupOverlayFade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* ==========================================
+   CREATE GROUP MODAL
+========================================== */
+
+.workhub-group-modal {
+  width: 100%;
+  max-width: 570px;
+  max-height: calc(100vh - 48px);
+  overflow: visible;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow:
+    0 25px 60px rgba(15, 23, 42, 0.2),
+    0 8px 24px rgba(15, 23, 42, 0.08);
+  animation: workhubGroupModalOpen 0.22s ease;
+}
+
+@keyframes workhubGroupModalOpen {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ==========================================
+   GROUP MODAL HEADER
+========================================== */
+
+.workhub-group-modal-header {
+  min-height: 86px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #f1f5f9;
+  background: #ffffff;
+}
+
+.workhub-group-modal-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.workhub-group-modal-icon {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: linear-gradient(
+    135deg,
+    #ede9fe,
+    #ddd6fe
+  );
+  color: #7c3aed;
+  font-size: 18px;
+}
+
+.workhub-group-modal-title h2 {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.workhub-group-modal-title p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.workhub-group-close-button {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.workhub-group-close-button:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+/* ==========================================
+   GROUP MODAL BODY
+========================================== */
+
+.workhub-group-modal-body {
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
+  padding: 22px;
+  box-sizing: border-box;
+}
+
+.workhub-group-modal-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.workhub-group-modal-body::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  background: #cbd5e1;
+}
+
+/* ==========================================
+   GROUP NAME
+========================================== */
+
+.workhub-group-form-group {
+  margin-bottom: 22px;
+}
+
+.workhub-group-form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workhub-group-form-group input {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  outline: none;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.workhub-group-form-group input:focus {
+  border-color: #8FB4E8;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(40, 120, 216, 0.08);
+}
+
+/* ==========================================
+   MEMBER HEADING
+========================================== */
+
+.workhub-group-member-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 12px;
+}
+
+.workhub-group-member-heading label {
+  display: block;
+  margin-bottom: 4px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workhub-group-member-heading p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.workhub-group-selected-count {
+  flex-shrink: 0;
+  padding: 5px 9px;
+  border-radius: 20px;
+  background: rgba(18,137,87,.18);
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ==========================================
+   GROUP SEARCH
+========================================== */
+
+.workhub-group-search {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.workhub-group-search > svg {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  color: #94a3b8;
+  font-size: 12px;
+  transform: translateY(-50%);
+}
+
+.workhub-group-search input {
+  width: 100%;
+  height: 43px;
+  padding: 0 14px 0 39px;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  outline: none;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 12px;
+}
+
+.workhub-group-search input:focus {
+  border-color: #8FB4E8;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(40, 120, 216, 0.08);
+}
+
+/* ==========================================
+   GROUP MEMBER LIST
+========================================== */
+
+.workhub-group-member-list {
+  max-height: 270px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.workhub-group-member {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workhub-group-member:hover {
+  background: #ffffff;
+}
+.workhub-group-member.selected {
+  border-color: rgba(18,137,87,.35);
+  background: rgba(18,137,87,.18);
+}
+
+.workhub-group-member-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.workhub-group-member-info strong {
+  display: block;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.workhub-group-member-info span {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 10px;
+  text-transform: capitalize;
+}
+
+.workhub-group-checkbox {
+  width: 21px;
+  height: 21px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #ffffff;
+  font-size: 9px;
+}
+.workhub-group-checkbox.selected {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.workhub-group-no-users {
+  padding: 35px 20px;
+  color: #94a3b8;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ==========================================
+   GROUP ERROR
+========================================== */
+
+.workhub-group-error {
+  margin-top: 12px;
+  padding: 9px 11px;
+  border: 1px solid #F5C6C6;
+  border-radius: 8px;
+  background: #FDECEC;
+  color: #D64545;
+  font-size: 11px;
+}
+
+/* ==========================================
+   GROUP MODAL FOOTER
+========================================== */
+
+.workhub-group-modal-footer {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 13px 22px;
+  box-sizing: border-box;
+  border-top: 1px solid #f1f5f9;
+  background: #ffffff;
+}
+
+.workhub-group-cancel-button,
+.workhub-group-create-button {
+  height: 42px;
+  padding: 0 17px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workhub-group-cancel-button {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+}
+
+.workhub-group-create-button {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.workhub-group-create-button:hover:not(:disabled) {
+  background: #1F5FA8;
+}
+
+.workhub-group-create-button:disabled {
+  border-color: #cbd5e1;
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 1100px) {
+  .workhub-chat-sidebar {
+    width: 300px;
+    min-width: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .workhub-chat-page-main {
+    width: calc(100% - 220px);
+    margin-left: 220px;
+  }
+
+ 
+ 
+
+
+  .workhub-message-wrapper {
+    max-width: 82%;
+  }
+
+  .workhub-group-modal-overlay {
+    padding: 14px;
+  }
+
+  .workhub-group-modal {
+    max-height: calc(100vh - 28px);
+    border-radius: 15px;
+  }
+
+  .workhub-group-modal-header {
+    padding: 16px;
+  }
+
+  .workhub-group-modal-body {
+    max-height: calc(100vh - 225px);
+    padding: 17px;
+  }
+
+  .workhub-group-modal-footer {
+    padding: 12px 17px;
+  }
+
+  .workhub-group-member-list {
+    max-height: 230px;
+  }
+}
+/* ==========================================
+   WORKHUB CHAT - CALL HEADER ACTIONS
+========================================== */
+
+
+
+.workhub-active-chat-user {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.workhub-chat-call-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.workhub-chat-call-button {
+  height: 38px;
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.workhub-chat-call-button svg {
+  font-size: 13px;
+}
+
+.workhub-chat-call-button:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: rgba(18,137,87,.18);
+  color: var(--primary);
+  box-shadow: var(--glow);
+}
+
+.workhub-chat-call-button.video {
+  border-color: rgba(18,137,87,.35);
+  color: var(--primary);
+}
+
+.workhub-chat-call-button:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.workhub-chat-call-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ==========================================
+   CALL ERROR BANNER
+========================================== */
+
+.workhub-call-error-banner {
+  padding: 9px 18px;
+  border-bottom: 1px solid #F5C6C6;
+  background: #FDECEC;
+  color: #D64545;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* ==========================================
+   INCOMING CALL OVERLAY
+========================================== */
+
+.workhub-incoming-call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background:
+    rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation:
+    workhubCallOverlayFade
+    0.2s ease;
+}
+
+@keyframes workhubCallOverlayFade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* ==========================================
+   INCOMING CALL CARD
+========================================== */
+
+.workhub-incoming-call-card {
+  width: 100%;
+  max-width: 390px;
+  padding: 38px 30px 30px;
+  box-sizing: border-box;
+  border: 1px solid
+    rgba(255, 255, 255, 0.18);
+  border-radius: 24px;
+  background: #ffffff;
+  text-align: center;
+  box-shadow:
+    0 30px 80px
+    rgba(15, 23, 42, 0.28);
+  animation:
+    workhubIncomingCallOpen
+    0.25s ease;
+}
+
+@keyframes workhubIncomingCallOpen {
+  from {
+    opacity: 0;
+    transform:
+      translateY(14px)
+      scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+.workhub-incoming-call-avatar {
+  width: 82px;
+  height: 82px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  background: linear-gradient(
+    135deg,
+    var(--primary),
+    var(--primary-hover)
+  );
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 700;
+  box-shadow:
+    0 0 0 9px rgba(18,137,87,.18);
+}
+
+.workhub-incoming-call-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.workhub-incoming-call-card h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.workhub-incoming-call-card > p {
+  margin: 6px 0 0;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.workhub-incoming-call-type-icon {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 22px auto;
+  border-radius: 50%;
+  background: rgba(18,137,87,.18);
+  color: var(--primary);
+  font-size: 16px;
+}
+
+/* ==========================================
+   INCOMING CALL BUTTONS
+========================================== */
+
+.workhub-incoming-call-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  margin-top: 25px;
+}
+
+.workhub-call-reject-button,
+.workhub-call-accept-button {
+  min-width: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workhub-call-reject-button svg,
+.workhub-call-accept-button svg {
+  width: 54px;
+  height: 54px;
+  padding: 17px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 18px;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.workhub-call-reject-button {
+  color: #64748b;
+}
+
+.workhub-call-reject-button svg {
+  background: #D64545;
+  box-shadow:
+    0 8px 20px
+    rgba(214, 69, 69, 0.24);
+}
+
+.workhub-call-accept-button {
+  color: #64748b;
+}
+
+.workhub-call-accept-button svg {
+  background: #16A66A;
+  box-shadow:
+    0 8px 20px
+    rgba(22, 166, 106, 0.24);
+}
+
+.workhub-call-reject-button:hover svg,
+.workhub-call-accept-button:hover svg {
+  transform: scale(1.07);
+}
+
+/* ==========================================
+   ACTIVE CALL OVERLAY
+========================================== */
+
+.workhub-call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
+  background:
+    rgba(2, 6, 23, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* ==========================================
+   CALL WINDOW
+========================================== */
+
+.workhub-call-window {
+  position: relative;
+  width: min(
+    1050px,
+    calc(100vw - 48px)
+  );
+  height: min(
+    680px,
+    calc(100vh - 48px)
+  );
+ overflow: visible;
+  border: 1px solid
+    rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  background: #0f172a;
+  box-shadow:
+    0 35px 100px
+    rgba(0, 0, 0, 0.45);
+  animation:
+    workhubCallWindowOpen
+    0.25s ease;
+}
+
+@keyframes workhubCallWindowOpen {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ==========================================
+   CALL MEDIA AREA
+========================================== */
+
+.workhub-call-media-area {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  background:
+    radial-gradient(
+      circle at top,
+      #1e293b,
+      #020617 75%
+    );
+}
+
+.workhub-call-remote-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  background: #020617;
+}
+
+/* ==========================================
+   AUDIO CALL PROFILE
+========================================== */
+
+.workhub-audio-call-profile {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding-bottom: 80px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.workhub-audio-call-avatar,
+.workhub-video-call-avatar {
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background:
+    linear-gradient(
+      135deg,
+      #3b82f6,
+      #6366f1
+    );
+  color: #ffffff;
+  font-size: 42px;
+  font-weight: 700;
+  box-shadow:
+    0 0 0 14px
+    rgba(255, 255, 255, 0.05),
+    0 20px 50px
+    rgba(0, 0, 0, 0.3);
+}
+
+.workhub-audio-call-profile h2 {
+  margin: 28px 0 8px;
+  color: #ffffff;
+  font-size: 25px;
+  font-weight: 600;
+}
+
+.workhub-audio-call-profile p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+/* ==========================================
+   VIDEO CALL CONNECTING STATUS
+========================================== */
+
+.workhub-video-call-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding-bottom: 70px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(
+      circle at center,
+      rgba(30, 41, 59, 0.5),
+      rgba(2, 6, 23, 0.88)
+    );
+  text-align: center;
+}
+
+.workhub-video-call-status h2 {
+  margin: 25px 0 7px;
+  color: #ffffff;
+  font-size: 23px;
+}
+
+.workhub-video-call-status p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+/* ==========================================
+   LOCAL VIDEO PREVIEW
+========================================== */
+
+.workhub-call-local-video-wrapper {
+  position: absolute;
+  right: 22px;
+  bottom: 105px;
+  z-index: 4;
+  width: 210px;
+  height: 145px;
+  overflow: visible;
+  border: 2px solid
+    rgba(255, 255, 255, 0.7);
+  border-radius: 16px;
+  background: #1e293b;
+  box-shadow:
+    0 15px 35px
+    rgba(0, 0, 0, 0.35);
+}
+
+.workhub-call-local-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.workhub-local-camera-off {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 7px;
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+.workhub-local-camera-off svg {
+  font-size: 22px;
+}
+
+.workhub-local-camera-off span {
+  font-size: 10px;
+}
+
+/* ==========================================
+   CALL TOP BAR
+========================================== */
+
+.workhub-call-top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  padding: 18px 24px;
+  box-sizing: border-box;
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(2, 6, 23, 0.78),
+      transparent
+    );
+}
+
+.workhub-call-top-bar strong {
+  display: block;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.workhub-call-top-bar span {
+  display: block;
+  margin-top: 4px;
+  color: #cbd5e1;
+  font-size: 10px;
+}
+
+/* ==========================================
+   CALL CONTROLS
+========================================== */
+
+.workhub-call-controls {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid
+    rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background:
+    rgba(15, 23, 42, 0.82);
+  box-shadow:
+    0 12px 35px
+    rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transform:
+    translateX(-50%);
+}
+
+.workhub-call-control-button,
+.workhub-call-end-button {
+  min-width: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.workhub-call-control-button svg,
+.workhub-call-end-button svg {
+  width: 44px;
+  height: 44px;
+  padding: 14px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background:
+    rgba(255, 255, 255, 0.13);
+  color: #ffffff;
+  font-size: 15px;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.workhub-call-control-button:hover svg {
+  background:
+    rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+
+.workhub-call-control-button.disabled svg {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.workhub-call-end-button svg {
+  background: #D64545;
+}
+
+.workhub-call-end-button:hover svg {
+  background: #D64545;
+  transform: translateY(-1px);
+}
+
+/* ==========================================
+   CALL RESPONSIVE
+========================================== */
+
+@media (max-width: 768px) {
+  .workhub-chat-call-button {
+    width: 38px;
+    padding: 0;
+  }
+
+  .workhub-chat-call-button span {
+    display: none;
+  }
+
+  .workhub-call-overlay {
+    padding: 10px;
+  }
+
+  .workhub-call-window {
+    width: calc(
+      100vw - 20px
+    );
+    height: calc(
+      100vh - 20px
+    );
+    border-radius: 18px;
+  }
+
+  .workhub-call-local-video-wrapper {
+    right: 14px;
+    bottom: 110px;
+    width: 125px;
+    height: 170px;
+    border-radius: 13px;
+  }
+
+  .workhub-call-controls {
+    bottom: 16px;
+    gap: 5px;
+    padding: 8px;
+  }
+
+  .workhub-call-control-button,
+  .workhub-call-end-button {
+    min-width: 58px;
+  }
+
+  .workhub-call-control-button svg,
+  .workhub-call-end-button svg {
+    width: 41px;
+    height: 41px;
+    padding: 13px;
+  }
+
+  .workhub-incoming-call-card {
+    max-width: 340px;
+    padding:
+      32px 20px
+      25px;
+  }
+}
+
+.workhub-chat-image {
+  width: 250px;
+  max-width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform .2s;
+}
+
+.workhub-chat-image:hover {
+  transform: scale(1.03);
+}
+
+.workhub-image-preview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 99999;
+  padding: 40px;
+  cursor: pointer;
+}
+
+.workhub-image-preview-img {
+  width: auto;
+  height: auto;
+  max-width: 85vw;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 12px;
+  background: var(--card);
+  padding: 8px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  cursor: default;
+}/* =====================================================
+   WORKHUB ATTACHMENT MENU
+===================================================== */
+
+.workhub-attachment-wrapper{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+/* PLUS BUTTON */
+
+.workhub-chat-plus-button{
+
+    width:27px;
+
+    height:27px;
+
+    border:none;
+
+    outline:none;
+
+    border-radius:8px;
+
+   background:#16A66A;
+
+    color:#fff;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    font-size:15px;
+
+    cursor:pointer;
+
+    transition:.25s;
+
+    box-shadow:0 6px 16px rgba(40,120,216,.22);
+}
+
+.workhub-chat-plus-button:hover{
+
+    transform:scale(1.05);
+
+    background:#16A66A;
+}
+
+/* POPUP */
+
+.workhub-attachment-menu{
+
+    position:absolute;
+
+    bottom:35px;
+
+    left:0;
+
+    width:220px;
+
+    background:#1f1f21;
+
+    border:1px solid rgba(255,255,255,.08);
+
+    border-radius:12px;
+
+    overflow:hidden;
+
+    box-shadow:0 18px 40px rgba(0,0,0,.30);
+
+    animation:attachmentPopup .18s ease;
+
+    z-index:99999;
+}
+
+/* SMALL ARROW */
+
+.workhub-attachment-menu::after{
+
+    content:"";
+
+    position:absolute;
+
+    left:22px;
+
+    bottom:-8px;
+
+    width:16px;
+    height:10px;
+
+    background:#1b1b1d;
+
+    transform:rotate(45deg);
+
+}
+
+/* ITEM */
+
+.workhub-menu-item{
+
+    width:100%;
+
+    border:none;
+
+    background:transparent;
+
+    color:#fff;
+
+    display:flex;
+
+    align-items:center;
+
+   gap:12px;
+
+   padding:12px 14px;
+
+    cursor:pointer;
+
+    transition:.2s;
+
+    text-align:left;
+}
+
+.workhub-menu-item:hover{
+
+    background:#2b2b2d;
+}
+
+/* ICON */
+
+.workhub-menu-icon{
+
+    width:38px;
+    height:38px;
+
+    border-radius:14px;
+
+    flex-shrink:0;
+
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+   font-size:18px;
+
+    background:#2f2f33;
+}
+
+.workhub-menu-icon.image{
+
+    background:#264dff;
+}
+
+.workhub-menu-icon.file{
+
+    background:#00b894;
+}
+.workhub-menu-icon.video{
+
+    background:#D64545;
+}
+
+.workhub-menu-icon.audio{
+
+    background:#16a34a;
+}
+/* CONTENT */
+
+.workhub-menu-content{
+
+    flex:1;
+}
+
+.workhub-menu-content h4{
+
+    margin:0;
+
+    color:#fff;
+
+    font-size:14px;
+
+    font-weight:600;
+
+    line-height:1.2;
+}
+
+.workhub-menu-content p{
+
+    margin-top:2px;
+
+    color:#9ca3af;
+
+    font-size:11px;
+
+    line-height:1.3;
+}
+
+/* DIVIDER */
+
+.workhub-menu-item+.workhub-menu-item{
+
+    border-top:1px solid rgba(255,255,255,.06);
+}
+
+/* ANIMATION */
+
+@keyframes attachmentPopup{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(12px) scale(.95);
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0) scale(1);
+    }
+
+}
+.workhub-menu-arrow{
+    color:#7d8597;
+    font-size:18px;
+    margin-left:auto;
+    transition:.25s;
+}
+
+.workhub-menu-item:hover .workhub-menu-arrow{
+    transform:translateX(6px);
+    color:#ffffff;
+}
+
+.workhub-menu-icon.ai{
+    background:#7c3aed;
+}
+
+.workhub-menu-icon.web{
+    background:#0891b2;
+}
+
+.workhub-menu-item:hover .workhub-menu-icon{
+    transform:scale(1.08);
+    transition:.25s;
+}
+.workhub-chat-input-wrapper{
+    display:flex;
+    align-items:center;
+    gap:12px;
+
+    width:100%;
+
+    padding:12px 16px;
+
+    background:#F7FAF8;
+
+    border-top:1px solid #CBECDD;
+}
+
+.workhub-chat-input-wrapper:focus-within{
+color:#16A66A;
+
+    box-shadow:0 0 0 3px rgba(40,120,216,.10);
+}

@@ -1,0 +1,29 @@
+/* ==========================================
+   MOBILE NAV BACKDROP
+
+   Sits just below the sidebar's existing
+   z-index:1000 (see EmployeeSidebar.css /
+   AdminSidebar.css) so the drawer always
+   renders above it, and well below the app's
+   modal tier (9999+) so a modal opened while
+   the drawer happens to be open still wins.
+========================================== */
+
+.mobile-nav-backdrop {
+
+    position: fixed;
+    inset: 0;
+
+    z-index: 999;
+
+    background: rgba(0, 0, 0, .5);
+
+}
+
+@media (min-width: 1024px) {
+
+    .mobile-nav-backdrop {
+        display: none;
+    }
+
+}

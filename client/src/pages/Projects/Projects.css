@@ -1,0 +1,597 @@
+/* ==========================================
+   SHARED PAGE SHELL
+   (.wi-page container itself now lives in
+   workItems.css so every work-management
+   page shares one consistent max-width)
+========================================== */
+
+.wi-page-header {
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    margin-bottom: 28px;
+
+}
+
+.wi-page-header h1 {
+
+    margin: 0;
+
+    font-size: 30px;
+    font-weight: 700;
+
+    color: var(--text-dark);
+
+}
+
+.wi-page-header p {
+
+    margin-top: 8px;
+
+    max-width: 560px;
+
+    color: var(--text-dark-secondary);
+
+    font-size: 14px;
+
+    line-height: 1.6;
+
+}
+
+.wi-loading {
+
+    padding: 60px 0;
+
+    text-align: center;
+
+    color: var(--text-dark-secondary);
+
+}
+
+/* ==========================================
+   BUTTONS
+========================================== */
+
+.wi-primary-button {
+
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    padding: 12px 20px;
+
+    border: none;
+    outline: none;
+
+    border-radius: 10px;
+
+    background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+
+    color: #ffffff;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition: .2s;
+
+    white-space: nowrap;
+
+}
+
+.wi-primary-button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--glow);
+}
+
+.wi-primary-button:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.wi-secondary-button {
+
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    padding: 11px 18px;
+
+    border: 1px solid var(--border);
+    outline: none;
+
+    border-radius: 10px;
+
+    background: var(--card-light);
+
+    color: var(--text);
+
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition: .2s;
+
+}
+
+.wi-secondary-button:hover {
+    background: var(--hover);
+}
+
+/* ==========================================
+   CODE BADGE (PR-001 / US-001 / T-001)
+========================================== */
+
+.wi-code {
+
+    display: inline-block;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    letter-spacing: .04em;
+
+    color: var(--primary-hover);
+
+    margin-bottom: 6px;
+
+}
+
+/* ==========================================
+   PROJECT GRID (ProjectsList)
+========================================== */
+
+.wi-project-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+
+    gap: 20px;
+
+}
+
+.wi-project-card {
+
+    padding: 22px;
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    box-shadow: var(--shadow);
+
+    cursor: pointer;
+
+    transition: .2s;
+
+}
+
+.wi-project-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--primary);
+}
+
+.wi-project-card-top {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 4px;
+
+}
+
+.wi-project-card h3 {
+
+    margin: 0 0 10px;
+
+    color: var(--text);
+
+    font-size: 18px;
+
+}
+
+.wi-project-description {
+
+    margin: 0 0 16px;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+
+    line-height: 1.6;
+
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+
+}
+
+.wi-project-meta {
+
+    display: flex;
+
+    gap: 20px;
+
+    margin-bottom: 16px;
+
+}
+
+.wi-project-meta label,
+.wi-project-header-meta label,
+.wi-stat-card label {
+
+    display: block;
+
+    margin-bottom: 4px;
+
+    color: var(--text-muted);
+
+    font-size: 11px;
+
+    text-transform: uppercase;
+    letter-spacing: .04em;
+
+}
+
+.wi-project-meta span {
+
+    color: var(--text);
+
+    font-size: 13px;
+    font-weight: 600;
+
+}
+
+.wi-project-card-footer {
+
+    display: flex;
+    align-items: center;
+
+    gap: 16px;
+
+    margin-bottom: 10px;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+
+}
+
+.wi-project-progress-label {
+
+    margin-left: auto;
+
+    font-weight: 700;
+
+    color: var(--primary-hover);
+
+}
+
+.wi-open-project-button {
+
+    width: 100%;
+
+    justify-content: center;
+
+    margin-top: 16px;
+
+}
+
+/* ==========================================
+   PROJECT / USER STORY HEADER
+========================================== */
+
+.wi-project-header {
+
+    padding: 26px;
+
+    margin-bottom: 24px;
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+    box-shadow: var(--shadow);
+
+}
+
+.wi-project-header-top {
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    gap: 16px;
+
+}
+
+.wi-project-header-top h1 {
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 26px;
+
+}
+
+.wi-project-header-actions {
+
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 12px;
+
+}
+
+.wi-project-header .wi-project-description {
+
+    margin-top: 16px;
+
+    -webkit-line-clamp: unset;
+
+}
+
+.wi-project-header-meta {
+
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 28px;
+
+    margin: 20px 0;
+
+    padding: 18px 0;
+
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+
+}
+
+.wi-project-header-meta span {
+
+    color: var(--text);
+
+    font-size: 13px;
+    font-weight: 600;
+
+}
+
+.wi-project-progress-row {
+
+    display: flex;
+    align-items: center;
+
+    gap: 14px;
+
+}
+
+.wi-project-progress-row span {
+
+    white-space: nowrap;
+
+    font-size: 13px;
+    font-weight: 700;
+
+    color: var(--primary-hover);
+
+}
+
+/* ==========================================
+   STATS GRID
+========================================== */
+
+.wi-stats-grid {
+
+    display: grid;
+
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+
+    gap: 16px;
+
+    margin-bottom: 28px;
+
+}
+
+.wi-stat-card {
+
+    padding: 18px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 12px;
+
+    background: var(--card);
+
+}
+
+.wi-stat-card h3 {
+
+    margin: 6px 0 0;
+
+    color: var(--text);
+
+    font-size: 26px;
+
+}
+
+.wi-stat-card-danger h3 {
+    color: var(--danger);
+}
+
+/* ==========================================
+   SECTION HEADER
+========================================== */
+
+.wi-section-header {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 16px;
+
+}
+
+.wi-section-header h2 {
+
+    margin: 0;
+
+    color: var(--text-dark);
+
+    font-size: 20px;
+
+}
+
+/* ==========================================
+   STORY / TASK ROW LIST
+========================================== */
+
+.wi-story-list {
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 12px;
+
+}
+
+.wi-story-row {
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+
+    padding: 18px 20px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 12px;
+
+    background: var(--card);
+
+    cursor: pointer;
+
+    transition: .2s;
+
+}
+
+.wi-story-row:hover {
+    border-color: var(--primary);
+    background: var(--card-light);
+}
+
+.wi-story-row-main {
+
+    display: flex;
+    align-items: center;
+
+    gap: 16px;
+
+    min-width: 0;
+
+}
+
+.wi-story-row-main .wi-code {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.wi-story-row-main h4 {
+
+    margin: 0;
+
+    color: var(--text);
+
+    font-size: 15px;
+
+}
+
+.wi-story-row-main p {
+
+    margin: 4px 0 0;
+
+    color: var(--text-secondary);
+
+    font-size: 12px;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 420px;
+
+}
+
+.wi-story-row-meta {
+
+    display: flex;
+    align-items: center;
+
+    gap: 16px;
+
+    flex-shrink: 0;
+
+}
+
+.wi-story-task-count,
+.wi-story-progress-label {
+
+    font-size: 12px;
+    font-weight: 700;
+
+    color: var(--text-secondary);
+
+    white-space: nowrap;
+
+}
+
+.wi-story-progress-label {
+    color: var(--primary-hover);
+    min-width: 40px;
+    text-align: right;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 900px) {
+
+    .wi-page {
+        padding: 20px;
+    }
+
+    .wi-page-header,
+    .wi-project-header-top {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .wi-story-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .wi-story-row-main p {
+        max-width: 260px;
+    }
+
+}

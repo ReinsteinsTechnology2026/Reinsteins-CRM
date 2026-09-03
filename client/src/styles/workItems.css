@@ -1,0 +1,476 @@
+/* ==========================================
+   SHARED STATUS / PRIORITY PILLS
+   Used by Projects, User Stories, Tasks
+   and the Task Workspace.
+========================================== */
+
+.status-pill {
+
+    display: inline-flex;
+    align-items: center;
+
+    padding: 5px 12px;
+
+    border-radius: 20px;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    white-space: nowrap;
+
+    letter-spacing: .02em;
+
+}
+
+.status-pill.status-neutral {
+    background: rgba(122, 135, 128, .18);
+    color: var(--text-secondary);
+}
+
+.status-pill.status-in-progress {
+    /* Deliberately --info, not --primary -- primary is now the same
+       emerald family as --success, so reusing it here would make
+       "in progress" and "closed" nearly indistinguishable. */
+    background: rgba(40, 120, 216, .16);
+    color: var(--info);
+}
+
+.status-pill.status-pending-review {
+    background: rgba(217, 154, 36, .18);
+    color: var(--warning);
+}
+
+.status-pill.status-closed {
+    background: rgba(22, 166, 106, .18);
+    color: var(--success);
+}
+
+.status-pill.status-cancelled {
+    background: rgba(214, 69, 69, .18);
+    color: var(--danger);
+}
+
+.status-pill.status-live {
+
+    background: rgba(214, 69, 69, .16);
+    color: var(--danger);
+
+    gap: 6px;
+
+}
+
+.status-pill.status-live::before {
+
+    content: "";
+
+    width: 7px;
+    height: 7px;
+
+    border-radius: 50%;
+
+    background: var(--danger);
+
+    animation: wi-live-pulse 1.6s ease-in-out infinite;
+
+}
+
+@keyframes wi-live-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .35; }
+}
+
+.priority-pill {
+
+    display: inline-flex;
+    align-items: center;
+
+    padding: 4px 10px;
+
+    border-radius: 8px;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    white-space: nowrap;
+
+}
+
+.priority-pill.priority-low {
+    background: rgba(22, 166, 106, .14);
+    color: var(--success);
+}
+
+.priority-pill.priority-medium {
+    /* --info here too, same reasoning as status-in-progress above. */
+    background: rgba(40, 120, 216, .14);
+    color: var(--info);
+}
+
+.priority-pill.priority-high {
+    background: rgba(217, 154, 36, .16);
+    color: var(--warning);
+}
+
+.priority-pill.priority-critical {
+    background: rgba(214, 69, 69, .16);
+    color: var(--danger);
+}
+
+/* ==========================================
+   SHARED PROGRESS BAR
+========================================== */
+
+.wi-progress-track {
+
+    width: 100%;
+    height: 8px;
+
+    border-radius: 20px;
+
+    background: var(--progress-bg);
+
+    overflow: hidden;
+
+}
+
+.wi-progress-fill {
+
+    height: 100%;
+
+    border-radius: 20px;
+
+    background: linear-gradient(
+        135deg,
+        var(--primary),
+        var(--primary-hover)
+    );
+
+    transition: width .3s ease;
+
+}
+
+/* ==========================================
+   SHARED EMPTY STATE
+========================================== */
+
+.wi-empty-state {
+
+    width: 100%;
+
+    padding: 60px 20px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    text-align: center;
+
+    border: 2px dashed var(--border);
+
+    border-radius: var(--radius);
+
+    color: var(--text-dark-secondary);
+
+}
+
+.wi-empty-state svg {
+
+    font-size: 30px;
+
+    color: var(--text-dark-secondary);
+
+    margin-bottom: 6px;
+
+}
+
+.wi-empty-state h3 {
+
+    margin: 0;
+
+    color: var(--text-dark);
+
+    font-size: 18px;
+
+}
+
+.wi-empty-state p {
+
+    margin: 0;
+
+    font-size: 13px;
+
+}
+
+/* ==========================================
+   SHARED BREADCRUMB
+========================================== */
+
+.wi-breadcrumb {
+
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+
+    gap: 8px;
+
+    margin-bottom: 18px;
+
+    font-size: 13px;
+
+    color: var(--text-dark-secondary);
+
+}
+
+.wi-breadcrumb button {
+
+    background: none;
+    border: none;
+
+    padding: 0;
+
+    color: var(--text-dark-secondary);
+
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+}
+
+.wi-breadcrumb button:hover {
+    color: var(--primary-hover);
+}
+
+.wi-breadcrumb span.current {
+    color: var(--text-dark);
+    font-weight: 700;
+}
+
+/* ==========================================
+   SHARED CONTENT CONTAINER
+   Keeps every work-management page
+   (Projects, Project Detail, User Story
+   Detail, Task Management, My Tasks,
+   Task Workspace) aligned to the same
+   width instead of stretching edge to edge.
+========================================== */
+
+.wi-page {
+
+    max-width: 1400px;
+
+    margin: 0 auto;
+
+    padding: 32px 40px;
+
+    box-sizing: border-box;
+
+}
+
+@media (max-width: 900px) {
+
+    .wi-page {
+        padding: 20px;
+    }
+
+}
+
+/* ==========================================
+   SHARED FILTER BAR
+   Used by Projects, Admin Tasks and
+   My Tasks filter rows.
+========================================== */
+
+.wi-filters-bar {
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+
+    gap: 12px;
+
+    margin-bottom: 26px;
+
+}
+
+.wi-filters-search {
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 10px 14px;
+
+    flex: 1;
+    min-width: 220px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+    background: var(--input);
+
+    color: var(--text-muted);
+
+}
+
+.wi-filters-search input {
+
+    flex: 1;
+
+    border: none;
+    background: none;
+    outline: none;
+
+    color: var(--text);
+
+    font-size: 13.5px;
+
+}
+
+.wi-filters-bar select,
+.wi-filters-bar input[type="date"] {
+
+    padding: 10px 14px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+    background: var(--input);
+
+    color: var(--text);
+
+    font-size: 13px;
+
+    outline: none;
+
+}
+
+/* ==========================================
+   SHARED PROFESSIONAL TABLE
+   Used by the Task list inside a User
+   Story, and the Admin global Tasks
+   browser.
+========================================== */
+
+.wi-table-wrapper {
+
+    overflow-x: auto;
+
+    border: 1px solid var(--border);
+
+    border-radius: var(--radius);
+
+    background: var(--card);
+
+}
+
+.wi-table {
+
+    width: 100%;
+
+    border-collapse: collapse;
+
+    min-width: 720px;
+
+}
+
+.wi-table thead th {
+
+    padding: 14px 18px;
+
+    background: var(--card-light);
+
+    color: var(--text-muted);
+
+    font-size: 11px;
+    font-weight: 700;
+
+    text-transform: uppercase;
+    letter-spacing: .04em;
+
+    text-align: left;
+
+    white-space: nowrap;
+
+}
+
+.wi-table tbody tr {
+
+    cursor: pointer;
+
+    transition: .15s;
+
+    border-top: 1px solid var(--border);
+
+}
+
+.wi-table tbody tr:hover {
+    background: var(--hover);
+}
+
+.wi-table td {
+
+    padding: 14px 18px;
+
+    color: var(--text-secondary);
+
+    font-size: 13px;
+
+    white-space: nowrap;
+
+}
+
+.wi-table-task-cell {
+
+    display: flex;
+    flex-direction: column;
+
+    gap: 3px;
+
+}
+
+.wi-table-task-cell strong {
+
+    color: var(--text);
+
+    font-size: 13.5px;
+    font-weight: 700;
+
+    white-space: normal;
+
+}
+
+.wi-table-task-cell span {
+
+    color: var(--text-muted);
+
+    font-size: 11px;
+
+}
+
+.wi-table-progress-cell {
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    min-width: 120px;
+
+}
+
+.wi-table-progress-cell .wi-progress-track {
+    width: 70px;
+}
+
+.wi-table-progress-cell span {
+    color: var(--primary-hover);
+    font-weight: 700;
+    font-size: 12px;
+}

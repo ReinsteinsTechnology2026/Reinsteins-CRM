@@ -1,0 +1,879 @@
+﻿/* ==========================================
+   PROJECT WORKSPACE
+   Compact, table-driven, DevOps-style layout.
+   Matches the existing Employee-portal palette.
+========================================== */
+
+.pw-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #53615A;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pw-back-button:hover {
+  color: #16A66A;
+}
+
+.pw-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pw-header h2 {
+  margin: 0 0 4px;
+  color: #17211D;
+  font-size: 20px;
+}
+
+.pw-header p {
+  margin: 0;
+  color: #7A8780;
+  font-size: 13px;
+}
+
+.pw-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.pw-edit-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid #E2E9E5;
+  background: transparent;
+  color: #53615A;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pw-edit-button:hover {
+  border-color: #16A66A;
+  color: #16A66A;
+}
+
+.pw-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 14px 0 10px;
+  color: #53615A;
+  font-size: 12.5px;
+}
+
+.pw-header-meta span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ==========================================
+   TABS
+========================================== */
+
+.pw-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 18px 0 14px;
+  border-bottom: 1px solid #E2E9E5;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pw-tab {
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  color: #7A8780;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.pw-tab.active {
+  color: #16A66A;
+  border-bottom-color: #16A66A;
+}
+
+.pw-tab:hover {
+  color: #17211D;
+}
+
+/* ==========================================
+   OVERVIEW STATS
+========================================== */
+
+.pw-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.pw-overview-stat {
+  padding: 12px;
+  border-radius: 8px;
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+}
+
+.pw-overview-stat.warning {
+  border-color: #D64545;
+}
+
+.pw-overview-stat span {
+  display: block;
+  margin-bottom: 4px;
+  color: #7A8780;
+  font-size: 11px;
+}
+
+.pw-overview-stat strong {
+  color: #17211D;
+  font-size: 18px;
+}
+
+.pw-overview-stat.warning strong {
+  color: #D64545;
+}
+
+/* ==========================================
+   COMPACT TABLE (Overview + Backlog task rows)
+========================================== */
+
+.pw-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pw-table th {
+  padding: 8px 10px;
+  border-bottom: 1px solid #E2E9E5;
+  color: #7A8780;
+  font-size: 11px;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pw-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #F7FAF8;
+  color: #53615A;
+  font-size: 13px;
+}
+
+.pw-table td svg {
+  margin-right: 6px;
+  color: #16A66A;
+}
+
+.pw-empty-cell {
+  padding: 16px 10px;
+  color: #7A8780;
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* ==========================================
+   BACKLOG
+========================================== */
+
+.pw-backlog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pw-backlog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pw-story-folder {
+  border-radius: 10px;
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+  overflow: hidden;
+}
+
+.pw-story-folder-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  color: #17211D;
+}
+
+.pw-story-folder-header svg:first-child {
+  flex-shrink: 0;
+  color: #7A8780;
+  font-size: 11px;
+}
+
+.pw-story-folder-header svg:nth-child(2) {
+  flex-shrink: 0;
+  color: #16A66A;
+}
+
+.pw-story-title {
+  flex: 1;
+  min-width: 44px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.pw-story-count {
+  flex-shrink: 0;
+  color: #7A8780;
+  font-size: 11.5px;
+}
+
+.pw-story-tasks {
+  padding: 0 14px 14px 40px;
+  border-top: 1px solid #E2E9E5;
+}
+
+.pw-task-row {
+  cursor: pointer;
+}
+
+.pw-task-row:hover td {
+  background: rgba(22,166,106,0.06);
+}
+
+.pw-task-title-cell {
+  color: #17211D !important;
+}
+
+.pw-add-task-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px dashed #E2E9E5;
+  background: transparent;
+  color: #53615A;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pw-add-task-button:hover {
+  border-color: #16A66A;
+  color: #16A66A;
+}
+
+/* Epic/Feature/User Story hierarchy -- reuses .pw-story-folder as the
+   folder box at every level; .pw-nested-content is the indented
+   container for the level immediately inside an Epic or Feature
+   folder (Story's own task list still uses .pw-story-tasks, one
+   level deeper again). */
+
+.pw-backlog-header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pw-nested-content {
+  padding: 12px 14px 14px 32px;
+  border-top: 1px solid #E2E9E5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pw-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.pw-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1px solid #E2E9E5;
+  background: transparent;
+  color: #53615A;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.pw-icon-button:hover {
+  border-color: #16A66A;
+  color: #16A66A;
+}
+
+.pw-icon-button-danger:hover {
+  border-color: rgba(214,69,69,0.6);
+  color: #D64545;
+}
+
+@media (max-width: 480px) {
+  .pw-nested-content {
+    padding-left: 16px;
+  }
+
+  .pw-story-tasks {
+    padding-left: 20px;
+  }
+
+  .pw-story-folder-header {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .pw-story-count {
+    order: 3;
+  }
+
+  .pw-row-actions {
+    order: 4;
+    margin-left: auto;
+  }
+}
+
+/* ==========================================
+   PRIORITY / STATUS PILLS (compact, reused
+   across Backlog rows and Kanban cards)
+========================================== */
+
+.pw-priority {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: rgba(148, 148, 148, 0.18);
+  color: #53615A;
+}
+
+.pw-priority.High,
+.pw-priority.Critical {
+  background: rgba(214,69,69,0.18);
+  color: #D64545;
+}
+
+.pw-priority.Medium {
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+.pw-priority.Low {
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+.pw-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: rgba(148, 148, 148, 0.18);
+  color: #53615A;
+}
+
+.pw-status.backlog,
+.pw-status.todo {
+  background: rgba(148, 148, 148, 0.18);
+  color: #53615A;
+}
+
+.pw-status.in_progress {
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+.pw-status.pending_review {
+  background: rgba(90, 130, 200, 0.18);
+  color: #8FB4E8;
+}
+
+.pw-status.closed {
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+/* ==========================================
+   SPRINTS TAB — reuses pw-story-folder/pw-table,
+   only the status badge, meta block, and inline
+   action row below are new.
+========================================== */
+
+.pw-sprint-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.pw-sprint-status-planning {
+  background: rgba(148, 148, 148, 0.18);
+  color: #53615A;
+}
+
+.pw-sprint-status-active {
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+.pw-sprint-status-completed {
+  background: rgba(22,166,106,0.18);
+  color: #16A66A;
+}
+
+.pw-sprint-meta {
+  padding: 12px 0;
+  border-bottom: 1px solid #E2E9E5;
+  margin-bottom: 10px;
+}
+
+.pw-sprint-goal {
+  color: #53615A;
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+.pw-sprint-dates {
+  display: flex;
+  gap: 16px;
+  color: #7A8780;
+  font-size: 11.5px;
+  margin-bottom: 8px;
+}
+
+.pw-sprint-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pw-sprint-progress span {
+  color: #7A8780;
+  font-size: 11px;
+}
+
+.pw-sprint-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.pw-sprint-add-from-backlog {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.pw-sprint-delete-button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(214,69,69,0.4);
+  background: transparent;
+  color: #D64545;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.pw-sprint-delete-button:hover {
+  background: rgba(214,69,69,0.12);
+}
+
+.pw-sprint-add-from-backlog select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #E2E9E5;
+  background: #F7FAF8;
+  color: #17211D;
+  font-size: 12.5px;
+}
+
+/* ==========================================
+   BOARD (Kanban) — dense, Azure DevOps-style
+   work-item board. Deliberately flat: no giant
+   rounded outer card, no card-grid task items —
+   one continuous board, columns separated by
+   thin vertical borders, rows instead of cards.
+========================================== */
+
+.kb-board-section {
+  width: 100%;
+}
+
+.kb-board-heading {
+  margin-bottom: 12px;
+}
+
+.kb-board-heading h2 {
+  margin: 0 0 4px;
+  color: #17211D;
+  font-size: 18px;
+}
+
+.kb-board-heading p {
+  margin: 0;
+  color: #7A8780;
+  font-size: 12.5px;
+}
+
+.kb-board-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #E2E9E5;
+  border-radius: 6px;
+  background: #FFFFFF;
+}
+
+.kb-board {
+  display: flex;
+  min-width: 1000px;
+  width: 100%;
+}
+
+.kb-column {
+  flex: 1 1 0;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #E2E9E5;
+}
+
+.kb-column:last-child {
+  border-right: none;
+}
+
+.kb-column-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #E2E9E5;
+  background: #F7FAF8;
+  position: sticky;
+  top: 0;
+}
+
+.kb-column-name {
+  color: #17211D;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.kb-column-count {
+  color: #7A8780;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.kb-column-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  max-height: 68vh;
+  overflow-y: auto;
+  transition: background-color 0.12s ease;
+}
+
+/* Active drop target while dragging a task over this column */
+.kb-column-body-over {
+  background: rgba(22,166,106,0.08);
+  outline: 1px dashed #16A66A;
+  outline-offset: -2px;
+}
+
+.kb-column-empty {
+  padding: 14px 6px;
+  color: #7A8780;
+  font-size: 11.5px;
+  text-align: center;
+}
+
+/* ==========================================
+   TASK ITEM — compact row, not a dashboard card
+========================================== */
+
+.kb-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 9px;
+  border: 1px solid #F7FAF8;
+  border-radius: 4px;
+  background: #F7FAF8;
+  cursor: grab;
+  transition: border-color 0.15s ease;
+  touch-action: none;
+}
+
+/* The original item's placeholder while its drag is in progress —
+   the floating copy is the DragOverlay preview below. */
+.kb-item-dragging {
+  opacity: 0.35;
+  cursor: grabbing;
+}
+
+/* Floating preview that follows the pointer during a drag */
+.kb-item-overlay {
+  cursor: grabbing;
+  border-color: #16A66A;
+  background: #F7FAF8;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  width: 220px;
+}
+
+.kb-item:hover {
+  border-color: #16A66A;
+}
+
+.kb-item-top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.kb-item-id {
+  flex-shrink: 0;
+  color: #7A8780;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.kb-item-title {
+  flex: 1;
+  min-width: 0;
+  color: #17211D;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kb-item-story {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #7A8780;
+  font-size: 10.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kb-item-bottom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.kb-priority-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #7A8780;
+}
+
+.kb-priority-dot.High,
+.kb-priority-dot.Critical {
+  background: #D64545;
+}
+
+.kb-priority-dot.Medium {
+  background: #16A66A;
+}
+
+.kb-priority-dot.Low {
+  background: #8ED9B7;
+}
+
+.kb-avatar {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #16A66A, #0E744A);
+  color: #17211D;
+  font-size: 8.5px;
+  font-weight: 700;
+}
+
+.kb-assignee-name {
+  flex: 1;
+  min-width: 0;
+  color: #7A8780;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kb-due {
+  flex-shrink: 0;
+  color: #7A8780;
+  font-size: 10px;
+}
+
+.kb-move-wrapper {
+  margin-top: 2px;
+}
+
+.kb-move-select {
+  width: 100%;
+  padding: 3px 5px;
+  border-radius: 3px;
+  border: 1px solid #F7FAF8;
+  background: #F7FAF8;
+  color: #7A8780;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.kb-move-select:hover {
+  border-color: #16A66A;
+  color: #53615A;
+}
+
+/* ==========================================
+   ANALYTICS TAB — reuses pw-overview-stats,
+   pw-table, pw-sprint-status-badge/goal/dates
+   already defined above; only the sprint picker,
+   chart grid, and table-scroll wrapper are new.
+========================================== */
+
+.pw-analytics-sprint-select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #E2E9E5;
+  background: #F7FAF8;
+  color: #17211D;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.pw-analytics-sprint-summary {
+  padding: 14px 0 12px;
+  border-bottom: 1px solid #E2E9E5;
+  margin-bottom: 14px;
+}
+
+.pw-analytics-sprint-summary h3 {
+  margin: 0 0 6px;
+  color: #17211D;
+  font-size: 15px;
+}
+
+.pw-analytics-sprint-summary .pw-sprint-dates {
+  margin-bottom: 0;
+  align-items: center;
+}
+
+.pw-analytics-charts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.pw-analytics-chart-card {
+  padding: 14px;
+  border-radius: 10px;
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+  min-width: 0;
+}
+
+.pw-analytics-chart-card h4 {
+  margin: 0 0 10px;
+  color: #17211D;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pw-analytics-table-block {
+  margin-bottom: 18px;
+}
+
+.pw-analytics-table-block h4 {
+  margin: 0 0 10px;
+  color: #17211D;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pw-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #E2E9E5;
+  border-radius: 8px;
+}
+
+.pw-table-scroll .pw-table {
+  min-width: 520px;
+}
+
+@media (max-width: 700px) {
+  .pw-overview-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .pw-analytics-charts {
+    grid-template-columns: 1fr;
+  }
+
+  .pw-analytics-sprint-summary .pw-sprint-dates {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

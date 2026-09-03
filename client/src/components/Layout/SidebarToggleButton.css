@@ -1,0 +1,64 @@
+/* ==========================================
+   SIDEBAR TOGGLE BUTTON — REOPEN CONTROL
+
+   Only ever rendered while the sidebar is
+   collapsed (the Layout mounts/unmounts it), so
+   this is always the "show sidebar" arrow. The
+   sidebar itself is width:0 at this point, so
+   there is nothing inside it to attach this
+   button to — position:fixed near the left edge
+   of the viewport is the correct, simplest
+   choice here (unlike the "hide" control, which
+   now lives inside the sidebar's own Dashboard
+   row instead of floating).
+========================================== */
+
+.sidebar-toggle-button {
+
+    position: fixed;
+    top: 32px;
+    left: 4px;
+
+    z-index: 1100;
+
+    width: 36px;
+    height: 36px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid var(--border);
+    border-radius: 10px;
+
+    background: var(--sidebar, var(--card, #fff));
+
+    color: var(--text-secondary, #7A8780);
+
+    font-size: 13px;
+
+    cursor: pointer;
+
+    box-shadow: var(--shadow, 0 2px 6px rgba(0, 0, 0, .18));
+
+    transition: background .2s ease, border-color .2s ease, box-shadow .2s ease, color .2s ease;
+
+}
+
+.sidebar-toggle-button:hover {
+    border-color: var(--primary);
+    background: var(--hover, rgba(22, 166, 106, .1));
+    color: var(--primary-hover, var(--text));
+    box-shadow: var(--shadow-hover, 0 4px 10px rgba(0, 0, 0, .22));
+}
+
+/* Below 1024px the sidebar is an off-canvas drawer controlled solely
+   by the hamburger + backdrop + Escape + nav click (see
+   useMobileNav.js) -- this button toggles the unrelated desktop
+   collapse preference, which has no visible effect there, so it's
+   hidden to avoid presenting a control that does nothing. */
+@media (max-width: 1023px) {
+    .sidebar-toggle-button {
+        display: none;
+    }
+}

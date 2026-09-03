@@ -1,0 +1,107 @@
+.tag-picker {
+    position: relative;
+}
+
+.tag-picker-chips {
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+
+    gap: 6px;
+
+    min-height: 40px;
+
+    padding: 6px 10px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 9px;
+
+    background: var(--input);
+
+}
+
+.tag-picker-readonly.tag-picker {
+    padding: 2px 0;
+}
+
+.tag-picker-input {
+
+    flex: 1;
+
+    min-width: 90px;
+
+    border: none;
+    background: none;
+    outline: none;
+
+    padding: 3px 2px;
+
+    color: var(--text);
+
+    font-family: inherit;
+    font-size: 13.5px;
+
+}
+
+.tag-picker-hint {
+
+    margin: 6px 0 0;
+
+    color: var(--text-muted);
+
+    font-size: 12px;
+
+}
+
+.tag-picker-suggestions {
+
+    position: absolute;
+    z-index: 20;
+
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+
+    max-height: 180px;
+    overflow-y: auto;
+
+    border: 1px solid var(--border);
+    border-radius: 9px;
+
+    background: var(--card);
+
+    box-shadow: var(--shadow-hover);
+
+    padding: 6px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+}
+
+.tag-picker-suggestion {
+
+    text-align: left;
+
+    border: none;
+    background: none;
+
+    padding: 7px 9px;
+
+    border-radius: 6px;
+
+    color: var(--text);
+
+    font-family: inherit;
+    font-size: 13px;
+
+    cursor: pointer;
+
+}
+
+.tag-picker-suggestion:hover {
+    background: rgba(22, 166, 106, .14);
+}
