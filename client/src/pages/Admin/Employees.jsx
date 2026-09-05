@@ -38,6 +38,7 @@ import {
 
 
 import api from "../../services/api";
+import { API_ORIGIN } from "../../config";
 
 import "./Employees.css";
 
@@ -45,8 +46,7 @@ import "./Employees.css";
 // BACKEND URL
 // ==========================================
 
-const BACKEND_URL =
-  "http://localhost:5000";
+const BACKEND_URL = API_ORIGIN;
 
 function Employees() {
 

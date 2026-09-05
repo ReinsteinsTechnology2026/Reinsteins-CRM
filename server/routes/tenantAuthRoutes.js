@@ -2,7 +2,7 @@ const express = require("express");
 
 const router = express.Router();
 
-const { login } = require("../controllers/tenantAuthController");
+const { login, getCompanyInfo } = require("../controllers/tenantAuthController");
 const { tenantProtect } = require("../middleware/tenantAuthMiddleware");
 const { tenantLoginLimiter } = require("../middleware/rateLimiters");
 
@@ -14,6 +14,12 @@ const { tenantLoginLimiter } = require("../middleware/rateLimiters");
 // ==========================================
 
 router.post("/:companySlug/login", tenantLoginLimiter, login);
+
+// Phase 5 -- public, unauthenticated company branding lookup for the
+// company-aware login page. Read-only, active-companies-only; see
+// getCompanyInfo's own comment for exactly what it does and doesn't
+// expose.
+router.get("/:companySlug/info", getCompanyInfo);
 
 // Minimal authenticated smoke-test route -- lets this phase's own
 // verification (and later phases) confirm tenantProtect resolves

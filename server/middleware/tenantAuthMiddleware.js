@@ -67,7 +67,17 @@ const tenantProtect = async (req, res, next) => {
 
         const company = await platformCompanyService.getCompanyById(decoded.companyId);
 
-        if (!company || company.company_slug !== decoded.companySlug || company.status !== "active") {
+        if (
+            !company ||
+            company.company_slug !== decoded.companySlug ||
+            !platformCompanyService.isCompanyAccessAllowed(company)
+        ) {
+            // Phase 8: extends the existing status check with
+            // subscription enforcement (cancelled/expired status, or a
+            // trial/subscription past its date) -- same generic 401
+            // message as a suspended company already gets today, so an
+            // already-issued token stops working the instant a
+            // subscription lapses, with no cron job required.
             return res.status(401).json({ success: false, message: "Invalid or expired tenant authentication token" });
         }
 
@@ -112,6 +122,14 @@ const tenantProtect = async (req, res, next) => {
         return runWithTenantContext({ tenantPool, companySlug: company.company_slug }, next);
 
     } catch (error) {
+
+        // Phase 8: this catch previously swallowed every failure
+        // silently, so a genuine tenant-DB outage was indistinguishable
+        // server-side from an ordinary bad/expired token. Logging here
+        // does not change the response -- fails closed exactly as
+        // before -- it only makes a real outage visible in the server
+        // logs instead of disappearing.
+        console.error("tenantProtect error:", error.message);
 
         return res.status(401).json({ success: false, message: "Invalid or expired tenant authentication token" });
 

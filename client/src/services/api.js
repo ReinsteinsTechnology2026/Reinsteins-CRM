@@ -1,8 +1,10 @@
 import axios from "axios";
 
+import { API_ORIGIN } from "../config";
+
 const api = axios.create({
   baseURL:
-    "http://localhost:5000/api",
+    `${API_ORIGIN}/api`,
 
   headers: {
     "Content-Type":

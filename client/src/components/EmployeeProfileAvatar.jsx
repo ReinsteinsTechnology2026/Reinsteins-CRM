@@ -8,13 +8,13 @@ import {
 } from "react-router-dom";
 
 import api from "../services/api";
+import { API_ORIGIN } from "../config";
 
 // ==========================================
 // BACKEND URL
 // ==========================================
 
-const BACKEND_URL =
-  "http://localhost:5000";
+const BACKEND_URL = API_ORIGIN;
 
 function EmployeeProfileAvatar() {
   const navigate =

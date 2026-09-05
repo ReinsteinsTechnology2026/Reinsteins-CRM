@@ -4,6 +4,7 @@ import {
   useState,
 } from "react";
 import api from "../../services/api";
+import { API_ORIGIN } from "../../config";
 
 
 
@@ -84,8 +85,7 @@ function EmployeeProfile() {
   // BACKEND URL
   // ==========================================
 
-  const BACKEND_URL =
-    "http://localhost:5000";
+  const BACKEND_URL = API_ORIGIN;
 
   // ==========================================
   // FORMAT DATE FOR INPUT

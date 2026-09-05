@@ -13,6 +13,8 @@ const platformPool = require("../config/platformDb");
 
 const COMPANY_COLUMNS = `
     id, company_name, company_slug, status, access_type,
+    plan_id, subscription_status, trial_ends_at, subscription_started_at,
+    subscription_expires_at,
     tenant_db_name, created_at, updated_at
 `;
 
@@ -127,6 +129,98 @@ const deletePendingCompany = async (id) => {
 };
 
 // ==========================================
+// PLATFORM DASHBOARD / COMPANY MANAGEMENT (Phase 4)
+//
+// listCompanies / getCompanyStats are read-only and touch nothing
+// but this same companies table -- no tenant database, no employee
+// data, ever. suspendCompany / reactivateCompany / updateAccessType
+// follow the exact same guarded-transition pattern as
+// activateCompany above: each WHERE clause only ever matches the
+// specific state transition it exists for, so none of them can act
+// on a company that isn't in the expected starting state.
+// ==========================================
+
+const listCompanies = async () => {
+    const [rows] = await platformPool.query(
+        `SELECT ${COMPANY_COLUMNS} FROM companies ORDER BY created_at DESC`
+    );
+    return rows;
+};
+
+// Pure aggregation over the existing status/access_type enum columns
+// -- no new schema, no invented fields. GROUP BY both columns in one
+// query, then fold into flat counters the dashboard can render
+// directly.
+const getCompanyStats = async () => {
+    const [rows] = await platformPool.query(
+        `SELECT status, access_type, COUNT(*) AS c FROM companies GROUP BY status, access_type`
+    );
+
+    const stats = {
+        total: 0,
+        active: 0,
+        suspended: 0,
+        pending: 0,
+        complimentary: 0,
+        trial: 0,
+        paid: 0,
+    };
+
+    for (const row of rows) {
+        const count = Number(row.c);
+        stats.total += count;
+        stats[row.status] = (stats[row.status] || 0) + count;
+        stats[row.access_type] = (stats[row.access_type] || 0) + count;
+    }
+
+    return stats;
+};
+
+// Guarded WHERE status = 'active' -- can only ever suspend a company
+// that is currently active. A pending (not-yet-provisioned) or
+// already-suspended company is untouched; returns null so the caller
+// can distinguish "nothing happened" from a thrown error.
+const suspendCompany = async (id) => {
+    const [result] = await platformPool.query(
+        `UPDATE companies SET status = 'suspended' WHERE id = ? AND status = 'active'`,
+        [id]
+    );
+    if (result.affectedRows === 0) {
+        return null;
+    }
+    return await getCompanyById(id);
+};
+
+// Mirror of suspendCompany -- guarded WHERE status = 'suspended', so
+// this can only ever reactivate a company this same function (or an
+// operator) previously suspended, never a pending or already-active
+// one.
+const reactivateCompany = async (id) => {
+    const [result] = await platformPool.query(
+        `UPDATE companies SET status = 'active' WHERE id = ? AND status = 'suspended'`,
+        [id]
+    );
+    if (result.affectedRows === 0) {
+        return null;
+    }
+    return await getCompanyById(id);
+};
+
+// access_type is a manual Platform Owner setting for now (no payment
+// gateway yet) -- only meaningful for a company that has actually
+// been provisioned (active or suspended), never a still-pending one.
+const updateCompanyAccessType = async (id, accessType) => {
+    const [result] = await platformPool.query(
+        `UPDATE companies SET access_type = ? WHERE id = ? AND status IN ('active', 'suspended')`,
+        [accessType, id]
+    );
+    if (result.affectedRows === 0) {
+        return null;
+    }
+    return await getCompanyById(id);
+};
+
+// ==========================================
 // COMPANY STATUS CHECK FOUNDATION
 // Pure, reusable helpers -- not enforced anywhere yet. A future
 // phase's tenant-resolution middleware calls these instead of
@@ -137,13 +231,130 @@ const isCompanyUsable = (company) => Boolean(company) && company.status === "act
 
 const hasPaidAccess = (company) => Boolean(company) && company.access_type === "paid";
 
+// ==========================================
+// SUBSCRIPTION ENFORCEMENT (Phase 8)
+//
+// Pure function, no DB access -- called from the four existing places
+// that already gate tenant access on `company.status === 'active'`
+// (tenant login, tenantProtect middleware, Socket.IO auth, the
+// authenticated file-serving route in app.js), extending each one's
+// existing check rather than introducing a new central layer. This
+// deliberately does NOT gate platformProtect/Platform Owner actions --
+// a Platform Owner must always be able to manage an expired company
+// (renew it, reassign its plan) regardless of that company's own
+// subscription state.
+//
+// Dates are evaluated dynamically on every call (against `new Date()`
+// at call time), not just against whatever `subscription_status`
+// currently says -- this is what makes an already-issued tenant JWT
+// stop working the moment a trial/expiry date passes, with no cron
+// job required, mirroring exactly how a suspended company's existing
+// tokens already stop working immediately today.
+// ==========================================
+
+const isCompanyAccessAllowed = (company) => {
+
+    if (!company || company.status !== "active") {
+        return false;
+    }
+
+    if (company.subscription_status === "cancelled" || company.subscription_status === "expired") {
+        return false;
+    }
+
+    if (company.subscription_expires_at && new Date(company.subscription_expires_at) < new Date()) {
+        return false;
+    }
+
+    if (
+        company.subscription_status === "trial" &&
+        company.trial_ends_at &&
+        new Date(company.trial_ends_at) < new Date()
+    ) {
+        return false;
+    }
+
+    return true;
+
+};
+
+// ==========================================
+// COMPANY SUBSCRIPTION MANAGEMENT (Phase 8)
+//
+// Platform Owner action only -- assigns/changes a company's plan and
+// subscription metadata. Guarded exactly like updateCompanyAccessType:
+// only a company that has actually been provisioned (active or
+// suspended) can have its subscription managed, and this UPDATE only
+// ever touches these five columns on the companies row itself -- it
+// never creates/drops a tenant database, never touches tenant_db_name,
+// and never reaches into any tenant database's own tables.
+// ==========================================
+
+const updateCompanySubscription = async (id, { planId, subscriptionStatus, trialEndsAt, subscriptionExpiresAt }) => {
+    const [result] = await platformPool.query(
+        `UPDATE companies
+         SET plan_id = ?, subscription_status = ?, trial_ends_at = ?, subscription_expires_at = ?,
+             subscription_started_at = COALESCE(subscription_started_at, NOW())
+         WHERE id = ? AND status IN ('active', 'suspended')`,
+        [planId, subscriptionStatus, trialEndsAt, subscriptionExpiresAt, id]
+    );
+    if (result.affectedRows === 0) {
+        return null;
+    }
+    return await getCompanyById(id);
+};
+
+// Pure aggregation over the new subscription columns -- same
+// GROUP BY-then-fold pattern as getCompanyStats above, kept as a
+// separate function so the existing dashboard stats query/shape is
+// untouched and this is simply merged alongside it by the caller.
+const getSubscriptionStats = async () => {
+    const [statusRows] = await platformPool.query(
+        `SELECT subscription_status, COUNT(*) AS c FROM companies GROUP BY subscription_status`
+    );
+
+    const [planRows] = await platformPool.query(
+        `SELECT sp.id, sp.name, COUNT(c.id) AS c
+         FROM subscription_plans sp
+         LEFT JOIN companies c ON c.plan_id = sp.id
+         GROUP BY sp.id, sp.name
+         ORDER BY sp.id ASC`
+    );
+
+    const stats = {
+        active: 0,
+        trial: 0,
+        expired: 0,
+        cancelled: 0,
+        planDistribution: planRows.map((row) => ({
+            planId: row.id,
+            planName: row.name,
+            companyCount: Number(row.c),
+        })),
+    };
+
+    for (const row of statusRows) {
+        stats[row.subscription_status] = Number(row.c);
+    }
+
+    return stats;
+};
+
 module.exports = {
     getCompanyBySlug,
     getCompanyById,
     getActiveCompanyBySlug,
     isCompanyUsable,
     hasPaidAccess,
+    isCompanyAccessAllowed,
     createPendingCompany,
     activateCompany,
     deletePendingCompany,
+    listCompanies,
+    getCompanyStats,
+    getSubscriptionStats,
+    suspendCompany,
+    reactivateCompany,
+    updateCompanyAccessType,
+    updateCompanySubscription,
 };

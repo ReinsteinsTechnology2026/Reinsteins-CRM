@@ -2,12 +2,14 @@ import {
   io,
 } from "socket.io-client";
 
+import { API_ORIGIN } from "../config";
+
 // ==========================================
 // SOCKET.IO CLIENT
 // ==========================================
 
 const socket = io(
-  "http://localhost:5000",
+  API_ORIGIN,
   {
     autoConnect: false,
 

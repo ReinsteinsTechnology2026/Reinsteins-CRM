@@ -10,6 +10,7 @@ import {
 import {
   useLocation,
   useNavigate,
+  useParams,
 } from "react-router-dom";
 
 import {
@@ -42,6 +43,13 @@ import { hasProjectAccess } from "../../utils/projectAccess";
 function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) {
   const navigate =
     useNavigate();
+
+  // Phase 8 fix: every menu path below previously hardcoded the
+  // legacy basePath prefix, breaking in-app navigation for
+  // company-aware tenant users (see AdminSidebar.jsx for the same
+  // fix and full reasoning).
+  const { companySlug } = useParams();
+  const basePath = companySlug ? `/${companySlug}/employee` : basePath;
 
   // ==========================================
   // MOBILE/TABLET DRAWER — FOCUS ON OPEN
@@ -325,48 +333,48 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
     {
       name: "Dashboard",
       icon: <FaHome />,
-      path: "/employee",
+      path: basePath,
     },
     {
       name: "Projects",
       icon: <FaProjectDiagram />,
-      path: "/employee/projects",
+      path: `${basePath}/projects`,
     },
     {
       name: "Organization",
       icon: <FaSitemap />,
-      path: "/employee/organization",
+      path: `${basePath}/organization`,
     },
     {
       name: "Reports",
       icon: <FaChartBar />,
-      path: "/employee/reports",
+      path: `${basePath}/reports`,
     },
     {
       name: "Approvals",
       icon: <FaClipboardCheck />,
-      path: "/employee/team/leave-approvals",
+      path: `${basePath}/team/leave-approvals`,
     },
     {
       name: "Chat",
       icon: <FaComments />,
-      path: "/employee/chat",
+      path: `${basePath}/chat`,
       showBadge: true,
     },
     {
       name: "Meetings",
       icon: <FaVideo />,
-      path: "/employee/meetings",
+      path: `${basePath}/meetings`,
     },
     {
       name: "My Profile",
       icon: <FaUser />,
-      path: "/employee/profile",
+      path: `${basePath}/profile`,
     },
     {
       name: "Settings",
       icon: <FaCog />,
-      path: "/employee/settings",
+      path: `${basePath}/settings`,
     },
   ];
 
@@ -374,26 +382,26 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
     {
       name: "Dashboard",
       icon: <FaHome />,
-      path: "/employee",
+      path: basePath,
     },
     {
       name: "Attendance",
       icon: <FaCalendarCheck />,
       path:
-        "/employee/attendance",
+        `${basePath}/attendance`,
     },
     {
       name: "My Tasks",
       icon: <FaTasks />,
       path:
-        "/employee/tasks",
+        `${basePath}/tasks`,
     },
     ...(showProjectsNavItem
       ? [
           {
             name: "Projects",
             icon: <FaProjectDiagram />,
-            path: "/employee/projects",
+            path: `${basePath}/projects`,
           },
         ]
       : []),
@@ -401,25 +409,25 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
       name: "My Leave",
       icon: <FaCalendarAlt />,
       path:
-        "/employee/leave",
+        `${basePath}/leave`,
     },
     {
       name: "My Reporting Manager",
       icon: <FaUserTie />,
       path:
-        "/employee/reporting-manager",
+        `${basePath}/reporting-manager`,
     },
     ...(hasTeamVisibility
       ? [
           {
             name: "My Team",
             icon: <FaUsers />,
-            path: "/employee/team",
+            path: `${basePath}/team`,
           },
           {
             name: "Team Leave Approvals",
             icon: <FaClipboardCheck />,
-            path: "/employee/team/leave-approvals",
+            path: `${basePath}/team/leave-approvals`,
           },
         ]
       : []),
@@ -427,26 +435,26 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
       name: "My Profile",
       icon: <FaUser />,
       path:
-        "/employee/profile",
+        `${basePath}/profile`,
     },
     {
       name: "Chat",
       icon: <FaComments />,
       path:
-        "/employee/chat",
+        `${basePath}/chat`,
       showBadge: true,
     },
     {
       name: "Meetings",
       icon: <FaVideo />,
       path:
-        "/employee/meetings",
+        `${basePath}/meetings`,
     },
     {
       name: "Settings",
       icon: <FaCog />,
       path:
-        "/employee/settings",
+        `${basePath}/settings`,
     },
   ];
 
@@ -463,11 +471,11 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
   ) => {
     if (
       path ===
-      "/employee"
+      basePath
     ) {
       return (
         location.pathname ===
-        "/employee"
+        basePath
       );
     }
 

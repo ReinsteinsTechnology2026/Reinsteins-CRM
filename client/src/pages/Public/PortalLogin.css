@@ -1,0 +1,60 @@
+.pub-portal-login-section {
+    padding: 88px 0 100px;
+    min-height: calc(100vh - 68px - 260px);
+    display: flex;
+    align-items: center;
+}
+
+.pub-portal-login-container {
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+}
+
+.pub-portal-login-card {
+    width: 100%;
+    background: var(--pub-surface);
+    border: 1px solid var(--pub-border);
+    border-radius: var(--pub-radius);
+    box-shadow: var(--pub-shadow);
+    padding: 40px 36px;
+    text-align: center;
+}
+
+.pub-portal-login-card .pub-h2 {
+    margin-bottom: 8px;
+}
+
+.pub-portal-login-lede {
+    max-width: none;
+    margin: 0 0 28px;
+    font-size: 14.5px;
+}
+
+.pub-portal-login-form {
+    text-align: left;
+}
+
+.pub-portal-login-submit {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.pub-portal-login-footer {
+    text-align: center;
+}
+
+.pub-portal-owner-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--pub-ink-muted);
+    text-decoration: none;
+}
+
+.pub-portal-owner-link:hover {
+    color: var(--pub-ink-secondary);
+}

@@ -1,0 +1,13 @@
+.pub-pricing-card .pub-btn {
+    width: 100%;
+    text-align: center;
+}
+
+.pub-pricing-note {
+    text-align: center;
+    font-size: 13.5px;
+    color: var(--pub-ink-muted);
+    max-width: 480px;
+    margin: 48px auto 0;
+    line-height: 1.6;
+}

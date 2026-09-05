@@ -8,6 +8,7 @@ import {
 import {
   useLocation,
   useNavigate,
+  useParams,
 } from "react-router-dom";
 import CompanyLogo from "../Common/CompanyLogo";
 import {
@@ -41,6 +42,19 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
 
   const location =
     useLocation();
+
+  // Phase 8 fix: every nav target below previously hardcoded the
+  // legacy "/admin" prefix, even though this same component is also
+  // rendered under the company-aware "/:companySlug/admin" route
+  // tree (see App.jsx buildRoleRoutes()). That meant a tenant user
+  // clicking any sidebar item was sent to the unprefixed legacy
+  // route, which ProtectedRoute treats as a Reinsteins-only path and
+  // bounces to /legacy-login -- effectively breaking every in-app
+  // navigation for non-Reinsteins tenants. basePath restores the
+  // company prefix when present; Reinsteins (no companySlug) is
+  // completely unaffected.
+  const { companySlug } = useParams();
+  const basePath = companySlug ? `/${companySlug}/admin` : "/admin";
 
   // ==========================================
   // MOBILE/TABLET DRAWER — FOCUS ON OPEN
@@ -265,11 +279,11 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
     path
   ) => {
     if (
-      path === "/admin"
+      path === basePath
     ) {
       return (
         location.pathname ===
-        "/admin"
+        basePath
       );
     }
 
@@ -288,8 +302,8 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
 
   const [organizationExpanded, setOrganizationExpanded] = useState(
     () =>
-      location.pathname === "/admin/organization" ||
-      location.pathname.startsWith("/admin/organization/")
+      location.pathname === `${basePath}/organization` ||
+      location.pathname.startsWith(`${basePath}/organization/`)
   );
 
   const sidebarClassName = [
@@ -346,14 +360,14 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             type="button"
             className={`sidebar-item ${
               isActive(
-                "/admin"
+                basePath
               )
                 ? "active"
                 : ""
             }`}
             onClick={() =>
               handleNavigate(
-                "/admin"
+                basePath
               )
             }
           >
@@ -388,14 +402,14 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           type="button"
           className={`sidebar-item ${
             isActive(
-              "/admin/organizations"
+              `${basePath}/organizations`
             )
               ? "active"
               : ""
           }`}
           onClick={() =>
             handleNavigate(
-              "/admin/organizations"
+              `${basePath}/organizations`
             )
           }
         >
@@ -420,14 +434,14 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           type="button"
           className={`sidebar-item ${
             isActive(
-              "/admin/tasks"
+              `${basePath}/tasks`
             )
               ? "active"
               : ""
           }`}
           onClick={() =>
             handleNavigate(
-              "/admin/tasks"
+              `${basePath}/tasks`
             )
           }
         >
@@ -444,14 +458,14 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           type="button"
           className={`sidebar-item ${
             isActive(
-              "/admin/employees"
+              `${basePath}/employees`
             )
               ? "active"
               : ""
           }`}
           onClick={() =>
             handleNavigate(
-              "/admin/employees"
+              `${basePath}/employees`
             )
           }
         >
@@ -468,14 +482,14 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           type="button"
           className={`sidebar-item ${
             isActive(
-              "/admin/attendance"
+              `${basePath}/attendance`
             )
               ? "active"
               : ""
           }`}
           onClick={() =>
             handleNavigate(
-              "/admin/attendance"
+              `${basePath}/attendance`
             )
           }
         >
@@ -492,14 +506,14 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           type="button"
           className={`sidebar-item ${
             isActive(
-              "/admin/leave"
+              `${basePath}/leave`
             )
               ? "active"
               : ""
           }`}
           onClick={() =>
             handleNavigate(
-              "/admin/leave"
+              `${basePath}/leave`
             )
           }
         >
@@ -516,14 +530,14 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           type="button"
           className={`sidebar-item ${
             isActive(
-              "/admin/reports"
+              `${basePath}/reports`
             )
               ? "active"
               : ""
           }`}
           onClick={() =>
             handleNavigate(
-              "/admin/reports"
+              `${basePath}/reports`
             )
           }
         >
@@ -540,14 +554,14 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           type="button"
           className={`sidebar-item ${
             isActive(
-              "/admin/chat"
+              `${basePath}/chat`
             )
               ? "active"
               : ""
           }`}
           onClick={() =>
             handleNavigate(
-              "/admin/chat"
+              `${basePath}/chat`
             )
           }
         >
@@ -579,14 +593,14 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           type="button"
           className={`sidebar-item ${
             isActive(
-              "/admin/meetings"
+              `${basePath}/meetings`
             )
               ? "active"
               : ""
           }`}
           onClick={() =>
             handleNavigate(
-              "/admin/meetings"
+              `${basePath}/meetings`
             )
           }
         >
@@ -616,8 +630,8 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             // TechOps page. This explicit check requires an exact
             // match or a "/" boundary right after "organization",
             // so the plural route never matches.
-            location.pathname === "/admin/organization" ||
-            location.pathname.startsWith("/admin/organization/")
+            location.pathname === `${basePath}/organization` ||
+            location.pathname.startsWith(`${basePath}/organization/`)
               ? "active"
               : ""
           }`}
@@ -647,12 +661,12 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             <button
               type="button"
               className={`sidebar-subitem ${
-                isActive("/admin/organization/org-chart")
+                isActive(`${basePath}/organization/org-chart`)
                   ? "active"
                   : ""
               }`}
               onClick={() =>
-                handleNavigate("/admin/organization/org-chart")
+                handleNavigate(`${basePath}/organization/org-chart`)
               }
             >
               <span className="admin-sidebar-menu-name">
@@ -663,12 +677,12 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             <button
               type="button"
               className={`sidebar-subitem ${
-                isActive("/admin/organization/departments")
+                isActive(`${basePath}/organization/departments`)
                   ? "active"
                   : ""
               }`}
               onClick={() =>
-                handleNavigate("/admin/organization/departments")
+                handleNavigate(`${basePath}/organization/departments`)
               }
             >
               <span className="admin-sidebar-menu-name">
@@ -679,12 +693,12 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             <button
               type="button"
               className={`sidebar-subitem ${
-                isActive("/admin/organization/designations")
+                isActive(`${basePath}/organization/designations`)
                   ? "active"
                   : ""
               }`}
               onClick={() =>
-                handleNavigate("/admin/organization/designations")
+                handleNavigate(`${basePath}/organization/designations`)
               }
             >
               <span className="admin-sidebar-menu-name">
@@ -702,14 +716,14 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           type="button"
           className={`sidebar-item ${
             isActive(
-              "/admin/settings"
+              `${basePath}/settings`
             )
               ? "active"
               : ""
           }`}
           onClick={() =>
             handleNavigate(
-              "/admin/settings"
+              `${basePath}/settings`
             )
           }
         >

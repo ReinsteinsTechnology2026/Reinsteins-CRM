@@ -4,6 +4,8 @@ import {
   useState,
 } from "react";
 
+import { API_ORIGIN } from "../../config";
+
 import {
   FaUsers,
   FaCalendarCheck,
@@ -1351,7 +1353,7 @@ const handleExport = async () => {
                 )
                 ? employeeDetails
                     .profile_photo
-                : `http://localhost:5000${employeeDetails.profile_photo}`
+                : `${API_ORIGIN}${employeeDetails.profile_photo}`
             }
             alt={
               employeeDetails
@@ -3125,7 +3127,7 @@ return (
                                             )
                                             ? employee
                                                 .profile_photo
-                                            : `http://localhost:5000${employee.profile_photo}`
+                                            : `${API_ORIGIN}${employee.profile_photo}`
                                         }
                                         alt={
                                           employee

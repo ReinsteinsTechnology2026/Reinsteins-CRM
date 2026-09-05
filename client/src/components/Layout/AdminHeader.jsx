@@ -6,6 +6,7 @@ import {
 
 import {
   useNavigate,
+  useParams,
 } from "react-router-dom";
 
 import {
@@ -33,6 +34,13 @@ import "./AdminHeader.css";
 function AdminHeader({ mobileNavOpen, onOpenMobileNav }) {
   const navigate =
     useNavigate();
+
+  // Phase 8 fix: notification navigation below previously hardcoded
+  // the legacy "/admin" prefix, breaking in-app notification clicks
+  // for company-aware tenant users (see AdminSidebar.jsx for the
+  // same fix and full reasoning).
+  const { companySlug } = useParams();
+  const basePath = companySlug ? `/${companySlug}/admin` : "/admin";
 
   // ==========================================
   // MOBILE/TABLET DRAWER — HAMBURGER FOCUS
@@ -240,7 +248,7 @@ function AdminHeader({ mobileNavOpen, onOpenMobileNav }) {
 
       setIsOpen(false);
 
-      navigate(`/admin/task-workspace/${notification.reference_id}`);
+      navigate(`${basePath}/task-workspace/${notification.reference_id}`);
 
     }
 
@@ -248,7 +256,7 @@ function AdminHeader({ mobileNavOpen, onOpenMobileNav }) {
 
       setIsOpen(false);
 
-      navigate("/admin/chat", {
+      navigate(`${basePath}/chat`, {
         state: { openConversationId: notification.reference_id },
       });
 
@@ -258,7 +266,7 @@ function AdminHeader({ mobileNavOpen, onOpenMobileNav }) {
 
       setIsOpen(false);
 
-      navigate("/admin/leave");
+      navigate(`${basePath}/leave`);
 
     }
 
@@ -266,7 +274,7 @@ function AdminHeader({ mobileNavOpen, onOpenMobileNav }) {
 
       setIsOpen(false);
 
-      navigate(`/admin/meetings/${notification.reference_id}`);
+      navigate(`${basePath}/meetings/${notification.reference_id}`);
 
     }
 

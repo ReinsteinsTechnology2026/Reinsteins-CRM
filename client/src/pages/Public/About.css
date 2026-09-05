@@ -1,0 +1,20 @@
+.pub-about-body {
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.pub-about-body p {
+    font-size: 16px;
+    line-height: 1.75;
+    color: var(--pub-ink-secondary);
+    margin: 0;
+}
+
+.pub-cta-inner {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}

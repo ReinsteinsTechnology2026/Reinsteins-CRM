@@ -1,0 +1,33 @@
+.pub-solutions-list {
+    max-width: 780px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+}
+
+.pub-solution-row {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.pub-solution-row .pub-card-icon {
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+
+.pub-solution-row p {
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: var(--pub-ink-secondary);
+    margin: 0;
+    max-width: 560px;
+}
+
+.pub-cta-inner {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}

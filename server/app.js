@@ -76,8 +76,6 @@ const taskManagementRoutes = require(
 const taskWorkRoutes = require(
   "./routes/taskWorkRoutes"
 );
-console.log(taskManagementRoutes);
-console.log(typeof taskManagementRoutes);
 
 const projectRoutes = require(
   "./routes/projectRoutes"
@@ -144,6 +142,25 @@ const platformCompanyRoutes = require(
 const tenantAuthRoutes = require(
   "./routes/tenantAuthRoutes"
 );
+// GrowOrgs public marketing site backend surface (Phase 6) -- no
+// authentication on any route here by design; see
+// routes/publicRoutes.js and controllers/publicController.js.
+const publicRoutes = require(
+  "./routes/publicRoutes"
+);
+// GrowOrgs Platform Owner demo request management (Phase 7) --
+// platformProtect-only, reads/writes groworgs_platform_db.demo_requests
+// exclusively; see routes/platformDemoRequestRoutes.js.
+const platformDemoRequestRoutes = require(
+  "./routes/platformDemoRequestRoutes"
+);
+// GrowOrgs Platform Owner subscription/plan management (Phase 8) --
+// platformProtect-only, reads/writes groworgs_platform_db
+// (subscription_plans, and the new subscription columns on
+// companies) exclusively; see routes/platformPlanRoutes.js.
+const platformPlanRoutes = require(
+  "./routes/platformPlanRoutes"
+);
 
 const meetingService = require(
   "./services/meetingService"
@@ -163,6 +180,23 @@ const PORT =
   process.env.PORT || 5000;
 
 // ==========================================
+// ALLOWED CORS ORIGINS (Phase 8 -- production readiness)
+//
+// Both the Socket.IO server below and the Express `cors()`
+// middleware further down previously hardcoded this exact same
+// two-entry localhost array, which only ever worked against the
+// local Vite dev server and would silently reject every request
+// from any deployed frontend origin. CORS_ORIGINS (comma-separated)
+// lets a production deployment declare its real frontend origin(s);
+// the same two localhost ports remain the default when it's unset,
+// so `npm run dev` behavior is completely unchanged.
+// ==========================================
+
+const ALLOWED_ORIGINS = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",").map((origin) => origin.trim())
+  : ["http://localhost:5173", "http://localhost:5174"];
+
+// ==========================================
 // SOCKET.IO SERVER
 // ==========================================
 
@@ -170,10 +204,7 @@ const io = new Server(
   server,
   {
     cors: {
-origin: [
-  "http://localhost:5173",
-  "http://localhost:5174",
-],
+      origin: ALLOWED_ORIGINS,
       methods: [
         "GET",
         "POST",
@@ -269,7 +300,15 @@ async function authenticateTenantSocket(token) {
   // decoded.companySlug alone, exactly like tenantProtect.
   const company = await platformCompanyService.getCompanyById(decoded.companyId);
 
-  if (!company || company.company_slug !== decoded.companySlug || company.status !== "active") {
+  // Phase 8: extends the existing status check with subscription
+  // enforcement, exactly mirroring tenantAuthMiddleware.js -- a
+  // cancelled/expired subscription disconnects Socket.IO access the
+  // same way a suspended company already does today.
+  if (
+    !company ||
+    company.company_slug !== decoded.companySlug ||
+    !platformCompanyService.isCompanyAccessAllowed(company)
+  ) {
     throw new Error("Invalid or expired tenant authentication token");
   }
 
@@ -687,11 +726,19 @@ io.on(
 
           // ====================================
           // CHECK IF USER IS ONLINE
+          //
+          // Phase 8 fix: onlineUsers is keyed by the composite
+          // "<companySlug>:<userId>" presence key (see the
+          // "TRACK USER CONNECTION" block above), not a bare user
+          // ID -- this lookup previously used the bare targetId,
+          // which never matched any stored key, so 1:1 calling
+          // always reported the target as offline regardless of
+          // their actual connection state.
           // ====================================
 
           if (
             !onlineUsers.has(
-              targetId
+              `${companySlug}:${targetId}`
             )
           ) {
             socket.emit(
@@ -1663,10 +1710,7 @@ app.use(
 
 app.use(
   cors({
-origin: [
-  "http://localhost:5173",
-  "http://localhost:5174",
-],
+    origin: ALLOWED_ORIGINS,
 
     credentials:
       true,
@@ -1807,10 +1851,13 @@ app.get(
 
       // Re-verify the company is still active right now -- a
       // suspended company must lose file access immediately, not
-      // just wait out the token's remaining lifetime.
+      // just wait out the token's remaining lifetime. Phase 8 extends
+      // this with subscription enforcement (cancelled/expired
+      // status, or a lapsed trial/subscription date) -- same
+      // immediate-loss behavior, same message.
       if (decoded.companySlug !== LEGACY_COMPANY_SLUG) {
         const company = await platformCompanyService.getCompanyBySlug(decoded.companySlug);
-        if (!company || company.status !== "active") {
+        if (!company || !platformCompanyService.isCompanyAccessAllowed(company)) {
           return res.status(403).json({ success: false, message: "This company is not currently active" });
         }
       }
@@ -1849,55 +1896,6 @@ app.get(
   }
 );
 
-// ==========================================
-// DATABASE TEST ROUTE
-// ==========================================
-
-app.get(
-  "/api/db-test",
-  async (
-    req,
-    res
-  ) => {
-    try {
-      const [rows] =
-        await pool.query(
-          "SELECT DATABASE() AS databaseName"
-        );
-
-      return res
-        .status(200)
-        .json({
-          success: true,
-
-          message:
-            "MySQL connected successfully",
-
-          database:
-            rows[0]
-              .databaseName,
-        });
-
-    } catch (error) {
-      console.error(
-        "Database connection error:",
-        error
-      );
-
-      return res
-        .status(500)
-        .json({
-          success: false,
-
-          message:
-            "MySQL connection failed",
-
-          error:
-            error.message,
-        });
-    }
-  }
-);
     // TASKS
 
 app.use(
@@ -2070,8 +2068,30 @@ app.use(
 );
 
 app.use(
+  "/api/platform/demo-requests",
+  platformDemoRequestRoutes
+);
+
+app.use(
+  "/api/platform/plans",
+  platformPlanRoutes
+);
+
+app.use(
   "/api/tenant-auth",
   tenantAuthRoutes
+);
+
+// ==========================================
+// GROWORGS PUBLIC WEBSITE (Phase 6)
+// No authentication -- this is the public marketing site's backend
+// surface (currently just the demo-request form). See
+// routes/publicRoutes.js.
+// ==========================================
+
+app.use(
+  "/api/public",
+  publicRoutes
 );
 
 // ==========================================
@@ -2092,6 +2112,47 @@ app.use(
         message:
           "API route not found",
       });
+  }
+);
+
+// ==========================================
+// CENTRALIZED ERROR HANDLER (Phase 8 -- production readiness)
+//
+// No 4-arg Express error-handling middleware existed anywhere in
+// this app before this phase. In practice that meant a malformed
+// JSON request body (express.json() rejects it with a SyntaxError
+// and calls next(err), skipping every ordinary route/middleware
+// including the 404 handler above) fell all the way through to
+// Express's own built-in default error handler -- an HTML response,
+// inconsistent with the JSON the rest of this API always returns,
+// and one that includes the stack trace unless NODE_ENV=production.
+//
+// This handler must be registered LAST (after every route AND the
+// 404 handler) -- that ordering is what makes Express treat it as
+// an error handler at all. It changes nothing about how any
+// existing route already responds (they all already catch their own
+// errors and return their own JSON), it only catches what nothing
+// else does: malformed request bodies and any error a handler
+// forwards via next(err) instead of handling itself.
+// ==========================================
+
+app.use(
+  (err, _req, res, _next) => {
+
+    console.error("Unhandled error:", err);
+
+    if (err.type === "entity.parse.failed" || err instanceof SyntaxError) {
+      return res.status(400).json({
+        success: false,
+        message: "Malformed request body",
+      });
+    }
+
+    return res.status(err.status || 500).json({
+      success: false,
+      message: "Internal server error",
+    });
+
   }
 );
 

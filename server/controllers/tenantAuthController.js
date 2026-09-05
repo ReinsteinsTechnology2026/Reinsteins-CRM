@@ -64,6 +64,23 @@ const login = async (req, res) => {
             return res.status(403).json({ success: false, message: "This company is not currently active." });
         }
 
+        // Phase 8: subscription enforcement, extending the existing
+        // status check above rather than replacing it -- suspension
+        // (status !== 'active') is still checked and reported exactly
+        // as before. This is the one login-time spot where a clear,
+        // professional message matters (Part 9 of the phase spec) --
+        // the user is trying to sign in and needs to know why they
+        // can't, unlike an already-issued token silently expiring
+        // mid-session (tenantProtect), where a generic message is
+        // deliberately kept for security-posture consistency.
+        if (!platformCompanyService.isCompanyAccessAllowed(company)) {
+            return res.status(403).json({
+                success: false,
+                message:
+                    "Company access is currently unavailable. Please contact your administrator or the GrowOrgs platform owner.",
+            });
+        }
+
         let tenantPool;
         try {
             tenantPool = getTenantPoolForCompany(company);
@@ -147,8 +164,62 @@ const login = async (req, res) => {
 
 };
 
+// ==========================================
+// PUBLIC COMPANY INFO (Phase 5)
+//
+// GET /api/tenant-auth/:companySlug/info -- unauthenticated, by
+// design: the company-aware login page (/:companySlug/login) needs a
+// display name BEFORE anyone has logged in. Returns only the two
+// fields a login page's branding needs (name, slug) -- never status,
+// access type, tenant_db_name, or anything else from the companies
+// row. A slug that doesn't resolve to an ACTIVE company (unknown OR
+// suspended OR still pending) gets the same generic 404, so this
+// endpoint never confirms/denies "does this company exist but isn't
+// active yet" to an unauthenticated caller.
+//
+// logoUrl is always null today -- no logo storage exists yet (no
+// schema change made this phase, per the explicit "do not
+// over-engineer branding" instruction). The field is returned now so
+// the frontend branding component already has the right shape to
+// consume once a future phase adds real logo storage.
+// ==========================================
+
+const getCompanyInfo = async (req, res) => {
+
+    try {
+
+        const companySlugRaw = req.params.companySlug;
+
+        if (typeof companySlugRaw !== "string" || !isValidSlug(companySlugRaw.trim().toLowerCase())) {
+            return res.status(404).json({ success: false, message: "Company not found." });
+        }
+
+        const companySlug = companySlugRaw.trim().toLowerCase();
+        const company = await platformCompanyService.getActiveCompanyBySlug(companySlug);
+
+        if (!company) {
+            return res.status(404).json({ success: false, message: "Company not found." });
+        }
+
+        return res.status(200).json({
+            success: true,
+            company: {
+                name: company.company_name,
+                slug: company.company_slug,
+                logoUrl: null,
+            },
+        });
+
+    } catch (error) {
+        console.error("[tenant-auth] getCompanyInfo failed:", error);
+        return res.status(500).json({ success: false, message: "Unable to load company info." });
+    }
+
+};
+
 module.exports = {
     login,
+    getCompanyInfo,
     TENANT_JWT_ISSUER,
     TENANT_JWT_AUDIENCE,
 };

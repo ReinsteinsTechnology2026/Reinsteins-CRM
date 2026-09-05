@@ -1,0 +1,415 @@
+/* ==========================================
+   GROWORGS PUBLIC WEBSITE — SHARED COMPONENT STYLES (Phase 6)
+   Reused across every page under pages/Public/, so each page's own
+   CSS only needs page-specific layout, not buttons/cards/sections
+   from scratch.
+========================================== */
+
+.pub-container {
+    max-width: var(--pub-max-width);
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.pub-section {
+    padding: 88px 0;
+}
+
+.pub-section-sm {
+    padding: 56px 0;
+}
+
+.pub-section-subtle {
+    background: var(--pub-bg-subtle);
+}
+
+.pub-section-dark {
+    background: var(--pub-dark);
+    color: var(--pub-ink-on-dark);
+}
+
+.pub-eyebrow {
+    display: inline-block;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--pub-primary);
+    background: var(--pub-primary-light);
+    padding: 5px 14px;
+    border-radius: 999px;
+    margin-bottom: 18px;
+}
+
+.pub-section-dark .pub-eyebrow {
+    /* --chart-light-green from styles/theme.css -- the portal's own
+       light-green accent, reused here for text on a dark surface. */
+    color: #8ED9B7;
+    background: rgba(22, 166, 106, .18);
+}
+
+.pub-h1 {
+    font-size: clamp(34px, 5vw, 52px);
+    line-height: 1.1;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 20px;
+    text-wrap: balance;
+}
+
+.pub-h2 {
+    font-size: clamp(26px, 3.4vw, 36px);
+    line-height: 1.18;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+}
+
+.pub-h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 0 0 8px;
+    color: var(--pub-ink);
+}
+
+.pub-lede {
+    font-size: 18px;
+    line-height: 1.6;
+    color: var(--pub-ink-secondary);
+    max-width: 620px;
+    margin: 0 0 32px;
+}
+
+.pub-section-dark .pub-lede {
+    color: var(--pub-ink-on-dark-muted);
+}
+
+.pub-section-header {
+    max-width: 640px;
+    margin: 0 auto 56px;
+    text-align: center;
+}
+
+.pub-section-header .pub-lede {
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ---------- Buttons ---------- */
+
+.pub-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px 26px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: background .15s, border-color .15s, color .15s, transform .15s, box-shadow .15s;
+    white-space: nowrap;
+}
+
+.pub-btn:active {
+    transform: translateY(1px);
+}
+
+.pub-btn-primary {
+    background: var(--pub-primary);
+    color: #fff;
+    box-shadow: 0 8px 20px rgba(22, 166, 106, .28);
+}
+.pub-btn-primary:hover {
+    background: var(--pub-primary-hover);
+    box-shadow: 0 10px 26px rgba(22, 166, 106, .36);
+}
+
+.pub-btn-outline {
+    background: transparent;
+    border-color: var(--pub-border-strong);
+    color: var(--pub-ink);
+}
+.pub-btn-outline:hover {
+    background: var(--pub-bg-subtle);
+}
+
+.pub-section-dark .pub-btn-outline {
+    border-color: var(--pub-dark-border);
+    color: var(--pub-ink-on-dark);
+}
+.pub-section-dark .pub-btn-outline:hover {
+    background: rgba(255, 255, 255, .06);
+}
+
+.pub-btn-light {
+    background: #fff;
+    color: var(--pub-primary);
+}
+.pub-btn-light:hover {
+    background: #F1F5F9;
+}
+
+.pub-btn-sm {
+    padding: 9px 18px;
+    font-size: 13.5px;
+}
+
+/* ---------- Cards / grids ---------- */
+
+.pub-grid {
+    display: grid;
+    gap: 24px;
+}
+
+.pub-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.pub-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.pub-grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+@media (max-width: 900px) {
+    .pub-grid-3, .pub-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 620px) {
+    .pub-grid-2, .pub-grid-3, .pub-grid-4 { grid-template-columns: 1fr; }
+}
+
+.pub-card {
+    background: var(--pub-surface);
+    border: 1px solid var(--pub-border);
+    border-radius: var(--pub-radius);
+    padding: 28px;
+    transition: box-shadow .2s, transform .2s, border-color .2s;
+}
+
+.pub-card:hover {
+    box-shadow: var(--pub-shadow-hover);
+    border-color: transparent;
+    transform: translateY(-2px);
+}
+
+.pub-card-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: var(--pub-primary-light);
+    color: var(--pub-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    margin-bottom: 18px;
+}
+
+.pub-card p {
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--pub-ink-secondary);
+    margin: 0;
+}
+
+/* ---------- Feature category block (Features page) ---------- */
+
+.pub-category {
+    margin-bottom: 56px;
+}
+
+.pub-category-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--pub-primary);
+    margin-bottom: 22px;
+}
+
+.pub-category-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--pub-border);
+}
+
+.pub-feature-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px 32px;
+}
+
+@media (max-width: 620px) {
+    .pub-feature-list { grid-template-columns: 1fr; }
+}
+
+.pub-feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 14.5px;
+    color: var(--pub-ink-secondary);
+    line-height: 1.5;
+}
+
+.pub-feature-item svg {
+    color: var(--pub-success);
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+
+.pub-feature-item strong {
+    color: var(--pub-ink);
+    display: block;
+    font-size: 14.5px;
+    margin-bottom: 1px;
+}
+
+/* ---------- Pricing ---------- */
+
+.pub-pricing-card {
+    background: var(--pub-surface);
+    border: 1px solid var(--pub-border);
+    border-radius: var(--pub-radius);
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+}
+
+.pub-pricing-card.featured {
+    border-color: var(--pub-primary);
+    box-shadow: var(--pub-shadow-hover);
+    position: relative;
+}
+
+.pub-pricing-badge {
+    position: absolute;
+    top: -13px;
+    left: 28px;
+    background: var(--pub-primary);
+    color: #fff;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 999px;
+}
+
+.pub-pricing-name {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--pub-ink-muted);
+    margin-bottom: 10px;
+}
+
+.pub-pricing-price {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--pub-ink);
+    margin-bottom: 6px;
+}
+
+.pub-pricing-tagline {
+    font-size: 13.5px;
+    color: var(--pub-ink-secondary);
+    margin-bottom: 24px;
+    min-height: 40px;
+}
+
+.pub-pricing-features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    flex: 1;
+}
+
+.pub-pricing-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--pub-ink-secondary);
+}
+
+.pub-pricing-features li svg {
+    color: var(--pub-success);
+    flex-shrink: 0;
+    margin-top: 3px;
+}
+
+/* ---------- Form ---------- */
+
+.pub-form-group {
+    margin-bottom: 18px;
+}
+
+.pub-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+@media (max-width: 560px) {
+    .pub-form-row { grid-template-columns: 1fr; }
+}
+
+.pub-form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--pub-ink);
+    margin-bottom: 6px;
+}
+
+.pub-form-group input,
+.pub-form-group select,
+.pub-form-group textarea {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid var(--pub-border-strong);
+    border-radius: var(--pub-radius-sm);
+    font-size: 14.5px;
+    color: var(--pub-ink);
+    background: var(--pub-surface);
+    font-family: inherit;
+    transition: border-color .15s, box-shadow .15s;
+}
+
+.pub-form-group input:focus,
+.pub-form-group select:focus,
+.pub-form-group textarea:focus {
+    outline: none;
+    border-color: var(--pub-primary);
+    box-shadow: 0 0 0 3px var(--pub-primary-light);
+}
+
+.pub-form-hint {
+    font-size: 12px;
+    color: var(--pub-ink-muted);
+    margin-top: 5px;
+}
+
+.pub-alert {
+    padding: 13px 16px;
+    border-radius: var(--pub-radius-sm);
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.pub-alert-success {
+    background: var(--pub-success-light);
+    color: #15803D;
+}
+
+.pub-alert-danger {
+    background: #FEE2E2;
+    color: #B91C1C;
+}

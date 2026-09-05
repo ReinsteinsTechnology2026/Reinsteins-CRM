@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import CompanyLogo from "../../components/Common/CompanyLogo";
 import {
   FaEye,
@@ -13,8 +13,34 @@ import { toast } from "react-toastify";
 import api from "../../services/api";
 import "./Login.css";
 
+// ==========================================
+// COMPANY-AWARE LOGIN (Phase 5)
+//
+// This single component now serves BOTH the legacy login ("/") and
+// the new company-aware login ("/:companySlug/login") -- useParams()
+// picks up companySlug automatically when rendered under the
+// company-scoped route. companySlug is always undefined at "/",
+// so every branch below falls through to the EXACT original
+// behavior (POST /api/auth/login, redirect to /admin or /employee)
+// when there isn't one -- the legacy path is byte-identical to
+// before this phase.
+//
+// When companySlug IS present: posts to
+// POST /api/tenant-auth/:companySlug/login instead (the slug comes
+// only from the URL param -- never from a form field or anything
+// user-editable), and redirects to /:companySlug/admin or
+// /:companySlug/employee. The returned token is stored under the
+// SAME "token"/"user" keys the legacy path already uses -- safe
+// because the backend's `protect` middleware already accepts both
+// token shapes (it tries the legacy secret first, falls back to
+// tenant verification), so every existing page/service that calls
+// services/api.js keeps working completely unmodified for a
+// company-aware session too.
+// ==========================================
+
 function Login() {
   const navigate = useNavigate();
+  const { companySlug } = useParams();
 
   const [employeeId, setEmployeeId] =
     useState("");
@@ -29,6 +55,32 @@ function Login() {
 
   const [loading, setLoading] =
     useState(false);
+
+  const [companyInfo, setCompanyInfo] = useState(null);
+  const [companyInfoError, setCompanyInfoError] = useState(false);
+
+  // ==========================================
+  // COMPANY BRANDING (Phase 5 foundation)
+  // Public, unauthenticated lookup -- company name only for now.
+  // logoUrl is always null until a future phase adds real logo
+  // storage; this component already renders it when present.
+  // ==========================================
+
+  useEffect(() => {
+    if (!companySlug) return;
+
+    let cancelled = false;
+
+    api.get(`/tenant-auth/${companySlug}/info`)
+      .then((response) => {
+        if (!cancelled) setCompanyInfo(response.data.company);
+      })
+      .catch(() => {
+        if (!cancelled) setCompanyInfoError(true);
+      });
+
+    return () => { cancelled = true; };
+  }, [companySlug]);
 
   // ==========================================
   // LOGIN
@@ -51,8 +103,15 @@ function Login() {
     try {
       setLoading(true);
 
-      const response =
-        await api.post(
+      const response = companySlug
+        ? await api.post(
+          `/tenant-auth/${companySlug}/login`,
+          {
+            employeeId: employeeId.trim(),
+            password,
+          }
+        )
+        : await api.post(
           "/auth/login",
           {
             employeeId:
@@ -104,12 +163,15 @@ function Login() {
       // REDIRECT BASED ON ROLE
       // ======================================
 
+      const adminPath = companySlug ? `/${companySlug}/admin` : "/admin";
+      const employeePath = companySlug ? `/${companySlug}/employee` : "/employee";
+
       if (
         user.role ===
         "admin"
       ) {
         navigate(
-          "/admin",
+          adminPath,
           {
             replace: true,
           }
@@ -123,7 +185,7 @@ function Login() {
         "employee"
       ) {
         navigate(
-          "/employee",
+          employeePath,
           {
             replace: true,
           }
@@ -177,18 +239,31 @@ function Login() {
 
           <div className="brand-logo">
 
-  <CompanyLogo size={90} />
+  {companySlug ? (
+    companyInfo?.logoUrl ? (
+      <img src={companyInfo.logoUrl} alt={companyInfo.name} width={90} height={90} style={{ borderRadius: 16, objectFit: "cover" }} />
+    ) : (
+      // Default ZioVenture branding -- used until a future phase adds
+      // real per-company logo storage (Phase 5 explicitly does not
+      // build that yet; companyInfo.logoUrl is always null today).
+      <div className="groworgs-fallback-mark" aria-hidden="true">Zi</div>
+    )
+  ) : (
+    <CompanyLogo size={90} />
+  )}
 
 </div>
 
           <h1>
-            Reinsteins WorkHub
+            {companySlug
+              ? (companyInfo?.name || "ZioVenture")
+              : "Reinsteins WorkHub"}
           </h1>
 
           <p>
-            A centralized workspace for employees,
-            attendance, productivity, and company
-            operations.
+            {companySlug
+              ? `A centralized workspace for ${companyInfo?.name || "your company"} — powered by ZioVenture.`
+              : "A centralized workspace for employees, attendance, productivity, and company operations."}
           </p>
 
         </div>
@@ -206,10 +281,18 @@ function Login() {
             </h2>
 
             <p>
-              Sign in to continue to your workspace
+              {companySlug
+                ? `Sign in to ${companyInfo?.name || "your company"}'s workspace`
+                : "Sign in to continue to your workspace"}
             </p>
 
           </div>
+
+          {companySlug && companyInfoError && (
+            <p style={{ color: "#D64545", fontSize: 13.5, marginBottom: 18 }}>
+              This company could not be found. Please check the link you used, or contact your administrator.
+            </p>
+          )}
 
           <form
             onSubmit={
@@ -318,7 +401,7 @@ function Login() {
               type="submit"
               className="login-button"
               disabled={
-                loading
+                loading || (companySlug && companyInfoError)
               }
             >
 
@@ -334,7 +417,7 @@ function Login() {
           <div className="login-footer">
 
             <p>
-              Reinsteins Technology
+              {companySlug ? (companyInfo?.name || "ZioVenture") : "Reinsteins Technology"}
             </p>
 
             <span>

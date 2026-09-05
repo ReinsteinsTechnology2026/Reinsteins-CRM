@@ -70,7 +70,9 @@ import {
 import "../../styles/workItems.css";
 import "./TaskWorkspace.css";
 
-const FILE_BASE_URL = "http://localhost:5000";
+import { API_ORIGIN } from "../../config";
+
+const FILE_BASE_URL = API_ORIGIN;
 
 // ==========================================
 // FRONTEND-ONLY ATTACHMENT VALIDATION

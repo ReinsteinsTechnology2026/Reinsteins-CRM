@@ -1,0 +1,69 @@
+/* ==========================================
+   GROWORGS PLATFORM THEME (Phase 4)
+   Indigo / Slate — a distinct "ops console" identity,
+   deliberately separate from the Emerald/Mint tenant
+   portal theme (styles/theme.css). Scoped to
+   .platform-shell so it can never leak into or collide
+   with the tenant portal's global :root tokens.
+========================================== */
+
+.platform-shell {
+
+    --p-canvas: #F1F5F9;
+    --p-surface: #FFFFFF;
+    --p-surface-secondary: #F8FAFC;
+
+    --p-sidebar: #0F172A;
+    --p-sidebar-hover: #1E293B;
+    --p-sidebar-active: #312E81;
+    --p-sidebar-text: #CBD5E1;
+    --p-sidebar-text-muted: #64748B;
+
+    --p-primary: #4F46E5;
+    --p-primary-hover: #4338CA;
+    --p-primary-light: #EEF2FF;
+
+    --p-accent: #0EA5E9;
+
+    --p-text: #0F172A;
+    --p-text-secondary: #475569;
+    --p-text-muted: #94A3B8;
+
+    --p-border: #E2E8F0;
+    --p-border-strong: #CBD5E1;
+
+    --p-success: #16A34A;
+    --p-success-light: #DCFCE7;
+
+    --p-warning: #D97706;
+    --p-warning-light: #FEF3C7;
+
+    --p-danger: #DC2626;
+    --p-danger-light: #FEE2E2;
+
+    --p-pending: #7C3AED;
+    --p-pending-light: #EDE9FE;
+
+    --p-info: #0891B2;
+    --p-info-light: #CFFAFE;
+
+    --p-radius: 12px;
+    --p-radius-sm: 8px;
+
+    --p-shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 4px 16px rgba(15, 23, 42, .06);
+    --p-shadow-hover: 0 10px 28px rgba(15, 23, 42, .12);
+
+    background: var(--p-canvas);
+    color: var(--p-text);
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.platform-shell * {
+    box-sizing: border-box;
+}
+
+.platform-shell ::selection {
+    background: var(--p-primary-light);
+    color: var(--p-primary-hover);
+}

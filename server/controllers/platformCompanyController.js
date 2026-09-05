@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 
 const platformCompanyService = require("../services/platformCompanyService");
+const subscriptionPlanService = require("../services/subscriptionPlanService");
 const tenantProvisioningService = require("../services/tenantProvisioningService");
 const tenantUserService = require("../services/tenantUserService");
 const { getTenantPoolForCompany } = require("../config/tenantConnectionManager");
@@ -18,6 +19,18 @@ const MIN_ADMIN_PASSWORD_LENGTH = 8;
 // ==========================================
 
 const VALID_ACCESS_TYPES = ["complimentary", "trial", "paid"];
+
+// Phase 5 introduced company-aware frontend routes shaped like
+// /:companySlug/login, /:companySlug/admin, etc. -- a company slug
+// matching one of the app's own OTHER top-level route segments would
+// make that company's URLs ambiguous with (or shadow) a real route.
+// isValidSlug() alone doesn't prevent this (it only checks character
+// shape), so this is a small, explicit blocklist checked in addition
+// to it.
+const RESERVED_COMPANY_SLUGS = new Set([
+    "admin", "employee", "platform", "login", "register",
+    "meeting", "api", "task-management-test",
+]);
 
 // Saga-style creation flow (CREATE DATABASE cannot participate in a
 // normal SQL transaction, so this is explicit compensation, not a
@@ -82,6 +95,13 @@ const createCompany = async (req, res) => {
                 message:
                     "companySlug must be lowercase, start with a letter, contain only " +
                     "letters/digits/underscore, and be 2-40 characters long.",
+            });
+        }
+
+        if (RESERVED_COMPANY_SLUGS.has(companySlug)) {
+            return res.status(400).json({
+                success: false,
+                message: `"${companySlug}" is a reserved name and cannot be used as a company slug.`,
             });
         }
 
@@ -307,4 +327,302 @@ const createFirstAdmin = async (req, res) => {
 
 };
 
-module.exports = { createCompany, createFirstAdmin };
+// ==========================================
+// COMPANY MANAGEMENT (Phase 4 -- Platform Owner Dashboard)
+//
+// Everything below reads/writes groworgs_platform_db.companies ONLY.
+// getCompanyDetails is the one exception that ALSO touches a tenant
+// database -- and even then only to count admin rows (never list,
+// never read employee/chat/file data), so the Platform Owner can see
+// "has this company's first admin been created yet" without this
+// becoming a window into tenant business data.
+// ==========================================
+
+const toSafeCompany = (row) => ({
+    id: row.id,
+    companyName: row.company_name,
+    companySlug: row.company_slug,
+    status: row.status,
+    accessType: row.access_type,
+    tenantDbName: row.tenant_db_name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    subscription: {
+        planId: row.plan_id,
+        subscriptionStatus: row.subscription_status,
+        trialEndsAt: row.trial_ends_at,
+        subscriptionStartedAt: row.subscription_started_at,
+        subscriptionExpiresAt: row.subscription_expires_at,
+        accessAllowed: platformCompanyService.isCompanyAccessAllowed(row),
+    },
+});
+
+const listCompanies = async (_req, res) => {
+    try {
+        const companies = await platformCompanyService.listCompanies();
+        return res.status(200).json({
+            success: true,
+            companies: companies.map(toSafeCompany),
+        });
+    } catch (error) {
+        console.error("[platform] listCompanies failed:", error);
+        return res.status(500).json({ success: false, message: "Failed to load companies." });
+    }
+};
+
+const getStats = async (_req, res) => {
+    try {
+        // Merged into the SAME existing /companies/stats response
+        // (reused, not a new endpoint) -- Part 6 of the phase spec
+        // explicitly prefers reusing existing APIs over adding new
+        // ones for the Dashboard.
+        const [stats, subscriptionStats] = await Promise.all([
+            platformCompanyService.getCompanyStats(),
+            platformCompanyService.getSubscriptionStats(),
+        ]);
+        return res.status(200).json({ success: true, stats, subscriptionStats });
+    } catch (error) {
+        console.error("[platform] getStats failed:", error);
+        return res.status(500).json({ success: false, message: "Failed to load dashboard stats." });
+    }
+};
+
+const getCompanyDetails = async (req, res) => {
+    try {
+        const companyId = Number(req.params.id);
+        if (!Number.isInteger(companyId) || companyId <= 0) {
+            return res.status(400).json({ success: false, message: "Invalid company id." });
+        }
+
+        const company = await platformCompanyService.getCompanyById(companyId);
+        if (!company) {
+            return res.status(404).json({ success: false, message: "Company not found." });
+        }
+
+        // Best-effort only -- a pending (unprovisioned) company has no
+        // tenant database yet, so "unknown" is the correct answer, not
+        // an error. Never reads anything beyond a row count.
+        let firstAdminCreated = null;
+        if (company.status !== "pending") {
+            try {
+                const tenantPool = getTenantPoolForCompany(company);
+                const adminCount = await tenantUserService.countAdmins(tenantPool);
+                firstAdminCreated = adminCount > 0;
+            } catch (_resolveError) {
+                firstAdminCreated = null;
+            }
+        }
+
+        // Best-effort plan name for display -- a company with no
+        // plan_id yet (shouldn't happen post-migration, but defensive)
+        // simply shows no plan name rather than erroring the page.
+        let planName = null;
+        if (company.plan_id) {
+            const plan = await subscriptionPlanService.getPlanById(company.plan_id);
+            planName = plan ? plan.name : null;
+        }
+
+        const safeCompany = toSafeCompany(company);
+        safeCompany.subscription.planName = planName;
+
+        return res.status(200).json({
+            success: true,
+            company: { ...safeCompany, firstAdminCreated },
+        });
+    } catch (error) {
+        console.error("[platform] getCompanyDetails failed:", error);
+        return res.status(500).json({ success: false, message: "Failed to load company details." });
+    }
+};
+
+const VALID_STATUS_ACTIONS = ["suspend", "reactivate"];
+
+const updateStatus = async (req, res) => {
+    try {
+        const companyId = Number(req.params.id);
+        if (!Number.isInteger(companyId) || companyId <= 0) {
+            return res.status(400).json({ success: false, message: "Invalid company id." });
+        }
+
+        // Only an explicit action verb is accepted -- never a raw
+        // target status string -- so the client can never request an
+        // arbitrary/invented status value (e.g. "pending", "deleted").
+        const action = req.body?.action;
+        if (!VALID_STATUS_ACTIONS.includes(action)) {
+            return res.status(400).json({
+                success: false,
+                message: `action must be one of: ${VALID_STATUS_ACTIONS.join(", ")}.`,
+            });
+        }
+
+        const updated = action === "suspend"
+            ? await platformCompanyService.suspendCompany(companyId)
+            : await platformCompanyService.reactivateCompany(companyId);
+
+        if (!updated) {
+            return res.status(409).json({
+                success: false,
+                message: action === "suspend"
+                    ? "Company could not be suspended (it may not exist or is not currently active)."
+                    : "Company could not be reactivated (it may not exist or is not currently suspended).",
+            });
+        }
+
+        return res.status(200).json({ success: true, company: toSafeCompany(updated) });
+    } catch (error) {
+        console.error("[platform] updateStatus failed:", error);
+        return res.status(500).json({ success: false, message: "Failed to update company status." });
+    }
+};
+
+const updateAccessType = async (req, res) => {
+    try {
+        const companyId = Number(req.params.id);
+        if (!Number.isInteger(companyId) || companyId <= 0) {
+            return res.status(400).json({ success: false, message: "Invalid company id." });
+        }
+
+        const accessType = req.body?.accessType;
+        if (!VALID_ACCESS_TYPES.includes(accessType)) {
+            return res.status(400).json({
+                success: false,
+                message: `accessType must be one of: ${VALID_ACCESS_TYPES.join(", ")}.`,
+            });
+        }
+
+        const updated = await platformCompanyService.updateCompanyAccessType(companyId, accessType);
+
+        if (!updated) {
+            return res.status(409).json({
+                success: false,
+                message: "Access type could not be updated (company may not exist or is still pending provisioning).",
+            });
+        }
+
+        return res.status(200).json({ success: true, company: toSafeCompany(updated) });
+    } catch (error) {
+        console.error("[platform] updateAccessType failed:", error);
+        return res.status(500).json({ success: false, message: "Failed to update access type." });
+    }
+};
+
+// ==========================================
+// COMPANY SUBSCRIPTION MANAGEMENT (Phase 8)
+//
+// PATCH /api/platform/companies/:id/subscription -- assigns/changes a
+// company's plan and subscription metadata only. Never touches
+// tenant_db_name, never recreates or drops a tenant database, never
+// reaches into any tenant database's own tables -- it is a pure
+// metadata write against this one companies row, exactly like
+// updateAccessType above.
+//
+// VALID_SUBSCRIPTION_STATUSES intentionally mirrors the enum defined
+// in the companies table itself (see _migrate_add_subscriptions.js) --
+// a client can never request an arbitrary/invented status string.
+// ==========================================
+
+const VALID_SUBSCRIPTION_STATUSES = ["active", "trial", "expired", "cancelled"];
+
+// Accepts either a null/undefined (no date set) or a value that
+// parses to a valid Date -- rejects garbage strings before they ever
+// reach a query. Returns a MySQL-friendly value (Date object,
+// mysql2 handles the conversion) or null.
+const parseOptionalDate = (value, fieldName) => {
+    if (value === undefined || value === null || value === "") {
+        return { value: null };
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return { error: `${fieldName} must be a valid date, or omitted.` };
+    }
+    return { value: date };
+};
+
+const updateSubscription = async (req, res) => {
+    try {
+        const companyId = Number(req.params.id);
+        if (!Number.isInteger(companyId) || companyId <= 0) {
+            return res.status(400).json({ success: false, message: "Invalid company id." });
+        }
+
+        const planIdRaw = req.body?.planId;
+        const planId = Number(planIdRaw);
+        if (!Number.isInteger(planId) || planId <= 0) {
+            return res.status(400).json({ success: false, message: "A valid planId is required." });
+        }
+
+        const subscriptionStatus = req.body?.subscriptionStatus;
+        if (!VALID_SUBSCRIPTION_STATUSES.includes(subscriptionStatus)) {
+            return res.status(400).json({
+                success: false,
+                message: `subscriptionStatus must be one of: ${VALID_SUBSCRIPTION_STATUSES.join(", ")}.`,
+            });
+        }
+
+        const trialEndsAtResult = parseOptionalDate(req.body?.trialEndsAt, "trialEndsAt");
+        if (trialEndsAtResult.error) {
+            return res.status(400).json({ success: false, message: trialEndsAtResult.error });
+        }
+
+        const subscriptionExpiresAtResult = parseOptionalDate(req.body?.subscriptionExpiresAt, "subscriptionExpiresAt");
+        if (subscriptionExpiresAtResult.error) {
+            return res.status(400).json({ success: false, message: subscriptionExpiresAtResult.error });
+        }
+
+        const existingCompany = await platformCompanyService.getCompanyById(companyId);
+        if (!existingCompany) {
+            return res.status(404).json({ success: false, message: "Company not found." });
+        }
+
+        const plan = await subscriptionPlanService.getPlanById(planId);
+        if (!plan) {
+            return res.status(400).json({ success: false, message: "Invalid plan id." });
+        }
+
+        // Security requirement G: a disabled plan cannot be newly
+        // assigned. The one deliberate, documented exception -- kept
+        // narrow on purpose -- is a company that is ALREADY on this
+        // plan: that lets a Platform Owner still edit that company's
+        // subscription status/dates after the plan itself was later
+        // disabled, without being forced to switch plans first.
+        if (plan.status !== "active" && existingCompany.plan_id !== plan.id) {
+            return res.status(400).json({
+                success: false,
+                message: "This plan is disabled and cannot be newly assigned to a company.",
+            });
+        }
+
+        const updated = await platformCompanyService.updateCompanySubscription(companyId, {
+            planId: plan.id,
+            subscriptionStatus,
+            trialEndsAt: trialEndsAtResult.value,
+            subscriptionExpiresAt: subscriptionExpiresAtResult.value,
+        });
+
+        if (!updated) {
+            return res.status(409).json({
+                success: false,
+                message: "Subscription could not be updated (company may not exist or is still pending provisioning).",
+            });
+        }
+
+        const safeCompany = toSafeCompany(updated);
+        safeCompany.subscription.planName = plan.name;
+
+        return res.status(200).json({ success: true, company: safeCompany });
+    } catch (error) {
+        console.error("[platform] updateSubscription failed:", error);
+        return res.status(500).json({ success: false, message: "Failed to update subscription." });
+    }
+};
+
+module.exports = {
+    createCompany,
+    createFirstAdmin,
+    listCompanies,
+    getStats,
+    getCompanyDetails,
+    updateStatus,
+    updateAccessType,
+    updateSubscription,
+};

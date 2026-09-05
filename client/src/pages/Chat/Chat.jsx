@@ -5,6 +5,7 @@ import {
   useState,
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { API_ORIGIN } from "../../config";
 import {
   FaSearch,
   FaPaperPlane,
@@ -3009,12 +3010,12 @@ const chatContent = (
 {message.message_type === "image" ? (
 
   <img
-    src={`http://localhost:5000${message.image}`}
+    src={`${API_ORIGIN}${message.image}`}
     alt="Shared"
     className="workhub-chat-image"
     onClick={() =>
       setPreviewImage(
-        `http://localhost:5000${message.image}`
+        `${API_ORIGIN}${message.image}`
       )
     }
   />
@@ -3026,7 +3027,7 @@ const chatContent = (
   className="workhub-file-message"
   onClick={() => {
     window.open(
-      `http://localhost:5000${message.image}`,
+      `${API_ORIGIN}${message.image}`,
       "_blank"
     );
   }}

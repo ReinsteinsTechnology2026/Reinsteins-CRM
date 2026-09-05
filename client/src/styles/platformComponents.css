@@ -1,0 +1,455 @@
+/* ==========================================
+   GROWORGS PLATFORM — SHARED COMPONENT STYLES (Phase 4)
+   Reused across every page under pages/Platform/.
+========================================== */
+
+.platform-page {
+    max-width: 1180px;
+}
+
+.platform-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.platform-page-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--p-text);
+    margin: 0 0 4px;
+}
+
+.platform-page-header p {
+    font-size: 13.5px;
+    color: var(--p-text-secondary);
+    margin: 0;
+}
+
+.platform-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--p-text-secondary);
+    text-decoration: none;
+    margin-bottom: 14px;
+}
+
+.platform-back-link:hover {
+    color: var(--p-primary);
+}
+
+/* ---------- Buttons ---------- */
+
+.platform-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border-radius: var(--p-radius-sm);
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: background .15s, border-color .15s, color .15s, opacity .15s;
+    white-space: nowrap;
+}
+
+.platform-btn:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+}
+
+.platform-btn-primary {
+    background: var(--p-primary);
+    color: #fff;
+}
+.platform-btn-primary:hover:not(:disabled) {
+    background: var(--p-primary-hover);
+}
+
+.platform-btn-outline {
+    background: var(--p-surface);
+    border-color: var(--p-border-strong);
+    color: var(--p-text);
+}
+.platform-btn-outline:hover:not(:disabled) {
+    background: var(--p-surface-secondary);
+}
+
+.platform-btn-danger {
+    background: var(--p-danger-light);
+    color: var(--p-danger);
+}
+.platform-btn-danger:hover:not(:disabled) {
+    background: #FCA5A5;
+}
+
+.platform-btn-success {
+    background: var(--p-success-light);
+    color: var(--p-success);
+}
+.platform-btn-success:hover:not(:disabled) {
+    background: #86EFAC;
+}
+
+.platform-btn-sm {
+    padding: 6px 12px;
+    font-size: 12.5px;
+}
+
+/* ---------- Cards / stat grid ---------- */
+
+.platform-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 16px;
+}
+
+.platform-stat-card {
+    background: var(--p-surface);
+    border: 1px solid var(--p-border);
+    border-radius: var(--p-radius);
+    box-shadow: var(--p-shadow);
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+/* Phase 7 -- the one clickable stat card (Dashboard -> Demo Requests) */
+.platform-stat-card-link {
+    text-decoration: none;
+    color: inherit;
+    transition: box-shadow .15s, border-color .15s;
+}
+.platform-stat-card-link:hover {
+    box-shadow: var(--p-shadow-hover);
+    border-color: var(--p-primary);
+}
+
+.platform-stat-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+}
+
+.platform-stat-icon.tone-primary { background: var(--p-primary-light); color: var(--p-primary); }
+.platform-stat-icon.tone-success { background: var(--p-success-light); color: var(--p-success); }
+.platform-stat-icon.tone-danger { background: var(--p-danger-light); color: var(--p-danger); }
+.platform-stat-icon.tone-pending { background: var(--p-pending-light); color: var(--p-pending); }
+.platform-stat-icon.tone-info { background: var(--p-info-light); color: var(--p-info); }
+.platform-stat-icon.tone-warning { background: var(--p-warning-light); color: var(--p-warning); }
+
+.platform-stat-value {
+    display: block;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--p-text);
+    line-height: 1.15;
+}
+
+.platform-stat-label {
+    display: block;
+    font-size: 12px;
+    color: var(--p-text-secondary);
+    margin-top: 2px;
+}
+
+/* ---------- Table / list ---------- */
+
+.platform-card {
+    background: var(--p-surface);
+    border: 1px solid var(--p-border);
+    border-radius: var(--p-radius);
+    box-shadow: var(--p-shadow);
+    overflow: hidden;
+}
+
+.platform-table-wrap {
+    overflow-x: auto;
+}
+
+.platform-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+}
+
+.platform-table th {
+    text-align: left;
+    padding: 12px 18px;
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--p-text-muted);
+    background: var(--p-surface-secondary);
+    border-bottom: 1px solid var(--p-border);
+    white-space: nowrap;
+}
+
+.platform-table td {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--p-border);
+    color: var(--p-text);
+    vertical-align: middle;
+}
+
+.platform-table tr:last-child td {
+    border-bottom: none;
+}
+
+.platform-table tr.clickable {
+    cursor: pointer;
+    transition: background .12s;
+}
+.platform-table tr.clickable:hover {
+    background: var(--p-surface-secondary);
+}
+
+.platform-company-name {
+    font-weight: 600;
+    color: var(--p-text);
+}
+
+.platform-company-slug {
+    font-size: 12px;
+    color: var(--p-text-muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* ---------- Badges ---------- */
+
+.platform-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.platform-badge.status-active { background: var(--p-success-light); color: var(--p-success); }
+.platform-badge.status-suspended { background: var(--p-danger-light); color: var(--p-danger); }
+.platform-badge.status-pending { background: var(--p-pending-light); color: var(--p-pending); }
+
+.platform-badge.access-complimentary { background: var(--p-info-light); color: var(--p-info); }
+.platform-badge.access-trial { background: var(--p-warning-light); color: var(--p-warning); }
+.platform-badge.access-paid { background: var(--p-success-light); color: var(--p-success); }
+
+/* Demo request statuses (Phase 7) -- distinct class names from the
+   company statuses above (status-new/contacted/closed vs
+   status-active/suspended/pending), so both share .platform-badge
+   with no collision. */
+.platform-badge.status-new { background: var(--p-info-light); color: var(--p-info); }
+.platform-badge.status-contacted { background: var(--p-warning-light); color: var(--p-warning); }
+.platform-badge.status-closed { background: #F1F5F9; color: #64748B; }
+
+/* Plan status (Phase 8) -- status-active is already shared with the
+   company status badges above; status-inactive is new. Subscription
+   status (trial/expired/cancelled) reuses status-new/warning/danger-
+   toned classes below for the same reason demo-request statuses
+   share .platform-badge with no collision. */
+.platform-badge.status-inactive { background: #F1F5F9; color: #64748B; }
+.platform-badge.status-trial { background: var(--p-warning-light); color: var(--p-warning); }
+.platform-badge.status-expired { background: var(--p-danger-light); color: var(--p-danger); }
+.platform-badge.status-cancelled { background: #F1F5F9; color: #64748B; }
+
+/* ---------- Empty / alert states ---------- */
+
+.platform-empty-state {
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--p-text-secondary);
+    font-size: 14px;
+}
+
+.platform-alert {
+    padding: 12px 16px;
+    border-radius: var(--p-radius-sm);
+    font-size: 13.5px;
+    margin-bottom: 18px;
+}
+
+.platform-alert-danger {
+    background: var(--p-danger-light);
+    color: var(--p-danger);
+}
+
+.platform-alert-success {
+    background: var(--p-success-light);
+    color: var(--p-success);
+}
+
+/* ---------- Modal ---------- */
+
+.platform-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, .55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+}
+
+.platform-modal {
+    background: var(--p-surface);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 460px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .25);
+}
+
+.platform-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 22px 24px 0;
+}
+
+.platform-modal-header h2 {
+    font-size: 17px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    color: var(--p-text);
+}
+
+.platform-modal-header p {
+    font-size: 13px;
+    color: var(--p-text-secondary);
+    margin: 0;
+}
+
+.platform-modal-close {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: var(--p-text-muted);
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+}
+
+.platform-modal-body {
+    padding: 20px 24px 24px;
+}
+
+.platform-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 0 24px 24px;
+}
+
+/* Form fields (shared with login) */
+
+/* Generic form-group styling (Phase 8) -- usable outside a modal too
+   (e.g. the Subscription section on Company Details). Lower
+   specificity than the .platform-modal-scoped rules below, so modal
+   forms are completely unaffected; this only fills in styling where
+   nothing matched before. */
+.platform-form-group {
+    margin-bottom: 16px;
+}
+
+.platform-form-group label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--p-text-secondary);
+    margin-bottom: 6px;
+}
+
+.platform-form-group input,
+.platform-form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--p-border);
+    border-radius: var(--p-radius-sm);
+    font-size: 13.5px;
+    color: var(--p-text);
+    background: var(--p-surface-secondary);
+}
+
+.platform-form-group input:focus,
+.platform-form-group select:focus {
+    outline: none;
+    border-color: var(--p-primary);
+    box-shadow: 0 0 0 3px var(--p-primary-light);
+    background: var(--p-surface);
+}
+
+.platform-modal .platform-form-group {
+    margin-bottom: 16px;
+}
+
+.platform-modal .platform-form-group label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--p-text-secondary);
+    margin-bottom: 6px;
+}
+
+.platform-modal .platform-form-group input,
+.platform-modal .platform-form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--p-border);
+    border-radius: var(--p-radius-sm);
+    font-size: 13.5px;
+    color: var(--p-text);
+    background: var(--p-surface-secondary);
+}
+
+.platform-modal .platform-form-group input:focus,
+.platform-modal .platform-form-group select:focus {
+    outline: none;
+    border-color: var(--p-primary);
+    box-shadow: 0 0 0 3px var(--p-primary-light);
+    background: var(--p-surface);
+}
+
+.platform-form-hint {
+    font-size: 11.5px;
+    color: var(--p-text-muted);
+    margin-top: 5px;
+}
+
+.platform-result-box {
+    background: var(--p-surface-secondary);
+    border: 1px solid var(--p-border);
+    border-radius: var(--p-radius-sm);
+    padding: 14px 16px;
+    font-size: 13px;
+}
+
+.platform-result-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+}
+
+.platform-result-row span:first-child {
+    color: var(--p-text-secondary);
+}
+
+.platform-result-row span:last-child {
+    font-weight: 600;
+    color: var(--p-text);
+}

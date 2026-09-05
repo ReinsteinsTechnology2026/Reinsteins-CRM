@@ -136,3 +136,18 @@
     --radius:14px;
 
 }
+
+/* ==========================================
+   ZIOVENTURE BRAND MARK (global utility)
+
+   theme.css is loaded globally (see main.jsx), so these two classes
+   work everywhere the "ZioVenture" wordmark is rendered outside the
+   tenant portal itself -- the public marketing site and the Platform
+   Owner login screen. "Zio" always reuses --primary (this file's own
+   emerald green, unchanged); "Venture" is white, for the dark
+   surfaces the wordmark is always placed on (dark public navbar/
+   footer, dark platform login panel).
+========================================== */
+
+.brand-zio { color: var(--primary); }
+.brand-venture { color: #FFFFFF; }

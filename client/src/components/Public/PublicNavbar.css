@@ -1,0 +1,93 @@
+/* Dark professional green -- same two gradient stops as the tenant
+   portal's own dark login panel (pages/Auth/Login.css
+   .login-brand-section: --dark #111816 -> --dark-surface #18211E),
+   reused here via the public theme's --pub-dark/--pub-dark-surface
+   tokens (styles/publicTheme.css) for a consistent brand surface. */
+.pub-navbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: linear-gradient(135deg, var(--pub-dark) 0%, var(--pub-dark-surface) 100%);
+    border-bottom: 1px solid var(--pub-dark-border);
+}
+
+.pub-navbar-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 68px;
+}
+
+.pub-navbar-brand {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+}
+
+.pub-navbar-links {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+}
+
+.pub-navbar-link {
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--pub-ink-on-dark-muted);
+    text-decoration: none;
+    transition: color .15s;
+}
+
+.pub-navbar-link:hover,
+.pub-navbar-link.active {
+    color: var(--pub-ink-on-dark);
+}
+
+.pub-navbar-login {
+    margin-left: 4px;
+}
+
+.pub-navbar-toggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: var(--pub-ink-on-dark);
+    cursor: pointer;
+}
+
+@media (max-width: 860px) {
+    .pub-navbar-toggle {
+        display: block;
+    }
+
+    .pub-navbar-links {
+        position: absolute;
+        top: 68px;
+        left: 0;
+        right: 0;
+        background: var(--pub-dark-surface);
+        border-bottom: 1px solid var(--pub-dark-border);
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        padding: 16px 24px 22px;
+        display: none;
+        box-shadow: 0 16px 32px rgba(0, 0, 0, .28);
+    }
+
+    .pub-navbar-links.open {
+        display: flex;
+    }
+
+    .pub-navbar-link {
+        padding: 10px 0;
+        width: 100%;
+    }
+
+    .pub-navbar-login {
+        margin-left: 0;
+        margin-top: 8px;
+    }
+}

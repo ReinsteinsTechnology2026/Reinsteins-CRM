@@ -1,0 +1,75 @@
+.pub-hero {
+    position: relative;
+    padding: 96px 0 88px;
+    overflow: hidden;
+}
+
+.pub-hero-inner {
+    position: relative;
+    z-index: 1;
+    max-width: 760px;
+}
+
+.pub-hero-lede {
+    max-width: 560px;
+}
+
+.pub-hero-actions {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.pub-hero-glow {
+    position: absolute;
+    top: -220px;
+    right: -160px;
+    width: 640px;
+    height: 640px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(22, 166, 106, .16) 0%, rgba(22, 166, 106, .06) 45%, transparent 70%);
+    pointer-events: none;
+}
+
+.pub-features-more {
+    display: flex;
+    justify-content: center;
+    margin-top: 44px;
+}
+
+.pub-why-grid {
+    gap: 36px 48px;
+}
+
+.pub-why-item {
+    display: flex;
+    gap: 18px;
+    align-items: flex-start;
+}
+
+.pub-why-item .pub-card-icon {
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+
+.pub-why-item p {
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--pub-ink-secondary);
+    margin: 0;
+}
+
+.pub-cta-inner {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.pub-cta-inner .pub-h2 {
+    color: #fff;
+}
+
+.pub-cta-inner .pub-hero-actions {
+    justify-content: center;
+}

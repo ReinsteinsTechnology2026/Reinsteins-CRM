@@ -60,8 +60,41 @@ const authLoginLimiter = createLoginLimiter();
 const platformLoginLimiter = createLoginLimiter();
 const tenantLoginLimiter = createLoginLimiter();
 
+// ==========================================
+// PUBLIC DEMO REQUEST RATE LIMITING (Phase 6)
+//
+// Applied ONLY to POST /api/public/demo-request. Deliberately
+// stricter and structured differently from the login limiters above:
+//
+//   - 5 requests per hour per IP (a real prospect submits this form
+//     once, maybe twice if they made a typo -- 5/hour is generous for
+//     a genuine user and tight against a scripted spam burst).
+//   - skipSuccessfulRequests is NOT set (defaults to false) -- unlike
+//     a login attempt, a "successful" demo-request submission is
+//     itself the exact thing being spammed, so every submission,
+//     success or not, must count toward the limit.
+// ==========================================
+
+const DEMO_REQUEST_WINDOW_MS = 60 * 60 * 1000;
+const DEMO_REQUEST_MAX_ATTEMPTS = 5;
+
+const demoRequestLimiter = rateLimit({
+    windowMs: DEMO_REQUEST_WINDOW_MS,
+    max: DEMO_REQUEST_MAX_ATTEMPTS,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        success: false,
+        message: "Too many requests. Please try again later.",
+    },
+    handler: (req, res, _next, options) => {
+        res.status(options.statusCode).json(options.message);
+    },
+});
+
 module.exports = {
     authLoginLimiter,
     platformLoginLimiter,
     tenantLoginLimiter,
+    demoRequestLimiter,
 };

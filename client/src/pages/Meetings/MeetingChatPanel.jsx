@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import { API_ORIGIN } from "../../config";
+
 import {
     FaTimes,
     FaPaperPlane,
@@ -152,7 +154,7 @@ function fileIconFor(mimeType) {
 // already used by normal WorkHub Chat's attachment URLs.
 
 function buildAttachmentUrl(path) {
-    return `http://localhost:5000${path}`;
+    return `${API_ORIGIN}${path}`;
 }
 
 function generatePendingId() {

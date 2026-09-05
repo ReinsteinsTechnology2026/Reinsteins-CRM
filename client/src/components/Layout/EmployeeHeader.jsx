@@ -6,6 +6,7 @@ import {
 
 import {
   useNavigate,
+  useParams,
 } from "react-router-dom";
 
 import {
@@ -35,6 +36,13 @@ import "./EmployeeHeader.css";
 function EmployeeHeader({ mobileNavOpen, onOpenMobileNav }) {
   const navigate =
     useNavigate();
+
+  // Phase 8 fix: notification navigation below previously hardcoded
+  // the legacy "/employee" prefix, breaking in-app notification
+  // clicks for company-aware tenant users (see AdminSidebar.jsx for
+  // the same fix and full reasoning).
+  const { companySlug } = useParams();
+  const basePath = companySlug ? `/${companySlug}/employee` : "/employee";
 
   // ==========================================
   // MOBILE/TABLET DRAWER — HAMBURGER FOCUS
@@ -366,7 +374,7 @@ function EmployeeHeader({ mobileNavOpen, onOpenMobileNav }) {
         setIsOpen(false);
 
         navigate(
-          `/employee/task-workspace/${notification.reference_id}`
+          `${basePath}/task-workspace/${notification.reference_id}`
         );
 
       }
@@ -380,7 +388,7 @@ function EmployeeHeader({ mobileNavOpen, onOpenMobileNav }) {
         setIsOpen(false);
 
         navigate(
-          "/employee/chat",
+          `${basePath}/chat`,
           {
             state: {
               openConversationId:
@@ -406,8 +414,8 @@ function EmployeeHeader({ mobileNavOpen, onOpenMobileNav }) {
           notification.type?.startsWith(
             "leave_pending"
           )
-            ? "/employee/team/leave-approvals"
-            : "/employee/leave"
+            ? `${basePath}/team/leave-approvals`
+            : `${basePath}/leave`
         );
 
       }
@@ -421,7 +429,7 @@ function EmployeeHeader({ mobileNavOpen, onOpenMobileNav }) {
         setIsOpen(false);
 
         navigate(
-          `/employee/meetings/${notification.reference_id}`
+          `${basePath}/meetings/${notification.reference_id}`
         );
 
       }
