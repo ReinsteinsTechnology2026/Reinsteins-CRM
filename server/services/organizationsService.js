@@ -47,7 +47,14 @@ const getAllOrganizations = async () => {
         ORDER BY o.id DESC
     `);
 
-    return organizations;
+    // member_count/project_count are bigint (COUNT(*)) -- pg returns
+    // them as strings; the frontend does a strict `=== 1`
+    // singular/plural check on member_count, so it must be a number.
+    return organizations.map((o) => ({
+        ...o,
+        member_count: Number(o.member_count),
+        project_count: Number(o.project_count),
+    }));
 
 };
 
@@ -81,7 +88,17 @@ const getOrganizationById = async (id) => {
         LIMIT 1
     `, [id]);
 
-    return organizations[0] || null;
+    if (organizations.length === 0) {
+        return null;
+    }
+
+    const organization = organizations[0];
+
+    return {
+        ...organization,
+        member_count: Number(organization.member_count),
+        project_count: Number(organization.project_count),
+    };
 
 };
 

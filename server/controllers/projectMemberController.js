@@ -388,7 +388,15 @@ const getSecurityGroups = async (req, res) => {
             [req.params.id, req.params.id]
         );
 
-        return res.json({ success: true, groups });
+        // member_count is bigint (COUNT(*)) -- pg returns it as a
+        // string; the frontend does a strict `=== 1` singular/plural
+        // check on it, so it must be a real number.
+        const normalizedGroups = groups.map((g) => ({
+            ...g,
+            member_count: Number(g.member_count),
+        }));
+
+        return res.json({ success: true, groups: normalizedGroups });
 
     } catch (error) {
 

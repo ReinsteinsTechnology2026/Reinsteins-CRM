@@ -204,6 +204,9 @@ const getMeetingById = async (id) => {
 
     meeting.has_password = Boolean(meetings[0].password_hash);
 
+    // participant_count is bigint (COUNT(*)) -- pg returns it as a string.
+    meeting.participant_count = Number(meeting.participant_count);
+
     return meeting;
 
 };
@@ -256,14 +259,21 @@ const listMeetings = async (user) => {
         meetings.forEach((meeting) => {
             meeting.has_password = Boolean(meeting.password_hash);
             delete meeting.password_hash;
+            meeting.participant_count = Number(meeting.participant_count);
         });
 
         return meetings;
 
     }
 
+    // Plain SELECT (no DISTINCT): meeting_participants has a
+    // UNIQUE(meeting_id, user_id) constraint, so the LEFT JOIN below
+    // (scoped to a single user_id) can never produce more than one
+    // row per meeting -- DISTINCT was a no-op here, and pg (unlike
+    // MySQL) rejects DISTINCT over the `settings` json column
+    // (json has no equality operator; only jsonb does).
     const [meetings] = await pool.query(`
-        SELECT DISTINCT
+        SELECT
             m.*,
             u.full_name AS host_name,
             (
@@ -285,6 +295,7 @@ const listMeetings = async (user) => {
     meetings.forEach((meeting) => {
         meeting.has_password = Boolean(meeting.password_hash);
         delete meeting.password_hash;
+        meeting.participant_count = Number(meeting.participant_count);
     });
 
     return meetings;
@@ -306,7 +317,12 @@ const getMeetingStats = async () => {
         FROM meetings
     `);
 
-    return rows[0];
+    return {
+        total: Number(rows[0].total),
+        live: Number(rows[0].live),
+        upcoming: Number(rows[0].upcoming),
+        completed: Number(rows[0].completed),
+    };
 
 };
 
@@ -624,7 +640,13 @@ const getParticipants = async (meetingId) => {
         INNER JOIN users u ON u.id = mp.user_id
         WHERE mp.meeting_id = ?
         ORDER BY
-            FIELD(mp.role, 'host', 'co_host', 'presenter', 'participant'),
+            CASE mp.role
+                WHEN 'host' THEN 0
+                WHEN 'co_host' THEN 1
+                WHEN 'presenter' THEN 2
+                WHEN 'participant' THEN 3
+                ELSE 4
+            END,
             mp.created_at ASC
     `, [meetingId]);
 

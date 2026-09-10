@@ -795,7 +795,7 @@ const getMyConversations =
 
                 AND
                 m.is_deleted =
-                  0
+                  FALSE
 
               ORDER BY
                 m.created_at DESC,
@@ -822,7 +822,7 @@ const getMyConversations =
 
                 AND
                 m.is_deleted =
-                  0
+                  FALSE
 
               ORDER BY
                 m.created_at DESC,
@@ -842,7 +842,7 @@ const getMyConversations =
 
                 AND
                 m.is_deleted =
-                  0
+                  FALSE
 
               ORDER BY
                 m.created_at DESC,
@@ -867,7 +867,7 @@ const getMyConversations =
 
                 AND
                 m.is_deleted =
-                  0
+                  FALSE
 
                 AND
                 (
@@ -911,10 +911,18 @@ const getMyConversations =
           ]
         );
 
+      // member_count/unread_count are bigint (COUNT(*)) -- pg
+      // returns them as strings.
+      const normalizedConversations = conversations.map((c) => ({
+        ...c,
+        member_count: Number(c.member_count),
+        unread_count: Number(c.unread_count),
+      }));
+
       return res.status(200).json({
         success: true,
 
-        conversations,
+        conversations: normalizedConversations,
       });
 
     } catch (error) {

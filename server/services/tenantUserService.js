@@ -62,7 +62,7 @@ async function countAdmins(tenantPool) {
     const [[{ c }]] = await tenantPool.query(
         `SELECT COUNT(*) AS c FROM users WHERE role = 'admin'`
     );
-    return c;
+    return Number(c);
 }
 
 // Creates the tenant's first Administrator. passwordHash must

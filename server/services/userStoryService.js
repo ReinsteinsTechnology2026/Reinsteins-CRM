@@ -76,7 +76,13 @@ const getUserStoriesByProject = async (projectId) => {
         ORDER BY us.id DESC
     `, [projectId]);
 
-    return stories;
+    // task_count (COUNT) and progress (ROUND(AVG(...))) come back
+    // from pg as strings -- normalize to numbers.
+    return stories.map((s) => ({
+        ...s,
+        task_count: Number(s.task_count),
+        progress: Number(s.progress) || 0,
+    }));
 
 };
 

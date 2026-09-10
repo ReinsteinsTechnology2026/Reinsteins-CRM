@@ -388,6 +388,7 @@ const fetchTaskReportRows = async ({
       logged_hours: loggedHours,
       active_elapsed_hours: activeHours,
       total_work_hours: totalWorkHours,
+      session_count: Number(row.session_count) || 0,
       work_dates: workDates,
       work_descriptions: row.work_descriptions
         ? row.work_descriptions.split("\n").filter(Boolean)

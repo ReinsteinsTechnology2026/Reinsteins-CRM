@@ -39,9 +39,17 @@ const getDepartments = async (req, res) => {
             `
         );
 
+        // member_count is bigint (COUNT(*)) -- pg returns it as a
+        // string; the frontend does a strict `!==1` singular/plural
+        // check on it, so it must be a real number.
+        const normalizedDepartments = departments.map((d) => ({
+            ...d,
+            member_count: Number(d.member_count),
+        }));
+
         return res.status(200).json({
             success: true,
-            departments,
+            departments: normalizedDepartments,
         });
 
     } catch (error) {
@@ -112,10 +120,12 @@ const getDepartmentMembers = async (req, res) => {
         const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
         const offset = (page - 1) * limit;
 
-        const [[{ total }]] = await pool.query(
+        const [[{ total: totalRaw }]] = await pool.query(
             `SELECT COUNT(*) AS total FROM users WHERE department_id = ?`,
             [id]
         );
+
+        const total = Number(totalRaw);
 
         const [members] = await pool.query(
             `

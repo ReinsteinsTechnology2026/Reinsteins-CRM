@@ -77,7 +77,7 @@ const getMyTeam = async (req, res) => {
 
         const leaveMap = {};
         leaveRows.forEach((row) => {
-            leaveMap[row.user_id] = row.pending_count;
+            leaveMap[row.user_id] = Number(row.pending_count);
         });
 
         const team = rows.map((row) => ({
@@ -250,7 +250,10 @@ async function fetchOrgNodes(whereClause, params) {
         params
     );
 
-    return rows;
+    return rows.map((row) => ({
+        ...row,
+        direct_report_count: Number(row.direct_report_count),
+    }));
 
 }
 
@@ -951,22 +954,24 @@ const getExecutiveSummary = async (req, res) => {
             `
         );
 
+        // Every COUNT/SUM above is bigint/numeric -- pg returns them
+        // as strings; normalize to numbers for the dashboard.
         return res.status(200).json({
             success: true,
             summary: {
-                activeEmployees: employeeRow.count,
-                activeInterns: internRow.count,
-                departmentCount: departmentRow.count,
-                totalProjects: projectTotalRow.count,
-                projectsByStatus: projectStatusRows,
-                pendingTasks: taskRow.pending || 0,
-                overdueTasks: taskRow.overdue || 0,
-                pendingLeaveApprovals: pendingLeaveRow.count,
-                presentToday: attendanceRow.count,
-                onLeaveToday: onLeaveTodayRow.count,
-                departmentDistribution,
-                leaveByStatus,
-                taskByStatus,
+                activeEmployees: Number(employeeRow.count),
+                activeInterns: Number(internRow.count),
+                departmentCount: Number(departmentRow.count),
+                totalProjects: Number(projectTotalRow.count),
+                projectsByStatus: projectStatusRows.map((r) => ({ ...r, count: Number(r.count) })),
+                pendingTasks: Number(taskRow.pending) || 0,
+                overdueTasks: Number(taskRow.overdue) || 0,
+                pendingLeaveApprovals: Number(pendingLeaveRow.count),
+                presentToday: Number(attendanceRow.count),
+                onLeaveToday: Number(onLeaveTodayRow.count),
+                departmentDistribution: departmentDistribution.map((r) => ({ ...r, memberCount: Number(r.memberCount) })),
+                leaveByStatus: leaveByStatus.map((r) => ({ ...r, count: Number(r.count) })),
+                taskByStatus: taskByStatus.map((r) => ({ ...r, count: Number(r.count) })),
             },
             recentActivity,
         });

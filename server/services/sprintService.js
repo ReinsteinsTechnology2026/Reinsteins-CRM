@@ -42,7 +42,13 @@ const getActiveSprintsForUser = async (userId) => {
         ORDER BY s.id DESC
     `, [userId]);
 
-    return sprints;
+    // task_count/closed_task_count are bigint (COUNT(*)) -- pg
+    // returns them as strings, normalize to numbers.
+    return sprints.map((s) => ({
+        ...s,
+        task_count: Number(s.task_count),
+        closed_task_count: Number(s.closed_task_count),
+    }));
 
 };
 
@@ -79,7 +85,12 @@ const getSprintsByProject = async (projectId) => {
             s.id DESC
     `, [projectId]);
 
-    return sprints;
+    // Same bigint-as-string normalization as getActiveSprintsForUser.
+    return sprints.map((s) => ({
+        ...s,
+        task_count: Number(s.task_count),
+        closed_task_count: Number(s.closed_task_count),
+    }));
 
 };
 
