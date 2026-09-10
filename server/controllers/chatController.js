@@ -1216,6 +1216,17 @@ OFFSET ?
 
       messages.reverse();
 
+      // file_size is bigint (chat_attachments.file_size) -- pg returns
+      // it as a string; null for a text message (no attachment row via
+      // the LEFT JOIN) must stay null, not become 0.
+      const normalizedMessages = messages.map((m) => ({
+        ...m,
+        file_size:
+          m.file_size === null
+            ? null
+            : Number(m.file_size),
+      }));
+
       return res.status(200).json({
         success: true,
 
@@ -1223,7 +1234,7 @@ OFFSET ?
 
         limit,
 
-        messages,
+        messages: normalizedMessages,
       });
 
     } catch (error) {
