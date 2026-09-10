@@ -225,7 +225,7 @@ async function removeOrganizationMember(organizationId, userId) {
         [userId, organizationId]
     );
 
-    return { success: true, reason: "removed", removedProjectMemberships: cascadeResult.rowCount };
+    return { success: true, reason: "removed", removedProjectMemberships: cascadeResult.affectedRows };
 
 }
 

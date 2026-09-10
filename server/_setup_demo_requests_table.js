@@ -2,6 +2,16 @@ const mysql = require("mysql2/promise");
 require("dotenv").config();
 
 // ==========================================
+// SUPERSEDED (Phase 4, PostgreSQL migration) -- this script connects
+// via raw mysql2 and is NOT PostgreSQL-compatible; it has NOT been
+// converted. Its job (creating demo_requests) is now done in one
+// pass by _setup_platform_db.js against
+// schemas/platformSchema.postgresql.sql. Do not run this script
+// against the PostgreSQL database. Left in place only as historical
+// record of the original migration.
+// ==========================================
+
+// ==========================================
 // DEMO REQUESTS TABLE — SETUP (Phase 6)
 //
 // Creates ONE new table, `demo_requests`, inside the existing

@@ -19,4 +19,14 @@ const provisioningPool = new Pool({
   max: 5,
 });
 
+// Required by node-postgres: an idle client that hits a background
+// error (lost network, DB restart, an admin/FORCE-terminated
+// connection elsewhere) emits 'error' on the pool. With no listener,
+// Node treats that as an uncaught exception and crashes the whole
+// process -- for every tenant, not just the one connection that
+// failed. Log and continue; the pool recovers the connection itself.
+provisioningPool.on("error", (err) => {
+  console.error("provisioningPool: unexpected idle client error:", err.message);
+});
+
 module.exports = provisioningPool;

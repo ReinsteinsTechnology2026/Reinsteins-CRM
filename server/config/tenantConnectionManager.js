@@ -25,6 +25,17 @@ function getTenantPool(tenantDbName) {
     max: 5,
   });
 
+  // Required by node-postgres: an idle client that hits a background
+  // error (lost network, DB restart, an admin/FORCE-terminated
+  // connection elsewhere -- e.g. a tenant database being dropped)
+  // emits 'error' on the pool. With no listener, Node treats that as
+  // an uncaught exception and crashes the whole process -- every
+  // tenant's traffic, not just this one database's. Log and
+  // continue; the pool recovers the connection itself.
+  pool.on("error", (err) => {
+    console.error(`tenantPool (${tenantDbName}): unexpected idle client error:`, err.message);
+  });
+
   tenantPoolCache.set(tenantDbName, pool);
 
   return pool;

@@ -1,6 +1,17 @@
 const platformPool = require("./config/platformDb");
 
 // ==========================================
+// SUPERSEDED (Phase 4, PostgreSQL migration) -- this script's
+// MySQL-era SHOW TABLES/SHOW COLUMNS calls and MySQL DDL are NOT
+// PostgreSQL-compatible and this file has NOT been converted. Its
+// job (creating subscription_plans, adding companies' subscription
+// columns, seeding default plans) is now done in one pass by
+// _setup_platform_db.js against schemas/platformSchema.postgresql.sql.
+// Do not run this script against the PostgreSQL database. Left in
+// place only as historical record of the original migration.
+// ==========================================
+
+// ==========================================
 // MIGRATION: SUBSCRIPTION PLANS + COMPANY SUBSCRIPTION FIELDS (Phase 8)
 //
 // Adds the internal subscription/plan management foundation:

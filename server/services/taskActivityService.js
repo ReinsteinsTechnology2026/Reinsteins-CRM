@@ -45,7 +45,7 @@ const getActivityForTask = async (taskId) => {
             ON author.id = ta.author_id
         WHERE
             ta.task_id = ?
-            AND ta.is_deleted = 0
+            AND ta.is_deleted = FALSE
         ORDER BY ta.created_at ASC, ta.id ASC
     `, [taskId]);
 
@@ -304,7 +304,7 @@ const editActivity = async (activityId, requestingUser, newBody) => {
         SELECT id, author_id, activity_type
         FROM task_activity
         WHERE id = ?
-        AND is_deleted = 0
+        AND is_deleted = FALSE
         LIMIT 1
     `, [activityId]);
 
@@ -327,7 +327,7 @@ const editActivity = async (activityId, requestingUser, newBody) => {
         UPDATE task_activity
         SET
             body = ?,
-            is_edited = 1
+            is_edited = TRUE
         WHERE id = ?
     `, [newBody, activityId]);
 
@@ -345,7 +345,7 @@ const deleteActivity = async (activityId, requestingUser) => {
         SELECT id, author_id, activity_type
         FROM task_activity
         WHERE id = ?
-        AND is_deleted = 0
+        AND is_deleted = FALSE
         LIMIT 1
     `, [activityId]);
 
@@ -371,7 +371,7 @@ const deleteActivity = async (activityId, requestingUser) => {
 
     await pool.query(`
         UPDATE task_activity
-        SET is_deleted = 1
+        SET is_deleted = TRUE
         WHERE id = ?
     `, [activityId]);
 

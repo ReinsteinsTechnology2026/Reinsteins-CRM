@@ -80,7 +80,7 @@ const updatePlan = async (id, { name, description, employeeLimit, storageLimitMb
          WHERE id = ?`,
         [name, description || null, employeeLimit, storageLimitMb, JSON.stringify(features), id]
     );
-    if (result.rowCount === 0) {
+    if (result.affectedRows === 0) {
         return null;
     }
     return await getPlanById(id);
@@ -95,7 +95,7 @@ const setPlanStatus = async (id, status) => {
         `UPDATE subscription_plans SET status = ? WHERE id = ?`,
         [status, id]
     );
-    if (result.rowCount === 0) {
+    if (result.affectedRows === 0) {
         return null;
     }
     return await getPlanById(id);

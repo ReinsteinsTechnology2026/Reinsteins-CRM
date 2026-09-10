@@ -518,6 +518,11 @@ const createGroupConversation =
           ]
         );
 
+      const memberValuePlaceholders =
+        memberValues
+          .map(() => "(?, ?)")
+          .join(", ");
+
       await connection.query(
         `
         INSERT INTO conversation_members
@@ -525,11 +530,9 @@ const createGroupConversation =
           conversation_id,
           user_id
         )
-        VALUES ?
+        VALUES ${memberValuePlaceholders}
         `,
-        [
-          memberValues,
-        ]
+        memberValues.flat()
       );
 
       await connection.commit();
@@ -1931,7 +1934,7 @@ const markConversationRead =
         );
 
       if (
-        result.rowCount ===
+        result.affectedRows ===
         0
       ) {
         return res.status(403).json({

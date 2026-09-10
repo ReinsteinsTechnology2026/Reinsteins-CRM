@@ -34,7 +34,7 @@ const getDepartments = async (req, res) => {
             LEFT JOIN users u
                 ON u.department_id = dep.id
                 AND u.employment_status = 'active'
-            GROUP BY dep.id
+            GROUP BY dep.id, head.full_name, head.employee_id
             ORDER BY dep.name
             `
         );
@@ -253,7 +253,7 @@ const updateDepartment = async (req, res) => {
             [name.trim(), cleanedCode, description?.trim() || null, id]
         );
 
-        if (result.rowCount === 0) {
+        if (result.affectedRows === 0) {
             return res.status(404).json({
                 success: false,
                 message: "Department not found",
@@ -302,7 +302,7 @@ const setDepartmentStatus = async (req, res) => {
             [status, id]
         );
 
-        if (result.rowCount === 0) {
+        if (result.affectedRows === 0) {
             return res.status(404).json({
                 success: false,
                 message: "Department not found",

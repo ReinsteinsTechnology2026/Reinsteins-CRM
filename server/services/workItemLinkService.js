@@ -65,7 +65,7 @@ const resolveItem = async (type, id) => {
 
     const [[row]] = await pool.query(
         `SELECT id, project_id, ${meta.titleCol} AS title, status
-         FROM \`${meta.table}\` WHERE id = ? LIMIT 1`,
+         FROM ${meta.table} WHERE id = ? LIMIT 1`,
         [id]
     );
 

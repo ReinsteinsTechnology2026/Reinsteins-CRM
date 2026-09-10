@@ -16,6 +16,16 @@ const legacyPool = createCompatPool({
   max: 10,
 });
 
+// Required by node-postgres: an idle client that hits a background
+// error (lost network, DB restart, an admin/FORCE-terminated
+// connection elsewhere) emits 'error' on the pool. With no listener,
+// Node treats that as an uncaught exception and crashes the whole
+// process -- for every tenant, not just the one connection that
+// failed. Log and continue; the pool recovers the connection itself.
+legacyPool.on("error", (err) => {
+  console.error("legacyPool (reinsteins): unexpected idle client error:", err.message);
+});
+
 const LEGACY_COMPANY_SLUG = "reinsteins";
 
 const tenantDbContext = new AsyncLocalStorage();

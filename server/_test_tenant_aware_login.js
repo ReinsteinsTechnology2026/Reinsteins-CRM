@@ -195,13 +195,11 @@ async function apiGet(path, token) {
 
     // ---------- Reinsteins DB before/after ----------
     console.log("\nEXTRA -- Reinsteins DB verification");
-    const mysql = require("mysql2/promise");
-    const tenantConn = await mysql.createConnection({ host: process.env.DB_HOST, port: process.env.DB_PORT, user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME });
-    const [[{ tblCount }]] = await tenantConn.query(`SELECT COUNT(*) AS tblCount FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?`, [process.env.DB_NAME]);
-    const [[{ userCount }]] = await tenantConn.query(`SELECT COUNT(*) AS userCount FROM users`);
-    check("EXTRA: reinsteins_workhub table count = 37", tblCount === 37, `got ${tblCount}`);
-    check("EXTRA: reinsteins_workhub user count = 17", userCount === 17, `got ${userCount}`);
-    await tenantConn.end();
+    const tenantConn = require("./config/db");
+    const [[{ tblCount }]] = await tenantConn.query(`SELECT COUNT(*) AS "tblCount" FROM information_schema.tables WHERE table_schema = 'public'`);
+    const [[{ userCount }]] = await tenantConn.query(`SELECT COUNT(*) AS "userCount" FROM users`);
+    check("EXTRA: reinsteins_workhub table count = 37", Number(tblCount) === 37, `got ${tblCount}`);
+    check("EXTRA: reinsteins_workhub user count = 17", Number(userCount) === 17, `got ${userCount}`);
 
     // ---------- Cleanup ----------
     console.log("\nCLEANUP");
@@ -226,7 +224,7 @@ async function apiGet(path, token) {
     const [remaining] = await platformPool.query(`SELECT company_slug FROM companies`);
     check("CLEANUP: only Reinsteins remains in companies", remaining.length === 1 && remaining[0].company_slug === "reinsteins", JSON.stringify(remaining));
 
-    const [remainingTenantDbs] = await platformPool.query(`SHOW DATABASES LIKE 'tenant_%'`);
+    const [remainingTenantDbs] = await platformPool.query(`SELECT datname FROM pg_database WHERE datname LIKE 'tenant_%'`);
     check("CLEANUP: no tenant_* databases left anywhere", remainingTenantDbs.length === 0, JSON.stringify(remainingTenantDbs));
 
     console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}`);

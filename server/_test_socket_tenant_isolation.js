@@ -131,11 +131,11 @@ function waitForEvent(socket, eventName, timeoutMs = 1500) {
     const poolA = getTenantPool(A_DB);
     const poolB = getTenantPool(B_DB);
     const [insA] = await poolA.query(
-        `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status) VALUES ('EMP001', 'Employee A2', 'emp2@sockettest-a.test', ?, 'employee', 'employee', 'active')`,
+        `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status) VALUES ('EMP001', 'Employee A2', 'emp2@sockettest-a.test', ?, 'employee', 'employee', 'active') RETURNING id`,
         [employeePasswordHash]
     );
     const [insB] = await poolB.query(
-        `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status) VALUES ('EMP001', 'Employee B2', 'emp2@sockettest-b.test', ?, 'employee', 'employee', 'active')`,
+        `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status) VALUES ('EMP001', 'Employee B2', 'emp2@sockettest-b.test', ?, 'employee', 'employee', 'active') RETURNING id`,
         [employeePasswordHash]
     );
     const employeeAId = insA.insertId;
@@ -147,7 +147,7 @@ function waitForEvent(socket, eventName, timeoutMs = 1500) {
     check("SETUP: private conversation created in tenant B", convB.status === 201, JSON.stringify(convB.body));
     const conversationIdA = convA.body?.conversationId;
     const conversationIdB = convB.body?.conversationId;
-    check("SETUP: both conversations independently got id=1 (per-tenant numbering, expected)", conversationIdA === 1 && conversationIdB === 1,
+    check("SETUP: both conversations independently got id=1 (per-tenant numbering, expected)", Number(conversationIdA) === 1 && Number(conversationIdB) === 1,
         `A=${conversationIdA} B=${conversationIdB}`);
 
     // Real, pre-existing Reinsteins admin user (id=2, status=active,

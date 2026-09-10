@@ -1,185 +1,235 @@
-const mysql = require("mysql2/promise");
+const fs = require("fs");
+const path = require("path");
+const platformPool = require("./config/platformDb");
 require("dotenv").config();
 
 // ==========================================
-// GROWORGS PLATFORM DATABASE — SETUP (Phase 2A)
+// GROWORGS PLATFORM DATABASE -- BOOTSTRAP (PostgreSQL, Phase 4)
 //
-// Creates the platform-level database and its
-// two foundation tables:
-//   - companies       (which companies exist on
-//                       GrowOrgs, their status and
-//                       access type)
-//   - platform_users  (GrowOrgs Platform Owners --
-//                       NOT tenant employees, NOT
-//                       stored in the existing
-//                       `users` table)
+// PostgreSQL-native replacement for the original MySQL bootstrap.
+// Consolidates what were three separate historical scripts
+// (_setup_platform_db.js, _migrate_add_subscriptions.js,
+// _setup_demo_requests_table.js) into one idempotent run, because
+// this is a from-scratch PostgreSQL bootstrap rather than a live
+// incremental migration -- there's no need to replay that history
+// step by step. Those two other scripts are now superseded; they
+// are left in place, unconverted, as historical record, but should
+// not be run against this database (see their own headers).
 //
-// This script ONLY ever connects to/creates
-// PLATFORM_DB_NAME (default groworgs_platform_db).
-// It never opens a connection to the existing
-// tenant database and never touches any of its
-// 37 tables.
+// Confirmed by inspecting PLATFORM_DB_NAME/DB_NAME in .env before
+// writing this script: platform tables intentionally live in the
+// SAME database as the tenant schema (both are "reinsteins_crm" in
+// this deployment) -- not a separate platform database. This script
+// therefore never issues CREATE DATABASE/DROP DATABASE; it only
+// adds the 4 platform tables to the database that's already there,
+// and never touches any of the existing tenant tables.
 //
-// Idempotent: safe to run more than once. Uses
-// CREATE TABLE IF NOT EXISTS and re-runnable
-// existence checks throughout, mirroring the
-// existing _migrate_add_organizations.js convention.
+// Schema lives in schemas/platformSchema.postgresql.sql (CREATE
+// TABLE IF NOT EXISTS throughout, cross-checked column-by-column
+// against every services/*.js query that touches these tables).
+// Applied via the raw driver (platformPool.nativePool) using
+// PostgreSQL's simple query protocol, which both allows multiple
+// ";"-separated statements in one call AND correctly treats the
+// file's DO $$ ... END $$ block as one statement (its semicolons
+// don't split it) -- the same mechanism `psql -f file.sql` uses.
+// PostgreSQL also runs a multi-statement simple-query call as one
+// implicit transaction, so a failure partway through leaves no
+// partial schema behind.
+//
+// Idempotent overall: safe to run more than once. Never drops or
+// truncates anything.
+//
+//   node _setup_platform_db.js
 // ==========================================
 
-const DB_NAME = process.env.PLATFORM_DB_NAME || "groworgs_platform_db";
+const SCHEMA_FILE_PATH = path.join(__dirname, "schemas", "platformSchema.postgresql.sql");
 
-// Env-config-controlled, not user input -- still validated defensively
-// before being interpolated into a CREATE DATABASE/USE statement, since
-// those can't take a bound `?` placeholder for an identifier.
-if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(DB_NAME)) {
-    console.error(`Refusing to run: PLATFORM_DB_NAME "${DB_NAME}" is not a safe identifier.`);
-    process.exit(1);
-}
+const PLATFORM_TABLES = ["platform_users", "subscription_plans", "companies", "demo_requests"];
 
-async function tableExists(connection, table) {
-    const [rows] = await connection.query(`SHOW TABLES LIKE ?`, [table]);
+const DEFAULT_PLANS = [
+    {
+        name: "Complimentary",
+        slug: "complimentary",
+        description: "Free, unrestricted access -- used for internal/partner companies with no billing relationship.",
+        employeeLimit: null,
+        storageLimitMb: null,
+        features: {},
+    },
+    {
+        name: "Trial",
+        slug: "trial",
+        description: "Time-limited evaluation access. Pair with a company's trial_ends_at date.",
+        employeeLimit: 10,
+        storageLimitMb: 1024,
+        features: {},
+    },
+    {
+        name: "Starter",
+        slug: "starter",
+        description: "Entry-level paid plan for small teams.",
+        employeeLimit: 25,
+        storageLimitMb: 5120,
+        features: {},
+    },
+    {
+        name: "Professional",
+        slug: "professional",
+        description: "Mid-tier paid plan for growing companies.",
+        employeeLimit: 100,
+        storageLimitMb: 20480,
+        features: {},
+    },
+    {
+        name: "Enterprise",
+        slug: "enterprise",
+        description: "Unrestricted paid plan for large organizations.",
+        employeeLimit: null,
+        storageLimitMb: null,
+        features: {},
+    },
+];
+
+async function tableExists(table) {
+    const [rows] = await platformPool.query(
+        `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ?`,
+        [table]
+    );
     return rows.length > 0;
 }
 
 (async () => {
 
     // ==========================================
-    // 1. Bootstrap connection -- NO database
-    // selected yet, so we can CREATE DATABASE
-    // IF NOT EXISTS regardless of whether it
-    // already exists.
+    // 0. SAFETY: report exactly what already exists before touching
+    // anything -- never assumed, always checked live.
     // ==========================================
 
-    const bootstrap = await mysql.createConnection({
-        host: process.env.PLATFORM_DB_HOST,
-        port: process.env.PLATFORM_DB_PORT,
-        user: process.env.PLATFORM_DB_USER,
-        password: process.env.PLATFORM_DB_PASSWORD,
-    });
+    const before = {};
+    for (const table of PLATFORM_TABLES) {
+        before[table] = await tableExists(table);
+    }
+    console.log("Platform tables before bootstrap:", before);
 
-    await bootstrap.query(
-        `CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+    if (Object.values(before).every(Boolean)) {
+        console.log("All 4 platform tables already exist -- schema step skipped, still seeding idempotently below.\n");
+    }
+
+    // ==========================================
+    // 1. APPLY SCHEMA (idempotent: CREATE TABLE/INDEX IF NOT EXISTS,
+    // constraint guarded by a DO block that checks pg_constraint
+    // first)
+    // ==========================================
+
+    if (!fs.existsSync(SCHEMA_FILE_PATH)) {
+        throw new Error(
+            `Platform schema file not found at ${SCHEMA_FILE_PATH}.`
+        );
+    }
+
+    const schemaSql = fs.readFileSync(SCHEMA_FILE_PATH, "utf8");
+
+    // Raw driver, not the ?-placeholder compat wrapper -- this is a
+    // static, parameter-free multi-statement DDL file, executed via
+    // PostgreSQL's simple query protocol (same mechanism `psql -f`
+    // uses), which is what allows the DO $$ ... END $$ block to be
+    // sent correctly alongside the CREATE TABLE statements around it.
+    await platformPool.nativePool.query(schemaSql);
+
+    const after = {};
+    for (const table of PLATFORM_TABLES) {
+        after[table] = await tableExists(table);
+    }
+    console.log("Platform tables after schema step:", after);
+
+    for (const table of PLATFORM_TABLES) {
+        if (!after[table]) {
+            throw new Error(`Schema application did not create expected table "${table}".`);
+        }
+    }
+
+    // ==========================================
+    // 2. SEED: 5 default subscription plans (idempotent by slug)
+    // ==========================================
+
+    for (const plan of DEFAULT_PLANS) {
+
+        const [result] = await platformPool.query(
+            `INSERT INTO subscription_plans
+                (name, slug, description, status, employee_limit, storage_limit_mb, features)
+             VALUES (?, ?, ?, 'active', ?, ?, ?)
+             ON CONFLICT (slug) DO NOTHING
+             RETURNING id`,
+            [
+                plan.name,
+                plan.slug,
+                plan.description,
+                plan.employeeLimit,
+                plan.storageLimitMb,
+                JSON.stringify(plan.features),
+            ]
+        );
+
+        if (result[0]) {
+            console.log(`Created plan: "${plan.name}" (id=${result[0].id})`);
+        } else {
+            console.log(`Plan "${plan.slug}" already exists -- skipped.`);
+        }
+
+    }
+
+    // ==========================================
+    // 3. SEED: Reinsteins Technology as a platform company record
+    // ONLY. Writes exclusively to companies -- does not touch,
+    // migrate, rename, or connect to the existing tenant database.
+    // tenant_db_name stays NULL until an operator actually links a
+    // tenant database to this company (out of scope here).
+    //
+    // plan_id is backfilled to the Complimentary plan just seeded
+    // above -- matches the original _migrate_add_subscriptions.js's
+    // backfill ("every existing company row defaults to
+    // plan=Complimentary, subscription_status=active, no expiry" --
+    // i.e. unchanged from its pre-subscription-fields behavior),
+    // reproduced here directly since this is a from-scratch
+    // bootstrap rather than a live migration of an existing row.
+    // ==========================================
+
+    const [[complimentaryPlan]] = await platformPool.query(
+        `SELECT id FROM subscription_plans WHERE slug = 'complimentary' LIMIT 1`
     );
-    console.log(`Database "${DB_NAME}" ready.`);
 
-    await bootstrap.end();
-
-    // ==========================================
-    // 2. Real connection, scoped to the platform
-    // database only.
-    // ==========================================
-
-    const connection = await mysql.createConnection({
-        host: process.env.PLATFORM_DB_HOST,
-        port: process.env.PLATFORM_DB_PORT,
-        user: process.env.PLATFORM_DB_USER,
-        password: process.env.PLATFORM_DB_PASSWORD,
-        database: DB_NAME,
-    });
-
-    // ==========================================
-    // 3. companies
-    //
-    // tenant_db_name is deliberately included even
-    // though it wasn't in the suggested field list --
-    // this table's stated future job (Platform Owner
-    // -> Create Company -> Create Tenant Database ->
-    // ... -> Activate Company) requires somewhere to
-    // record which physical tenant database a company
-    // maps to. Left NULL until a later phase actually
-    // creates/links a tenant database -- nothing in
-    // this phase writes to it beyond leaving it NULL
-    // for the Reinsteins seed row below.
-    // ==========================================
-
-    if (!(await tableExists(connection, "companies"))) {
-
-        await connection.query(`
-            CREATE TABLE companies (
-                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                company_name VARCHAR(255) NOT NULL,
-                company_slug VARCHAR(100) NOT NULL,
-                status ENUM('active', 'suspended', 'pending') NOT NULL DEFAULT 'pending',
-                access_type ENUM('complimentary', 'trial', 'paid') NOT NULL DEFAULT 'trial',
-                tenant_db_name VARCHAR(64) NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                CONSTRAINT uq_companies_slug UNIQUE (company_slug)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        `);
-
-        console.log("Created table: companies");
-
-    } else {
-        console.log("companies already exists — skipped.");
-    }
-
-    // ==========================================
-    // 4. platform_users
-    //
-    // Entirely separate from the tenant `users`
-    // table -- GrowOrgs Platform Owners are not
-    // company employees/admins and never will be
-    // rows in any tenant database.
-    // ==========================================
-
-    if (!(await tableExists(connection, "platform_users"))) {
-
-        await connection.query(`
-            CREATE TABLE platform_users (
-                id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) NOT NULL,
-                password_hash VARCHAR(255) NOT NULL,
-                role ENUM('platform_owner') NOT NULL DEFAULT 'platform_owner',
-                status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                CONSTRAINT uq_platform_users_email UNIQUE (email)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        `);
-
-        console.log("Created table: platform_users");
-
-    } else {
-        console.log("platform_users already exists — skipped.");
-    }
-
-    // ==========================================
-    // 5. SEED: Reinsteins Technology as a platform
-    // company record ONLY. This writes exclusively
-    // to the new groworgs_platform_db -- it does
-    // not touch, migrate, rename, or connect to the
-    // existing tenant database in any way. Status is
-    // 'active' (it's the live, currently-operating
-    // company); tenant_db_name stays NULL until a
-    // later phase actually performs the tenant
-    // migration.
-    // ==========================================
-
-    const [[existingCompany]] = await connection.query(
+    const [[existingCompany]] = await platformPool.query(
         `SELECT id FROM companies WHERE company_slug = 'reinsteins' LIMIT 1`
     );
 
     if (existingCompany) {
+        console.log(`Company "reinsteins" already exists (id=${existingCompany.id}) -- skipped.`);
 
-        console.log(`Company "reinsteins" already exists (id=${existingCompany.id}) — skipped.`);
+        const [backfillResult] = await platformPool.query(
+            `UPDATE companies
+             SET plan_id = ?, subscription_status = 'active', subscription_started_at = COALESCE(subscription_started_at, created_at)
+             WHERE id = ? AND plan_id IS NULL`,
+            [complimentaryPlan.id, existingCompany.id]
+        );
+
+        if (backfillResult.affectedRows > 0) {
+            console.log(`Backfilled "reinsteins" company row to plan=Complimentary (was missing a plan_id).`);
+        }
 
     } else {
 
-        const [result] = await connection.query(
-            `INSERT INTO companies (company_name, company_slug, status, access_type, tenant_db_name)
-             VALUES (?, ?, 'active', 'complimentary', NULL)`,
-            ["Reinsteins Technology", "reinsteins"]
+        const [result] = await platformPool.query(
+            `INSERT INTO companies (company_name, company_slug, status, access_type, tenant_db_name, plan_id, subscription_status, subscription_started_at)
+             VALUES (?, ?, 'active', 'complimentary', NULL, ?, 'active', CURRENT_TIMESTAMP)
+             RETURNING id`,
+            ["Reinsteins Technology", "reinsteins", complimentaryPlan.id]
         );
 
-        console.log(`Created company record: "Reinsteins Technology" (slug=reinsteins, id=${result.insertId}, access_type=complimentary, tenant_db_name=NULL)`);
+        console.log(`Created company record: "Reinsteins Technology" (slug=reinsteins, id=${result[0].id}, access_type=complimentary, tenant_db_name=NULL)`);
 
     }
 
-    console.log("\nPlatform DB setup complete.");
+    console.log("\nPlatform DB bootstrap complete.");
 
-    await connection.end();
     process.exit(0);
 
 })().catch((e) => { console.error(e); process.exit(1); });

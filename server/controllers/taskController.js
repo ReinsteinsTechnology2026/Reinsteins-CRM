@@ -116,7 +116,7 @@ tags,
                 ?,
                 ?,
                 ?,
-                NOW(6)
+                NOW()
             )
             RETURNING id
             `,
@@ -398,7 +398,7 @@ const completeTask = async (
 
       SET
         status = 'closed',
-        completed_time = NOW(6)
+        completed_time = NOW()
 
       WHERE id = ?
       AND user_id = ?

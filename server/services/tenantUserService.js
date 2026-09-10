@@ -37,8 +37,8 @@ const MAX_ID_ATTEMPTS = 5;
 async function generateNextAdminIdentifier(tenantPool) {
     const [rows] = await tenantPool.query(
         `SELECT employee_id FROM users
-         WHERE employee_id REGEXP ?
-         ORDER BY CAST(SUBSTRING(employee_id, ?) AS UNSIGNED) DESC
+         WHERE employee_id ~ ?
+         ORDER BY CAST(SUBSTRING(employee_id, ?) AS INTEGER) DESC
          LIMIT 1`,
         [`^${ADMIN_ID_PREFIX}[0-9]+$`, ADMIN_ID_PREFIX.length + 1]
     );

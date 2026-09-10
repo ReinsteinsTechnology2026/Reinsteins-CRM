@@ -51,7 +51,7 @@ const getMyTeam = async (req, res) => {
             SELECT user_id, status
             FROM attendance
             WHERE user_id IN (${placeholders})
-            AND DATE(login_time) = CURDATE()
+            AND DATE(login_time) = CURRENT_DATE
             ORDER BY login_time DESC
             `,
             ids
@@ -895,7 +895,7 @@ const getExecutiveSummary = async (req, res) => {
         const [[taskRow]] = await pool.query(
             `SELECT
                 SUM(CASE WHEN status != 'closed' THEN 1 ELSE 0 END) AS pending,
-                SUM(CASE WHEN status != 'closed' AND due_date IS NOT NULL AND due_date < CURDATE() THEN 1 ELSE 0 END) AS overdue
+                SUM(CASE WHEN status != 'closed' AND due_date IS NOT NULL AND due_date < CURRENT_DATE THEN 1 ELSE 0 END) AS overdue
              FROM tasks`
         );
 
@@ -906,17 +906,17 @@ const getExecutiveSummary = async (req, res) => {
 
         const [[attendanceRow]] = await pool.query(
             `SELECT COUNT(DISTINCT user_id) AS count FROM attendance
-             WHERE DATE(login_time) = CURDATE()`
+             WHERE DATE(login_time) = CURRENT_DATE`
         );
 
         const [[onLeaveTodayRow]] = await pool.query(
             `SELECT COUNT(DISTINCT user_id) AS count FROM leave_requests
-             WHERE status = 'approved' AND CURDATE() BETWEEN from_date AND to_date`
+             WHERE status = 'approved' AND CURRENT_DATE BETWEEN from_date AND to_date`
         );
 
         const [departmentDistribution] = await pool.query(
             `
-            SELECT d.id, d.name, COUNT(u.id) AS memberCount
+            SELECT d.id, d.name, COUNT(u.id) AS "memberCount"
             FROM departments d
             LEFT JOIN users u ON u.department_id = d.id AND u.employment_status = 'active'
             WHERE d.status = 'active'

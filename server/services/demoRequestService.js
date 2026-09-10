@@ -73,7 +73,7 @@ const updateDemoRequestStatus = async (id, status) => {
         `UPDATE demo_requests SET status = ? WHERE id = ?`,
         [status, id]
     );
-    if (result.rowCount === 0) {
+    if (result.affectedRows === 0) {
         return null;
     }
     return await getDemoRequestById(id);

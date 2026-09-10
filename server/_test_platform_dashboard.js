@@ -176,9 +176,9 @@ async function apiPatch(pathname, body, token) {
     // ---------- Reinsteins DB unaffected throughout ----------
     console.log("\nEXTRA -- Reinsteins DB verification");
     const dbPool = require("./config/db");
-    const [[{ tbl }]] = await dbPool.query(`SELECT COUNT(*) AS tbl FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?`, [process.env.DB_NAME]);
+    const [[{ tbl }]] = await dbPool.query(`SELECT COUNT(*) AS tbl FROM information_schema.tables WHERE table_schema = 'public'`);
     const [[{ users }]] = await dbPool.query(`SELECT COUNT(*) AS users FROM users`);
-    check("EXTRA: reinsteins_workhub unchanged", tbl === 37 && users === 17, `tables=${tbl} users=${users}`);
+    check("EXTRA: reinsteins_workhub unchanged", Number(tbl) === 37 && Number(users) === 17, `tables=${tbl} users=${users}`);
 
     // ---------- O: cleanup ----------
     console.log("\nTEST O -- Cleanup");

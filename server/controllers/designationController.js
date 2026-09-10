@@ -173,7 +173,7 @@ const updateDesignation = async (req, res) => {
             [cleanedTitle, cleanedDepartmentId, id]
         );
 
-        if (result.rowCount === 0) {
+        if (result.affectedRows === 0) {
             return res.status(404).json({
                 success: false,
                 message: "Designation not found",
@@ -213,7 +213,7 @@ const setDesignationStatus = async (req, res) => {
             [status, id]
         );
 
-        if (result.rowCount === 0) {
+        if (result.affectedRows === 0) {
             return res.status(404).json({
                 success: false,
                 message: "Designation not found",

@@ -234,7 +234,7 @@ async function rollbackFailedProvision(databaseName) {
     if (databaseName === process.env.PLATFORM_DB_NAME) return;
 
     try {
-        await provisioningPool.query(`DROP DATABASE "${databaseName}"`);
+        await provisioningPool.query(`DROP DATABASE "${databaseName}" WITH (FORCE)`);
     } catch (_) {
         // Best-effort cleanup -- the failure is already being
         // reported to the caller either way.
@@ -456,7 +456,7 @@ async function dropProvisionedDatabase(databaseName) {
         return { dropped: false, reason: "did not exist" };
     }
 
-    await provisioningPool.query(`DROP DATABASE "${databaseName}"`);
+    await provisioningPool.query(`DROP DATABASE "${databaseName}" WITH (FORCE)`);
     return { dropped: true };
 }
 

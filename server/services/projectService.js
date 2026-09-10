@@ -195,7 +195,7 @@ const getProjectById = async (id, user) => {
                 CASE
                     WHEN status != 'closed'
                         AND due_date IS NOT NULL
-                        AND due_date < CURDATE()
+                        AND due_date < CURRENT_DATE
                     THEN 1
                     ELSE 0
                 END

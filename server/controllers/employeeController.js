@@ -79,8 +79,8 @@ async function generateNextIdentifier(prefix) {
     `
     SELECT employee_id
     FROM users
-    WHERE employee_id REGEXP ?
-    ORDER BY CAST(SUBSTRING(employee_id, ?) AS UNSIGNED) DESC
+    WHERE employee_id ~ ?
+    ORDER BY CAST(SUBSTRING(employee_id, ?) AS INTEGER) DESC
     LIMIT 1
     `,
     [
@@ -478,7 +478,8 @@ const createEmployee = async (req, res) => {
     // concurrent creation: if two requests race
     // and both compute the same "next" ID, only
     // one INSERT succeeds — the loser catches
-    // ER_DUP_ENTRY on employee_id specifically,
+    // PostgreSQL's 23505 unique-violation on the
+    // "employee_id" constraint specifically,
     // recomputes the next ID (now accounting for
     // the row that just won), and retries. A
     // duplicate on the email column is a real
@@ -569,10 +570,8 @@ const createEmployee = async (req, res) => {
       } catch (insertError) {
 
         const isDuplicateEmployeeId =
-          insertError.code === "ER_DUP_ENTRY" &&
-          insertError.message?.includes(
-            "employee_id"
-          );
+          insertError.code === "23505" &&
+          insertError.constraint === "employee_id";
 
         if (!isDuplicateEmployeeId) {
           throw insertError;
@@ -604,7 +603,7 @@ const createEmployee = async (req, res) => {
 
     if (!cleanedJoiningDate) {
       await pool.query(
-        `UPDATE users SET joining_date = CURDATE() WHERE id = ?`,
+        `UPDATE users SET joining_date = CURRENT_DATE WHERE id = ?`,
         [insertResult.insertId]
       );
     }
@@ -2125,7 +2124,7 @@ const convertInternToEmployee = async (req, res) => {
           `
           UPDATE employment_history
           SET
-            end_date = CURDATE(),
+            end_date = CURRENT_DATE,
             employment_status = 'converted'
           WHERE user_id = ?
           AND end_date IS NULL
@@ -2182,10 +2181,8 @@ const convertInternToEmployee = async (req, res) => {
           } catch (updateError) {
 
             const isDuplicateEmployeeId =
-              updateError.code === "ER_DUP_ENTRY" &&
-              updateError.message?.includes(
-                "employee_id"
-              );
+              updateError.code === "23505" &&
+              updateError.constraint === "employee_id";
 
             if (!isDuplicateEmployeeId) {
               throw updateError;

@@ -188,13 +188,10 @@ async function apiGet(path, token) {
     // ---------- STEP 10: arbitrary tenant DB name in body is ignored ----------
     console.log("\nSTEP 10 -- Arbitrary tenant_db_name in body cannot redirect the write");
     const [[{ userCountBeforeInjection }]] = await (async () => {
-        const mysql = require("mysql2/promise");
-        const c = await mysql.createConnection({ host: process.env.DB_HOST, port: process.env.DB_PORT, user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: process.env.DB_NAME });
-        const r = await c.query(`SELECT COUNT(*) AS userCountBeforeInjection FROM users`);
-        await c.end();
-        return r;
+        const c = require("./config/db");
+        return c.query(`SELECT COUNT(*) AS "userCountBeforeInjection" FROM users`);
     })();
-    check("10. reinsteins_workhub user count unaffected by forged tenant_db_name in step 3's body", userCountBeforeInjection === 17, `got ${userCountBeforeInjection}`);
+    check("10. reinsteins_workhub user count unaffected by forged tenant_db_name in step 3's body", Number(userCountBeforeInjection) === 17, `got ${userCountBeforeInjection}`);
 
     // ---------- STEP 11: tenant JWT cannot access platform APIs; platform JWT cannot access tenant APIs ----------
     console.log("\nSTEP 11 -- Cross-boundary JWT checks");
@@ -227,7 +224,7 @@ async function apiGet(path, token) {
     check("CLEANUP: main company row gone", mainCompanyGone === null);
     check("CLEANUP: cross company row gone", crossCompanyGone === null);
 
-    const [remainingTenantDbs] = await platformPool.query(`SHOW DATABASES LIKE 'tenant_%'`);
+    const [remainingTenantDbs] = await platformPool.query(`SELECT datname FROM pg_database WHERE datname LIKE 'tenant_%'`);
     check("CLEANUP: no tenant_* databases left anywhere", remainingTenantDbs.length === 0, JSON.stringify(remainingTenantDbs));
 
     console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}`);

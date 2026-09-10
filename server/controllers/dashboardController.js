@@ -8,7 +8,7 @@ const getDashboardStats = async (req, res) => {
 
     const [employeeResult] = await pool.query(
       `
-      SELECT COUNT(*) AS totalEmployees
+      SELECT COUNT(*) AS "totalEmployees"
       FROM users
       WHERE role = 'employee'
       AND status = 'active'
@@ -22,9 +22,9 @@ const getDashboardStats = async (req, res) => {
 
     const [presentResult] = await pool.query(
       `
-      SELECT COUNT(DISTINCT user_id) AS presentToday
+      SELECT COUNT(DISTINCT user_id) AS "presentToday"
       FROM attendance
-      WHERE DATE(login_time) = CURDATE()
+      WHERE DATE(login_time) = CURRENT_DATE
       `
     );
 
@@ -34,10 +34,10 @@ const getDashboardStats = async (req, res) => {
 
     const [onLeaveResult] = await pool.query(
       `
-      SELECT COUNT(DISTINCT user_id) AS onLeave
+      SELECT COUNT(DISTINCT user_id) AS "onLeave"
       FROM leave_requests
       WHERE status = 'approved'
-      AND CURDATE() BETWEEN from_date AND to_date
+      AND CURRENT_DATE BETWEEN from_date AND to_date
       `
     );
 
@@ -47,7 +47,7 @@ const getDashboardStats = async (req, res) => {
 
     const [activeTaskResult] = await pool.query(
       `
-      SELECT COUNT(*) AS activeTasks
+      SELECT COUNT(*) AS "activeTasks"
       FROM tasks
       WHERE status = 'in_progress'
       `
@@ -82,16 +82,16 @@ const getDashboardStats = async (req, res) => {
 
       stats: {
         totalEmployees:
-          employeeResult[0].totalEmployees,
+          Number(employeeResult[0].totalEmployees),
 
         presentToday:
-          presentResult[0].presentToday,
+          Number(presentResult[0].presentToday),
 
         onLeave:
-          onLeaveResult[0].onLeave,
+          Number(onLeaveResult[0].onLeave),
 
         activeTasks:
-          activeTaskResult[0].activeTasks,
+          Number(activeTaskResult[0].activeTasks),
       },
 
       recentEmployees,

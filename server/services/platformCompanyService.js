@@ -109,7 +109,7 @@ const activateCompany = async (id, tenantDbName) => {
          WHERE id = ? AND status = 'pending'`,
         [tenantDbName, id]
     );
-    if (result.rowCount === 0) {
+    if (result.affectedRows === 0) {
         return null;
     }
     return await getCompanyById(id);
@@ -126,7 +126,7 @@ const deletePendingCompany = async (id) => {
         `DELETE FROM companies WHERE id = ? AND status = 'pending' AND tenant_db_name IS NULL`,
         [id]
     );
-    return result.rowCount > 0;
+    return result.affectedRows > 0;
 };
 
 // ==========================================
@@ -186,7 +186,7 @@ const suspendCompany = async (id) => {
         `UPDATE companies SET status = 'suspended' WHERE id = ? AND status = 'active'`,
         [id]
     );
-    if (result.rowCount === 0) {
+    if (result.affectedRows === 0) {
         return null;
     }
     return await getCompanyById(id);
@@ -201,7 +201,7 @@ const reactivateCompany = async (id) => {
         `UPDATE companies SET status = 'active' WHERE id = ? AND status = 'suspended'`,
         [id]
     );
-    if (result.rowCount === 0) {
+    if (result.affectedRows === 0) {
         return null;
     }
     return await getCompanyById(id);
@@ -215,7 +215,7 @@ const updateCompanyAccessType = async (id, accessType) => {
         `UPDATE companies SET access_type = ? WHERE id = ? AND status IN ('active', 'suspended')`,
         [accessType, id]
     );
-    if (result.rowCount === 0) {
+    if (result.affectedRows === 0) {
         return null;
     }
     return await getCompanyById(id);
@@ -299,7 +299,7 @@ const updateCompanySubscription = async (id, { planId, subscriptionStatus, trial
          WHERE id = ? AND status IN ('active', 'suspended')`,
         [planId, subscriptionStatus, trialEndsAt, subscriptionExpiresAt, id]
     );
-    if (result.rowCount === 0) {
+    if (result.affectedRows === 0) {
         return null;
     }
     return await getCompanyById(id);

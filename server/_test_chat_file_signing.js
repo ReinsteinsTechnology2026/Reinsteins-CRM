@@ -60,11 +60,11 @@ const TINY_JPEG_BASE64 = "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgICAgMCAgIDAwMDBA
     const empPasswordHash = await bcrypt.hash("ChatFileEmp!2026", 12);
     const tenantPool = getTenantPool(DB);
     const [insA] = await tenantPool.query(
-        `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status) VALUES ('EMP001', 'Chat Emp A', 'a@chatfiletest.test', ?, 'employee', 'employee', 'active')`,
+        `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status) VALUES ('EMP001', 'Chat Emp A', 'a@chatfiletest.test', ?, 'employee', 'employee', 'active') RETURNING id`,
         [empPasswordHash]
     );
     const [insB] = await tenantPool.query(
-        `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status) VALUES ('EMP002', 'Chat Emp B', 'b@chatfiletest.test', ?, 'employee', 'employee', 'active')`,
+        `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status) VALUES ('EMP002', 'Chat Emp B', 'b@chatfiletest.test', ?, 'employee', 'employee', 'active') RETURNING id`,
         [empPasswordHash]
     );
     const userAId = insA.insertId;

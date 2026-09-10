@@ -8,6 +8,7 @@ const {
     dropProvisionedDatabase,
 } = require("./services/tenantProvisioningService");
 const { isValidTenantDbName } = require("./utils/tenantDbName");
+const platformPool = require("./config/platformDb");
 
 // ==========================================
 // TENANT PROVISIONING SELF-TEST (Phase 2C)
@@ -147,16 +148,42 @@ function check(label, condition, detail) {
     console.log("");
 
     // --- 6. Structural comparison against the live source schema ---
+    // Phase 4 note: process.env.DB_NAME (reinsteins_crm) now
+    // intentionally co-locates the 4 platform-layer tables
+    // (companies, demo_requests, platform_users, subscription_plans)
+    // alongside the 37 tenant tables -- that's the confirmed,
+    // deliberate architecture (PLATFORM_DB_NAME === DB_NAME in
+    // .env), not a bug. Tenant provisioning only ever applies
+    // tenantSchema.postgresql.sql, which never includes those 4
+    // tables, so the source/target table sets are EXPECTED to
+    // differ by exactly those 4 -- filtered out below so this check
+    // still catches a real missing/unexpected TENANT table.
     console.log("STEP 6 -- Schema comparison vs. reinsteins_workhub");
+    const PLATFORM_ONLY_TABLES = ["companies", "demo_requests", "platform_users", "subscription_plans"];
     const comparison = await compareTenantSchema(process.env.DB_NAME, TEST_DB_NAME);
-    check("table names match exactly", comparison.tableNamesMatch,
-        `missing=${JSON.stringify(comparison.missingInTarget)} unexpected=${JSON.stringify(comparison.unexpectedInTarget)}`);
-    check("table count matches", comparison.sourceTableCount === comparison.targetTableCount,
+    const missingInTargetExcludingPlatform = comparison.missingInTarget.filter((t) => !PLATFORM_ONLY_TABLES.includes(t));
+    const [[{ platformFkCount }]] = await platformPool.query(
+        `SELECT COUNT(*) AS "platformFkCount" FROM information_schema.table_constraints
+         WHERE constraint_type = 'FOREIGN KEY' AND table_schema = 'public' AND table_name = ANY(?)`,
+        [PLATFORM_ONLY_TABLES]
+    );
+    const [[{ platformIdxCount }]] = await platformPool.query(
+        `SELECT COUNT(*) AS "platformIdxCount" FROM pg_indexes
+         WHERE schemaname = 'public' AND tablename = ANY(?)`,
+        [PLATFORM_ONLY_TABLES]
+    );
+    check("table names match exactly (excluding the 4 co-located platform tables)",
+        missingInTargetExcludingPlatform.length === 0 && comparison.unexpectedInTarget.length === 0,
+        `missing=${JSON.stringify(missingInTargetExcludingPlatform)} unexpected=${JSON.stringify(comparison.unexpectedInTarget)}`);
+    check("table count matches (source minus the 4 platform tables)",
+        comparison.sourceTableCount - PLATFORM_ONLY_TABLES.length === comparison.targetTableCount,
         `source=${comparison.sourceTableCount} target=${comparison.targetTableCount}`);
-    check("foreign key count matches", comparison.foreignKeysMatch,
-        `source=${comparison.sourceForeignKeyCount} target=${comparison.targetForeignKeyCount}`);
-    check("index count matches", comparison.indexesMatch,
-        `source=${comparison.sourceIndexCount} target=${comparison.targetIndexCount}`);
+    check("foreign key count matches (source minus platform-layer FKs)",
+        comparison.sourceForeignKeyCount - Number(platformFkCount) === comparison.targetForeignKeyCount,
+        `source=${comparison.sourceForeignKeyCount} target=${comparison.targetForeignKeyCount} platformFks=${platformFkCount}`);
+    check("index count matches (source minus platform-layer indexes)",
+        comparison.sourceIndexCount - Number(platformIdxCount) === comparison.targetIndexCount,
+        `source=${comparison.sourceIndexCount} target=${comparison.targetIndexCount} platformIdx=${platformIdxCount}`);
     console.log("");
 
     // --- 7. No business data present ---

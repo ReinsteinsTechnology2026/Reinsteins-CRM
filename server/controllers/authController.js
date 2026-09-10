@@ -254,7 +254,7 @@ const registerEmployee =
                   employee_id,
                   3
                 )
-                AS UNSIGNED
+                AS INTEGER
               ) DESC
             LIMIT 1
             FOR UPDATE

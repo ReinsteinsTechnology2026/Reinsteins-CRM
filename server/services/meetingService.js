@@ -73,7 +73,7 @@ const addParticipants = async (meetingId, actingUserId, participantUserIds) => {
             ON CONFLICT (meeting_id, user_id) DO NOTHING
         `, [meetingId, userId, actingUserId]);
 
-        if (result.rowCount > 0) {
+        if (result.affectedRows > 0) {
             addedUserIds.push(userId);
         }
 
@@ -401,7 +401,7 @@ const joinMeeting = async (meetingCode, password, user) => {
 
         await pool.query(`
             UPDATE meeting_participants
-            SET status = ?, joined_at = IF(? = 'joined', NOW(), joined_at)
+            SET status = ?, joined_at = CASE WHEN ? = 'joined' THEN NOW() ELSE joined_at END
             WHERE id = ?
         `, [
             existing.status === "admitted" ? "joined" : (needsApproval ? existing.status : nextStatus),
@@ -415,7 +415,7 @@ const joinMeeting = async (meetingCode, password, user) => {
             INSERT INTO meeting_participants(
                 meeting_id, user_id, role, status, joined_at
             )
-            VALUES(?,?,'participant',?, IF(? = 'joined', NOW(), NULL))
+            VALUES(?,?,'participant',?, CASE WHEN ? = 'joined' THEN NOW() ELSE NULL END)
         `, [meeting.id, user.id, nextStatus, nextStatus]);
 
     }
@@ -498,7 +498,7 @@ const resumeMeeting = async (meetingId) => {
         WHERE id = ? AND status = 'ended'
     `, [meetingId]);
 
-    if (result.rowCount === 0) {
+    if (result.affectedRows === 0) {
         return null;
     }
 

@@ -45,7 +45,7 @@ const startWork = async (taskId) => {
         `
         UPDATE tasks
         SET
-            current_working = 1,
+            current_working = TRUE,
             work_started_at = NOW(),
             status = 'in_progress'
         WHERE id = ?
@@ -93,10 +93,8 @@ const stopWork = async (
         `
         SELECT
             ROUND(
-                TIMESTAMPDIFF(
-                    MINUTE,
-                    ?,
-                    NOW()
+                FLOOR(
+                    EXTRACT(EPOCH FROM (NOW() - ?::timestamp)) / 60
                 ) / 60,
                 2
             ) AS worked
@@ -164,7 +162,7 @@ const stopWork = async (
 
             status=?,
 
-            current_working=0,
+            current_working=FALSE,
 
             work_started_at=NULL
 
