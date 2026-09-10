@@ -63,11 +63,12 @@ async function createNotification({
         INSERT INTO notifications
         (user_id, title, message, type, is_read, reference_type, reference_id)
         VALUES (?, ?, ?, ?, FALSE, ?, ?)
+        RETURNING id
         `,
         [userId, title, message, type || "general", referenceType || null, referenceId || null]
     );
 
-    const notificationId = result.insertId;
+    const notificationId = result[0].id;
 
     const io = ioOverride || req?.app?.get("io");
 

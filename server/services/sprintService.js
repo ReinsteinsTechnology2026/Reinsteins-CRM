@@ -184,6 +184,7 @@ const createSprint = async (projectId, data, createdBy) => {
                 created_by
             )
             VALUES(?,?,?,?,?,?)
+            RETURNING id
         `, [
 
             projectId,
@@ -195,11 +196,11 @@ const createSprint = async (projectId, data, createdBy) => {
 
         ]);
 
-        return result.insertId;
+        return result[0].id;
 
     } catch (error) {
 
-        if (error.code === "ER_DUP_ENTRY") {
+        if (error.code === "23505") {
             const dupError = new Error("A sprint with this name already exists in this project");
             dupError.name = DUPLICATE_NAME_ERROR;
             throw dupError;
@@ -255,7 +256,7 @@ const updateSprint = async (id, data) => {
 
     } catch (error) {
 
-        if (error.code === "ER_DUP_ENTRY") {
+        if (error.code === "23505") {
             const dupError = new Error("A sprint with this name already exists in this project");
             dupError.name = DUPLICATE_NAME_ERROR;
             throw dupError;
@@ -302,7 +303,7 @@ const startSprint = async (id, projectId) => {
 
     } catch (error) {
 
-        if (error.code === "ER_DUP_ENTRY") {
+        if (error.code === "23505") {
             const dupError = new Error("Another sprint became active just now. Please refresh and try again.");
             dupError.name = ALREADY_ACTIVE_ERROR;
             throw dupError;

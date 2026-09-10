@@ -105,6 +105,7 @@ const createEpic = async (projectId, data, createdBy) => {
             due_date
         )
         VALUES(?,?,?,?,?,?,?,?,?)
+        RETURNING id
     `, [
 
         projectId,
@@ -119,7 +120,7 @@ const createEpic = async (projectId, data, createdBy) => {
 
     ]);
 
-    return result.insertId;
+    return result[0].id;
 
 };
 

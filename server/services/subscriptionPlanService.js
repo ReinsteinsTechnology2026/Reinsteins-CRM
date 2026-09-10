@@ -52,14 +52,15 @@ const createPlan = async ({ name, slug, description, employeeLimit, storageLimit
         const [result] = await platformPool.query(
             `INSERT INTO subscription_plans
                 (name, slug, description, status, employee_limit, storage_limit_mb, features)
-             VALUES (?, ?, ?, 'active', ?, ?, ?)`,
+             VALUES (?, ?, ?, 'active', ?, ?, ?)
+             RETURNING id`,
             [name, slug, description || null, employeeLimit, storageLimitMb, JSON.stringify(features)]
         );
 
-        return await getPlanById(result.insertId);
+        return await getPlanById(result[0].id);
 
     } catch (dbError) {
-        if (dbError.code === "ER_DUP_ENTRY") {
+        if (dbError.code === "23505") {
             const error = new Error("A plan with this slug already exists.");
             error.code = "PLAN_SLUG_TAKEN";
             throw error;
@@ -79,7 +80,7 @@ const updatePlan = async (id, { name, description, employeeLimit, storageLimitMb
          WHERE id = ?`,
         [name, description || null, employeeLimit, storageLimitMb, JSON.stringify(features), id]
     );
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
         return null;
     }
     return await getPlanById(id);
@@ -94,7 +95,7 @@ const setPlanStatus = async (id, status) => {
         `UPDATE subscription_plans SET status = ? WHERE id = ?`,
         [status, id]
     );
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
         return null;
     }
     return await getPlanById(id);

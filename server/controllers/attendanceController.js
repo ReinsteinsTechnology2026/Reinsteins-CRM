@@ -248,6 +248,7 @@ const goOnline = async (req, res) => {
           'working',
           0
         )
+        RETURNING id
         `,
         [
           userId,
@@ -270,7 +271,7 @@ const goOnline = async (req, res) => {
         WHERE id = ?
         `,
         [
-          result.insertId,
+          result[0].id,
         ]
       );
 

@@ -360,6 +360,7 @@ const createProject = async (data, createdBy, forcedOrganizationId) => {
             organization_id
         )
         VALUES(?,?,?,?,?,?,?,?,?)
+        RETURNING id
     `, [
 
         name,
@@ -374,7 +375,7 @@ const createProject = async (data, createdBy, forcedOrganizationId) => {
 
     ]);
 
-    const projectId = result.insertId;
+    const projectId = result[0].id;
 
     const [[adminGroup]] = await pool.query(
         `SELECT id FROM project_security_groups WHERE name = 'Project Administrators' AND is_default = 1 LIMIT 1`
@@ -393,7 +394,7 @@ const createProject = async (data, createdBy, forcedOrganizationId) => {
                 `
                 INSERT INTO project_members (project_id, user_id, security_group_id, added_by)
                 VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE security_group_id = security_group_id
+                ON CONFLICT (project_id, user_id) DO NOTHING
                 `,
                 [projectId, userId, adminGroup.id, createdBy]
             );

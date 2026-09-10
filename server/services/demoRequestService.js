@@ -13,11 +13,12 @@ const createDemoRequest = async ({ name, companyName, email, phone, employeeCoun
     const [result] = await platformPool.query(
         `INSERT INTO demo_requests
             (name, company_name, email, phone, employee_count, message, status)
-         VALUES (?, ?, ?, ?, ?, ?, 'new')`,
+         VALUES (?, ?, ?, ?, ?, ?, 'new')
+         RETURNING id`,
         [name, companyName, email, phone || null, employeeCount || null, message || null]
     );
 
-    return { id: result.insertId };
+    return { id: result[0].id };
 };
 
 // ==========================================
@@ -72,7 +73,7 @@ const updateDemoRequestStatus = async (id, status) => {
         `UPDATE demo_requests SET status = ? WHERE id = ?`,
         [status, id]
     );
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
         return null;
     }
     return await getDemoRequestById(id);

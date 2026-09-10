@@ -545,6 +545,7 @@ const createEmployee = async (req, res) => {
               ?,
               ?
             )
+            RETURNING id
             `,
             [
               finalEmployeeId,

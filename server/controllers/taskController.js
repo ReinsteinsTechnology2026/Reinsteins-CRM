@@ -118,6 +118,7 @@ tags,
                 ?,
                 NOW(6)
             )
+            RETURNING id
             `,
 
             [
@@ -141,7 +142,7 @@ tags,
             WHERE id=?
             `,
 
-            [result.insertId]
+            [result[0].id]
 
         );
 

@@ -74,15 +74,16 @@ const createPendingCompany = async ({ companyName, companySlug, accessType }) =>
 
         const [result] = await platformPool.query(
             `INSERT INTO companies (company_name, company_slug, status, access_type, tenant_db_name)
-             VALUES (?, ?, 'pending', ?, NULL)`,
+             VALUES (?, ?, 'pending', ?, NULL)
+             RETURNING id`,
             [companyName, companySlug, accessType]
         );
 
-        return await getCompanyById(result.insertId);
+        return await getCompanyById(result[0].id);
 
     } catch (dbError) {
 
-        if (dbError.code === "ER_DUP_ENTRY") {
+        if (dbError.code === "23505") {
             const error = new Error("A company with this slug already exists.");
             error.code = "COMPANY_SLUG_TAKEN";
             throw error;
@@ -108,7 +109,7 @@ const activateCompany = async (id, tenantDbName) => {
          WHERE id = ? AND status = 'pending'`,
         [tenantDbName, id]
     );
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
         return null;
     }
     return await getCompanyById(id);
@@ -125,7 +126,7 @@ const deletePendingCompany = async (id) => {
         `DELETE FROM companies WHERE id = ? AND status = 'pending' AND tenant_db_name IS NULL`,
         [id]
     );
-    return result.affectedRows > 0;
+    return result.rowCount > 0;
 };
 
 // ==========================================
@@ -185,7 +186,7 @@ const suspendCompany = async (id) => {
         `UPDATE companies SET status = 'suspended' WHERE id = ? AND status = 'active'`,
         [id]
     );
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
         return null;
     }
     return await getCompanyById(id);
@@ -200,7 +201,7 @@ const reactivateCompany = async (id) => {
         `UPDATE companies SET status = 'active' WHERE id = ? AND status = 'suspended'`,
         [id]
     );
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
         return null;
     }
     return await getCompanyById(id);
@@ -214,7 +215,7 @@ const updateCompanyAccessType = async (id, accessType) => {
         `UPDATE companies SET access_type = ? WHERE id = ? AND status IN ('active', 'suspended')`,
         [accessType, id]
     );
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
         return null;
     }
     return await getCompanyById(id);
@@ -298,7 +299,7 @@ const updateCompanySubscription = async (id, { planId, subscriptionStatus, trial
          WHERE id = ? AND status IN ('active', 'suspended')`,
         [planId, subscriptionStatus, trialEndsAt, subscriptionExpiresAt, id]
     );
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
         return null;
     }
     return await getCompanyById(id);

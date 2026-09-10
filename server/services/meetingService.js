@@ -66,13 +66,14 @@ const addParticipants = async (meetingId, actingUserId, participantUserIds) => {
     for (const userId of ids) {
 
         const [result] = await pool.query(`
-            INSERT IGNORE INTO meeting_participants(
+            INSERT INTO meeting_participants(
                 meeting_id, user_id, role, status, invited_by
             )
             VALUES(?,?,'participant','admitted',?)
+            ON CONFLICT (meeting_id, user_id) DO NOTHING
         `, [meetingId, userId, actingUserId]);
 
-        if (result.affectedRows > 0) {
+        if (result.rowCount > 0) {
             addedUserIds.push(userId);
         }
 
@@ -128,6 +129,7 @@ const createMeeting = async (data, hostId) => {
             status
         )
         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        RETURNING id
     `, [
 
         meetingCode,
@@ -147,7 +149,7 @@ const createMeeting = async (data, hostId) => {
 
     ]);
 
-    const meetingId = result.insertId;
+    const meetingId = result[0].id;
 
     if (meetingType === "instant") {
 
@@ -496,7 +498,7 @@ const resumeMeeting = async (meetingId) => {
         WHERE id = ? AND status = 'ended'
     `, [meetingId]);
 
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
         return null;
     }
 
@@ -702,6 +704,7 @@ const sendMeetingMessage = async (meetingId, senderId, messageText, messageType 
     const [result] = await pool.query(`
         INSERT INTO meeting_messages(meeting_id, sender_id, message_text, message_type)
         VALUES(?,?,?,?)
+        RETURNING id
     `, [meetingId, senderId, messageText || "", messageType]);
 
     const [saved] = await pool.query(`
@@ -709,7 +712,7 @@ const sendMeetingMessage = async (meetingId, senderId, messageText, messageType 
         FROM meeting_messages mm
         INNER JOIN users u ON u.id = mm.sender_id
         WHERE mm.id = ?
-    `, [result.insertId]);
+    `, [result[0].id]);
 
     return saved[0];
 

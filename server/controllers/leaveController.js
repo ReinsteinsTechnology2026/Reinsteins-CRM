@@ -125,6 +125,7 @@ const applyLeave = async (req, res) => {
             INSERT INTO leave_requests
             (user_id, manager_id, leave_type, from_date, to_date, reason, status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
             `,
             [userId, managerId, leaveType, fromDate, toDate, reason.trim(), initialStatus]
         );
@@ -137,20 +138,20 @@ const applyLeave = async (req, res) => {
                 `${requesterName} submitted a ${leaveType} leave request from ${fromDate} to ${toDate}, awaiting your approval.`,
                 "leave_pending_manager",
                 "leave",
-                result.insertId
+                result[0].id
             );
         } else {
             await notifyFinalApprovers(req, {
                 title: "New Leave Request",
                 message: `${requesterName} submitted a ${leaveType} leave request from ${fromDate} to ${toDate} (no reporting manager on file) — awaiting final approval.`,
-                referenceId: result.insertId,
+                referenceId: result[0].id,
             });
         }
 
         return res.status(201).json({
             success: true,
             message: "Leave request submitted successfully",
-            leaveId: result.insertId,
+            leaveId: result[0].id,
         });
 
     } catch (error) {

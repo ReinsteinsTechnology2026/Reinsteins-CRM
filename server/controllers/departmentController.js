@@ -192,6 +192,7 @@ const createDepartment = async (req, res) => {
             `
             INSERT INTO departments (name, code, description, status)
             VALUES (?, ?, ?, 'active')
+            RETURNING id
             `,
             [name.trim(), cleanedCode, description?.trim() || null]
         );
@@ -199,7 +200,7 @@ const createDepartment = async (req, res) => {
         return res.status(201).json({
             success: true,
             message: "Department created successfully",
-            id: result.insertId,
+            id: result[0].id,
         });
 
     } catch (error) {
@@ -252,7 +253,7 @@ const updateDepartment = async (req, res) => {
             [name.trim(), cleanedCode, description?.trim() || null, id]
         );
 
-        if (result.affectedRows === 0) {
+        if (result.rowCount === 0) {
             return res.status(404).json({
                 success: false,
                 message: "Department not found",
@@ -301,7 +302,7 @@ const setDepartmentStatus = async (req, res) => {
             [status, id]
         );
 
-        if (result.affectedRows === 0) {
+        if (result.rowCount === 0) {
             return res.status(404).json({
                 success: false,
                 message: "Department not found",

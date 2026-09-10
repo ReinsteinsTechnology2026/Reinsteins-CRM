@@ -114,6 +114,7 @@ const createOrganization = async (data, createdBy) => {
     const [result] = await pool.query(`
         INSERT INTO organizations (name, description, status, created_by)
         VALUES (?, ?, ?, ?)
+        RETURNING id
     `, [
         name,
         description || null,
@@ -121,7 +122,7 @@ const createOrganization = async (data, createdBy) => {
         createdBy,
     ]);
 
-    return result.insertId;
+    return result[0].id;
 
 };
 

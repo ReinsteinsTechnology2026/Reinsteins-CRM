@@ -96,6 +96,7 @@ const createDesignation = async (req, res) => {
             `
             INSERT INTO designations (title, department_id, status)
             VALUES (?, ?, 'active')
+            RETURNING id
             `,
             [cleanedTitle, cleanedDepartmentId]
         );
@@ -103,7 +104,7 @@ const createDesignation = async (req, res) => {
         return res.status(201).json({
             success: true,
             message: "Designation created successfully",
-            id: result.insertId,
+            id: result[0].id,
         });
 
     } catch (error) {
@@ -172,7 +173,7 @@ const updateDesignation = async (req, res) => {
             [cleanedTitle, cleanedDepartmentId, id]
         );
 
-        if (result.affectedRows === 0) {
+        if (result.rowCount === 0) {
             return res.status(404).json({
                 success: false,
                 message: "Designation not found",
@@ -212,7 +213,7 @@ const setDesignationStatus = async (req, res) => {
             [status, id]
         );
 
-        if (result.affectedRows === 0) {
+        if (result.rowCount === 0) {
             return res.status(404).json({
                 success: false,
                 message: "Designation not found",

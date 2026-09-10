@@ -188,7 +188,7 @@ const markAllNotificationsAsRead =
           "All notifications marked as read",
 
         updatedCount:
-          result.affectedRows,
+          result.rowCount,
       });
     } catch (error) {
       console.error(
@@ -231,7 +231,7 @@ const deleteNotification = async (
       );
 
     if (
-      result.affectedRows === 0
+      result.rowCount === 0
     ) {
       return res.status(404).json({
         success: false,

@@ -204,6 +204,7 @@ const createPrivateConversation =
             'private',
             ?
           )
+          RETURNING id
           `,
           [
             currentUserId,
@@ -211,8 +212,7 @@ const createPrivateConversation =
         );
 
       const conversationId =
-        conversationResult
-          .insertId;
+        conversationResult[0].id;
 
       await connection.query(
         `
@@ -489,6 +489,7 @@ const createGroupConversation =
             ?,
             ?
           )
+          RETURNING id
           `,
           [
             groupName,
@@ -497,8 +498,7 @@ const createGroupConversation =
         );
 
       const conversationId =
-        conversationResult
-          .insertId;
+        conversationResult[0].id;
 
       // Creator + selected members
 
@@ -1494,6 +1494,7 @@ const sendMessage =
             ?,
             'text'
           )
+          RETURNING id
           `,
           [
             conversationId,
@@ -1559,7 +1560,7 @@ const sendMessage =
           LIMIT 1
           `,
           [
-            result.insertId,
+            result[0].id,
           ]
         );
 
@@ -1747,6 +1748,7 @@ const messageType = isImage
         '',
 ?
         )
+        RETURNING id
         `,
 [
   conversationId,
@@ -1769,7 +1771,7 @@ INSERT INTO chat_attachments
 )
 VALUES (?, ?, ?, ?, ?, ?, ?)
 `, [
-    messageResult.insertId,
+    messageResult[0].id,
     req.file.originalname,
     req.file.filename,
     req.file.mimetype,
@@ -1809,7 +1811,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
         LIMIT 1
         `,
         [
-          messageResult.insertId,
+          messageResult[0].id,
         ]
       );
 
@@ -1929,7 +1931,7 @@ const markConversationRead =
         );
 
       if (
-        result.affectedRows ===
+        result.rowCount ===
         0
       ) {
         return res.status(403).json({

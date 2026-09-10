@@ -128,6 +128,7 @@ const createActivity = async (
             progress_snapshot
         )
         VALUES(?,?,?,?,?)
+        RETURNING id
     `, [
 
         taskId,
@@ -140,7 +141,7 @@ const createActivity = async (
 
     ]);
 
-    const activityId = result.insertId;
+    const activityId = result[0].id;
 
     // ======================================
     // KEEP TASK PROGRESS IN SYNC

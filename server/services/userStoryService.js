@@ -178,6 +178,7 @@ const createUserStory = async (projectId, data, createdBy) => {
             tags
         )
         VALUES(?,?,?,?,?,?,?,?,?,?,?)
+        RETURNING id
     `, [
 
         projectId,
@@ -194,7 +195,7 @@ const createUserStory = async (projectId, data, createdBy) => {
 
     ]);
 
-    return result.insertId;
+    return result[0].id;
 
 };
 
@@ -329,6 +330,7 @@ const createTaskForUserStory = async (storyId, data, assignedBy) => {
             progress
         )
         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        RETURNING id
     `, [
 
         nextTaskNumber,
@@ -348,9 +350,9 @@ const createTaskForUserStory = async (storyId, data, assignedBy) => {
 
     ]);
 
-    await setTaskTags(result.insertId, tagNames);
+    await setTaskTags(result[0].id, tagNames);
 
-    return result.insertId;
+    return result[0].id;
 
 };
 

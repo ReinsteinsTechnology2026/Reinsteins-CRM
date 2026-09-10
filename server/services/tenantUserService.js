@@ -94,12 +94,13 @@ async function createFirstAdmin(tenantPool, { name, email, phone, passwordHash }
             const [result] = await tenantPool.query(
                 `INSERT INTO users
                     (employee_id, full_name, email, phone, password, role, system_access, status)
-                 VALUES (?, ?, ?, ?, ?, 'admin', 'super_admin', 'active')`,
+                 VALUES (?, ?, ?, ?, ?, 'admin', 'super_admin', 'active')
+                 RETURNING id`,
                 [employeeId, name.trim(), cleanedEmail, phone || null, passwordHash]
             );
 
             return {
-                id: result.insertId,
+                id: result[0].id,
                 employeeId,
                 fullName: name.trim(),
                 email: cleanedEmail,
@@ -112,14 +113,14 @@ async function createFirstAdmin(tenantPool, { name, email, phone, passwordHash }
         } catch (insertError) {
 
             const isDuplicateEmployeeId =
-                insertError.code === "ER_DUP_ENTRY" &&
+                insertError.code === "23505" &&
                 insertError.message?.includes("employee_id");
 
             if (isDuplicateEmployeeId) {
                 continue; // retry with a freshly generated ID
             }
 
-            if (insertError.code === "ER_DUP_ENTRY" && insertError.message?.includes("email")) {
+            if (insertError.code === "23505" && insertError.message?.includes("email")) {
                 const error = new Error("A user with this email already exists in this tenant.");
                 error.code = "TENANT_EMAIL_TAKEN";
                 throw error;
