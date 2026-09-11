@@ -172,6 +172,18 @@ const meetingService = require(
 
 const app = express();
 
+// ==========================================
+// TRUST PROXY (production security fix)
+//
+// Node listens only on 127.0.0.1:5000, behind Nginx (127.0.0.1:80)
+// behind Cloudflare Tunnel. "2" trusts exactly the two hops in front
+// of this process (Nginx, then the Cloudflare Tunnel daemon) so
+// req.ip / req.secure / the rate limiter resolve the real client
+// address from X-Forwarded-For instead of 127.0.0.1.
+// ==========================================
+
+app.set("trust proxy", 2);
+
 const server = http.createServer(
   app
 );
@@ -2162,6 +2174,7 @@ app.use(
 
 server.listen(
   PORT,
+  "127.0.0.1",
   () => {
     console.log(
       "-------------------------------------------"

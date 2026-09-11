@@ -646,6 +646,7 @@ const getMyConversations =
       const [conversations] =
         await pool.query(
           `
+          SELECT * FROM (
           SELECT
             c.id,
 
@@ -893,13 +894,15 @@ const getMyConversations =
               my_member.user_id =
                 ?
 
+          ) sub
+
           ORDER BY
             COALESCE(
-              last_message_at,
-              c.updated_at
+              sub.last_message_at,
+              sub.updated_at
             ) DESC,
 
-            c.id DESC
+            sub.id DESC
           `,
           [
             currentUserId,
