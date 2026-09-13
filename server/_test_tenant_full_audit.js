@@ -214,7 +214,14 @@ async function tenantLogin(slug, employeeId, password) {
       const projTasks = await apiGet(`/api/projects/${projId}/tasks`, tokenA);
       record("GET", "/api/projects/:id/tasks", 200, projTasks.status);
 
-      const projUpdate = await apiPut(`/api/projects/${projId}`, { name: "Test Project Alpha Updated" }, tokenA);
+      // updateProject (services/projectService.js) does a full-column
+      // overwrite, not a merge -- matches the real frontend, which
+      // always sends the complete form (CreateProjectModal.jsx
+      // defaults status/priority and reuses the same submit path for
+      // create and edit), never a partial payload.
+      const projUpdate = await apiPut(`/api/projects/${projId}`, {
+        name: "Test Project Alpha Updated", description: "Audit test project", status: "planning", priority: "Medium",
+      }, tokenA);
       record("PUT", "/api/projects/:id", 200, projUpdate.status, JSON.stringify(projUpdate.body)?.slice(0, 200));
 
       const projMembers = await apiGet(`/api/projects/${projId}/members`, tokenA);
