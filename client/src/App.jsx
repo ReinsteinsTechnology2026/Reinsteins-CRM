@@ -228,6 +228,14 @@ function buildRoleRoutes(basePath, IndexComponent, routeDefs, allowedRole, Layou
   );
 }
 
+// admin.zioventure.com is the Platform Owner portal's public hostname;
+// crm.zioventure.com keeps serving the tenant/marketing app unchanged.
+// Same SPA bundle for both hosts, so this is the only hostname check
+// needed -- /owner/* already works under any hostname today.
+const isPlatformOwnerHost =
+  typeof window !== "undefined" &&
+  window.location.hostname === "admin.zioventure.com";
+
 function App() {
 
   return (
@@ -249,7 +257,14 @@ function App() {
         ================================== */}
 
         <Route element={<PublicLayout />}>
-          <Route path="/" element={<PublicHome />} />
+          <Route
+            path="/"
+            element={
+              isPlatformOwnerHost
+                ? <Navigate to="/owner/login" replace />
+                : <PublicHome />
+            }
+          />
           <Route path="/features" element={<PublicFeatures />} />
           <Route path="/solutions" element={<PublicSolutions />} />
           <Route path="/pricing" element={<PublicPricing />} />
