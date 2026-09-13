@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { toast } from "react-toastify";
 
@@ -24,6 +24,8 @@ function getCurrentUserRole() {
 function JoinMeetingModal({ onClose }) {
 
     const navigate = useNavigate();
+
+    const { companySlug } = useParams();
 
     const role = getCurrentUserRole();
 
@@ -56,7 +58,14 @@ function JoinMeetingModal({ onClose }) {
                     : "Joined meeting"
             );
 
-            const basePath = role === "admin" ? "/admin" : "/employee";
+            // Company-aware tenant users are rendered under
+            // "/:companySlug/admin"/"/:companySlug/employee" --
+            // navigating to the unprefixed path would take them off
+            // that route tree. Reinsteins (no companySlug) keeps the
+            // existing unprefixed path.
+            const basePath = companySlug
+                ? `/${companySlug}/${role === "admin" ? "admin" : "employee"}`
+                : role === "admin" ? "/admin" : "/employee";
 
             onClose();
 

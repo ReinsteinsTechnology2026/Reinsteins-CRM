@@ -5,6 +5,7 @@ import {
 
 import {
   useNavigate,
+  useParams,
 } from "react-router-dom";
 
 import api from "../services/api";
@@ -19,6 +20,15 @@ const BACKEND_URL = API_ORIGIN;
 function EmployeeProfileAvatar() {
   const navigate =
     useNavigate();
+
+  // Company-aware tenant users are rendered under
+  // "/:companySlug/employee/..." -- navigating to the unprefixed
+  // "/employee/profile" would take them off that route tree entirely
+  // (and onto the one EmployeeSidebar's own basePath fix just above
+  // also had to account for). Reinsteins (no companySlug) keeps the
+  // existing unprefixed path unchanged.
+  const { companySlug } = useParams();
+  const profilePath = companySlug ? `/${companySlug}/employee/profile` : "/employee/profile";
 
   const [
     profile,
@@ -133,7 +143,7 @@ function EmployeeProfileAvatar() {
       className="employee-profile-avatar"
       onClick={() =>
         navigate(
-          "/employee/profile"
+          profilePath
         )
       }
       title="View My Profile"
@@ -149,7 +159,7 @@ function EmployeeProfileAvatar() {
             " "
         ) {
           navigate(
-            "/employee/profile"
+            profilePath
           );
         }
       }}

@@ -61,7 +61,7 @@ const PARTICIPANT_STATUS_LABELS = {
 
 function MeetingDetails() {
 
-    const { id } = useParams();
+    const { id, companySlug } = useParams();
 
     const navigate = useNavigate();
 
@@ -69,7 +69,13 @@ function MeetingDetails() {
 
     const isAdmin = currentUser?.role === "admin";
 
-    const basePath = isAdmin ? "/admin" : "/employee";
+    // Company-aware tenant users are rendered under
+    // "/:companySlug/admin"/"/:companySlug/employee" -- navigating to
+    // the unprefixed path would take them off that route tree.
+    // Reinsteins (no companySlug) keeps the existing unprefixed path.
+    const basePath = companySlug
+        ? `/${companySlug}/${isAdmin ? "admin" : "employee"}`
+        : isAdmin ? "/admin" : "/employee";
 
     const [meeting, setMeeting] = useState(null);
 
