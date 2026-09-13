@@ -229,14 +229,24 @@ let {
 // Convert UI status to DB status
 switch ((status || "").toLowerCase()) {
 
+    case "new":
+        status = "todo";
+        break;
+
+    case "active":
     case "in progress":
         status = "in_progress";
+        break;
+
+    case "on hold":
+        status = "todo";
         break;
 
     case "pending review":
         status = "pending_review";
         break;
 
+    case "completed":
     case "closed":
         status = "closed";
         break;

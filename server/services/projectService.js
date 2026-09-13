@@ -473,7 +473,7 @@ const ensureDefaultProjectAdministratorsGroupId = async () => {
 // UPDATE PROJECT
 // ==========================================
 
-const updateProject = async (id, data) => {
+const updateProject = async (id, data, actingUserId) => {
 
     const {
 
@@ -510,6 +510,26 @@ const updateProject = async (id, data) => {
         id
 
     ]);
+
+    // Same reasoning as createProject: a newly assigned owner must be
+    // able to see/act on the project, not just be named on it. Without
+    // this, reassigning ownership through Edit Project silently left
+    // the new owner with no project_members row -- 403 on everything
+    // beyond bare read, despite the UI showing them as Owner.
+    if (owner_id) {
+
+        const adminGroupId = await ensureDefaultProjectAdministratorsGroupId();
+
+        await pool.query(
+            `
+            INSERT INTO project_members (project_id, user_id, security_group_id, added_by)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (project_id, user_id) DO NOTHING
+            `,
+            [id, Number(owner_id), adminGroupId, actingUserId]
+        );
+
+    }
 
 };
 

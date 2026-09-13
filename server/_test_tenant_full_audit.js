@@ -229,6 +229,20 @@ async function tenantLogin(slug, employeeId, password) {
 
       const projMyPerms = await apiGet(`/api/projects/${projId}/my-permissions`, tokenA);
       record("GET", "/api/projects/:id/my-permissions", 200, projMyPerms.status);
+
+      // Regression check: reassigning owner_id via PUT must grant that
+      // new owner project membership too (services/projectService.js
+      // updateProject), not just at creation time.
+      if (empId) {
+        const projReassign = await apiPut(`/api/projects/${projId}`, {
+          name: "Test Project Alpha Updated", description: "Audit test project", status: "planning", priority: "Medium", owner_id: empId,
+        }, tokenA);
+        record("PUT", "/api/projects/:id (reassign owner)", 200, projReassign.status, JSON.stringify(projReassign.body)?.slice(0, 200));
+
+        const projMembersAfterReassign = await apiGet(`/api/projects/${projId}/members`, tokenA);
+        const newOwnerIsMember = projMembersAfterReassign.body?.members?.some((m) => Number(m.user_id) === Number(empId));
+        check("PROJECTS: reassigned owner appears in project_members", newOwnerIsMember === true, JSON.stringify(projMembersAfterReassign.body?.members?.map((m) => m.user_id)));
+      }
     }
 
     // ========================================
@@ -252,23 +266,57 @@ async function tenantLogin(slug, employeeId, password) {
     record("POST", "/api/task-management/create", [200, 201], taskCreate.status, JSON.stringify(taskCreate.body)?.slice(0, 300));
 
     const taskListAgain = await apiGet("/api/task-management/tasks", tokenA);
-    const createdTask = taskListAgain.body?.tasks?.find((t) => t.title === "Audit Test Task");
+    const createdTask = taskListAgain.body?.tasks?.find((t) => t.task_title === "Audit Test Task");
     const taskId = createdTask?.id;
 
     if (taskId) {
       const taskGet = await apiGet(`/api/task-management/task/${taskId}`, tokenA);
       record("GET", "/api/task-management/task/:id", 200, taskGet.status);
 
-      const taskStatusUpdate = await apiPut(`/api/task-management/${taskId}/status`, { status: "in_progress" }, tokenA);
-      record("PUT", "/api/task-management/:id/status", 200, taskStatusUpdate.status, JSON.stringify(taskStatusUpdate.body)?.slice(0, 200));
+      const taskStatusUpdate = await apiPatch(`/api/task-management/${taskId}/status`, { status: "in_progress" }, tokenA);
+      record("PATCH", "/api/task-management/:id/status", 200, taskStatusUpdate.status, JSON.stringify(taskStatusUpdate.body)?.slice(0, 200));
 
-      const taskUpdate = await apiPut(`/api/task-management/update/${taskId}`, { title: "Audit Test Task Updated" }, tokenA);
+      // updateTask (services/taskService.js) does a full-column
+      // overwrite, not a merge -- matches the real frontend, which
+      // always sends the complete form (EditTaskModal.jsx defaults
+      // every field, including description, from the existing task).
+      const taskUpdate = await apiPut(`/api/task-management/update/${taskId}`, {
+        title: "Audit Test Task Updated", description: "Updated by tenant audit", assigned_to: adminSelfId,
+        priority: "Medium", status: "in_progress", due_date: "", estimated_hours: "", tags: "",
+      }, tokenA);
       record("PUT", "/api/task-management/update/:id", 200, taskUpdate.status, JSON.stringify(taskUpdate.body)?.slice(0, 200));
 
       const taskDelete = await apiDelete(`/api/task-management/delete/${taskId}`, tokenA);
       record("DELETE", "/api/task-management/delete/:id", 200, taskDelete.status, JSON.stringify(taskDelete.body)?.slice(0, 200));
     } else {
       console.log("  [SKIP] task detail/status/update/delete -- created task id not found via list");
+    }
+
+    // Regression check: createTask's UI-label -> DB-status switch
+    // (services/taskService.js) must map every option the Create Task
+    // modal actually offers (CreateTaskModal.jsx: New/Active/In
+    // Progress/On Hold/Completed/Closed) -- previously "Completed" and
+    // "On Hold" silently became "in_progress".
+    const taskCreateCompleted = await apiPost("/api/task-management/create", {
+      title: "Audit Completed Task", description: "Status-mapping regression check", assigned_to: adminSelfId,
+      priority: "Medium", status: "Completed",
+    }, tokenA);
+    record("POST", "/api/task-management/create (status: Completed)", [200, 201], taskCreateCompleted.status);
+
+    const taskCreateOnHold = await apiPost("/api/task-management/create", {
+      title: "Audit On Hold Task", description: "Status-mapping regression check", assigned_to: adminSelfId,
+      priority: "Medium", status: "On Hold",
+    }, tokenA);
+    record("POST", "/api/task-management/create (status: On Hold)", [200, 201], taskCreateOnHold.status);
+
+    const taskListForStatusCheck = await apiGet("/api/task-management/tasks", tokenA);
+    const completedTask = taskListForStatusCheck.body?.tasks?.find((t) => t.task_title === "Audit Completed Task");
+    const onHoldTask = taskListForStatusCheck.body?.tasks?.find((t) => t.task_title === "Audit On Hold Task");
+    check("TASKS: 'Completed' status stored as 'closed', not 'in_progress'", completedTask?.status === "closed", `got status=${completedTask?.status}`);
+    check("TASKS: 'On Hold' status not silently stored as 'in_progress'", onHoldTask?.status !== "in_progress", `got status=${onHoldTask?.status}`);
+
+    for (const t of [completedTask, onHoldTask]) {
+      if (t?.id) await apiDelete(`/api/task-management/delete/${t.id}`, tokenA);
     }
 
     // ========================================
