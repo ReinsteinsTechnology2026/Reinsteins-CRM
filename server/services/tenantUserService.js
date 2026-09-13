@@ -84,7 +84,7 @@ async function countUsersSince(tenantPool, sinceDate) {
         `SELECT COUNT(*) AS c FROM users WHERE created_at >= ?`,
         [sinceDate]
     );
-    return c;
+    return Number(c);
 }
 
 // Aggregate headcount only -- a single COUNT/GROUP BY, never a row
