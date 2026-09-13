@@ -1,6 +1,6 @@
 const fs = require("fs");
 const path = require("path");
-const mysql = require("mysql2/promise");
+const { Client } = require("pg");
 
 const provisioningPool = require("../config/provisioningDb");
 const {
@@ -18,7 +18,7 @@ const {
 // database with the full tenant schema applied. Does not read or
 // write the existing tenant database (reinsteins_workhub) at
 // provisioning time -- it applies a pre-generated, reviewed SQL
-// snapshot (schemas/tenantSchema.sql, produced by
+// snapshot (schemas/tenantSchema.postgresql.sql, produced by
 // _generate_tenant_schema.js) instead of introspecting the live
 // source DB on every call. See that script's header comment for why.
 //
@@ -28,7 +28,7 @@ const {
 // reinsteins_workhub.
 // ==========================================
 
-const SCHEMA_FILE_PATH = path.join(__dirname, "..", "schemas", "tenantSchema.sql");
+const SCHEMA_FILE_PATH = path.join(__dirname, "..", "schemas", "tenantSchema.postgresql.sql");
 
 const TENANT_DB_CHARSET = "utf8mb4";
 const TENANT_DB_COLLATION = "utf8mb4_unicode_ci";
@@ -77,7 +77,7 @@ function extractTableNamesFromSchema() {
 
 function extractTableNamesFromStatements(statements) {
     const names = [];
-    const re = /CREATE TABLE `([a-zA-Z0-9_]+)`/g;
+    const re = /CREATE TABLE\s+"?([a-zA-Z0-9_]+)"?/g;
     for (const statement of statements) {
         let match;
         while ((match = re.exec(statement)) !== null) {
@@ -92,11 +92,12 @@ function extractTableNamesFromStatements(statements) {
 // ------------------------------------------
 
 async function databaseExists(databaseName) {
-    const [rows] = await provisioningPool.query(
-        `SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?`,
+    const result = await provisioningPool.query(
+        `SELECT datname FROM pg_database WHERE datname = $1`,
         [databaseName]
     );
-    return rows.length > 0;
+
+    return result.rows.length > 0;
 }
 
 // ------------------------------------------
@@ -116,7 +117,7 @@ async function databaseExists(databaseName) {
  *
  *   _schemaStatementsForTesting is FOR THE PHASE 2C ROLLBACK TEST
  *   ONLY -- when provided, it replaces the statements normally read
- *   from schemas/tenantSchema.sql, so the failure/rollback path can
+ *   from schemas/tenantSchema.postgresql.sql, so the failure/rollback path can
  *   be exercised with a deliberately broken statement without ever
  *   modifying the real schema file. Never pass this in real
  *   provisioning code.
@@ -154,27 +155,29 @@ async function provisionTenantDatabase({ databaseName, _schemaStatementsForTesti
     // rollback (dropping it again on failure) ever considered, and
     // only because we know for certain THIS call just created it.
     await provisioningPool.query(
-        `CREATE DATABASE \`${databaseName}\` CHARACTER SET ${TENANT_DB_CHARSET} COLLATE ${TENANT_DB_COLLATION}`
+    `CREATE DATABASE "${databaseName}"`
     );
 
     let tenantConn;
     try {
-        tenantConn = await mysql.createConnection({
-            ...provisioningConnectionConfig(),
-            database: databaseName,
-        });
+    tenantConn = new Client({
+        host: process.env.PLATFORM_DB_HOST,
+        port: process.env.PLATFORM_DB_PORT,
+        user: process.env.PLATFORM_DB_USER,
+        password: process.env.PLATFORM_DB_PASSWORD,
+        database: databaseName,
+    });
+    await tenantConn.connect();
 
         // Table creation order doesn't matter with FK checks off --
         // required anyway, since the tenant schema has genuine
         // circular references (e.g. users.department_id ->
         // departments.id, departments.department_head_id -> users.id).
-        await tenantConn.query("SET FOREIGN_KEY_CHECKS=0");
 
         for (const statement of statements) {
             await tenantConn.query(statement);
         }
 
-        await tenantConn.query("SET FOREIGN_KEY_CHECKS=1");
         await tenantConn.end();
         tenantConn = null;
 
@@ -232,7 +235,7 @@ async function rollbackFailedProvision(databaseName) {
     if (databaseName === process.env.PLATFORM_DB_NAME) return;
 
     try {
-        await provisioningPool.query(`DROP DATABASE \`${databaseName}\``);
+        await provisioningPool.query(`DROP DATABASE "${databaseName}" WITH (FORCE)`);
     } catch (_) {
         // Best-effort cleanup -- the failure is already being
         // reported to the caller either way.
@@ -240,24 +243,41 @@ async function rollbackFailedProvision(databaseName) {
 }
 
 async function verifyTenantDatabase(databaseName, expectedTables) {
-    const [rows] = await provisioningPool.query(
-        `SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME`,
-        [databaseName]
-    );
-    const actualTables = rows.map((r) => r.TABLE_NAME);
+    const tenantConn = new Client({
+        host: process.env.PLATFORM_DB_HOST,
+        port: process.env.PLATFORM_DB_PORT,
+        user: process.env.PLATFORM_DB_USER,
+        password: process.env.PLATFORM_DB_PASSWORD,
+        database: databaseName,
+    });
 
-    const missing = expectedTables.filter((t) => !actualTables.includes(t));
-    const unexpected = actualTables.filter((t) => !expectedTables.includes(t));
+    try {
+        await tenantConn.connect();
 
-    return {
-        matches: missing.length === 0 && unexpected.length === 0,
-        expectedTableCount: expectedTables.length,
-        actualTableCount: actualTables.length,
-        actualTables,
-        missing,
-        unexpected,
+        const result = await tenantConn.query(
+            `SELECT table_name
+             FROM information_schema.tables
+             WHERE table_schema = 'public'
+             ORDER BY table_name`
+        );
+
+        const actualTables = result.rows.map((r) => r.table_name);
+
+        const missing = expectedTables.filter((t) => !actualTables.includes(t));
+        const unexpected = actualTables.filter((t) => !expectedTables.includes(t));
+        return {
+            matches: missing.length === 0 && unexpected.length === 0,
+            expectedTableCount: expectedTables.length,
+            actualTableCount: actualTables.length,
+            actualTables,
+            missing,
+            unexpected,
     };
+    } finally {
+        await tenantConn.end();
+    }
 }
+
 
 // ------------------------------------------
 // Cross-database structural comparison
@@ -267,43 +287,110 @@ async function verifyTenantDatabase(databaseName, expectedTables) {
 // ------------------------------------------
 
 async function getTableNames(databaseName) {
-    const [rows] = await provisioningPool.query(
-        `SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME`,
-        [databaseName]
-    );
-    return rows.map((r) => r.TABLE_NAME).sort();
+    const tenantConn = new Client({
+        host: process.env.PLATFORM_DB_HOST,
+        port: process.env.PLATFORM_DB_PORT,
+        user: process.env.PLATFORM_DB_USER,
+        password: process.env.PLATFORM_DB_PASSWORD,
+        database: databaseName,
+    });
+
+    try {
+        await tenantConn.connect();
+
+        const result = await tenantConn.query(
+            `SELECT table_name
+             FROM information_schema.tables
+             WHERE table_schema = 'public'
+             AND table_type = 'BASE TABLE'
+             ORDER BY table_name`
+        );
+
+        return result.rows.map((r) => r.table_name).sort();
+    } finally {
+        await tenantConn.end();
+    }
 }
 
 async function getForeignKeyCount(databaseName) {
-    const [[row]] = await provisioningPool.query(
-        `SELECT COUNT(*) AS c FROM information_schema.KEY_COLUMN_USAGE
-         WHERE TABLE_SCHEMA = ? AND REFERENCED_TABLE_NAME IS NOT NULL`,
-        [databaseName]
-    );
-    return row.c;
+    const tenantConn = new Client({
+        host: process.env.PLATFORM_DB_HOST,
+        port: process.env.PLATFORM_DB_PORT,
+        user: process.env.PLATFORM_DB_USER,
+        password: process.env.PLATFORM_DB_PASSWORD,
+        database: databaseName,
+    });
+
+    try {
+        await tenantConn.connect();
+
+        const result = await tenantConn.query(
+            `SELECT COUNT(*) AS c
+             FROM information_schema.table_constraints
+             WHERE constraint_schema = 'public'
+             AND constraint_type = 'FOREIGN KEY'`
+        );
+
+        return Number(result.rows[0].c);
+    } finally {
+        await tenantConn.end();
+    }
 }
 
 async function getIndexCount(databaseName) {
-    const [[row]] = await provisioningPool.query(
-        `SELECT COUNT(DISTINCT TABLE_NAME, INDEX_NAME) AS c FROM information_schema.STATISTICS
-         WHERE TABLE_SCHEMA = ?`,
-        [databaseName]
-    );
-    return row.c;
+    const tenantConn = new Client({
+        host: process.env.PLATFORM_DB_HOST,
+        port: process.env.PLATFORM_DB_PORT,
+        user: process.env.PLATFORM_DB_USER,
+        password: process.env.PLATFORM_DB_PASSWORD,
+        database: databaseName,
+    });
+
+    try {
+        await tenantConn.connect();
+
+        const result = await tenantConn.query(
+            `SELECT COUNT(*) AS c
+             FROM pg_indexes
+             WHERE schemaname = 'public'`
+        );
+
+        return Number(result.rows[0].c);
+    } finally {
+        await tenantConn.end();
+    }
 }
 
 async function getRowCounts(databaseName) {
-    const tables = await getTableNames(databaseName);
-    const counts = {};
-    for (const table of tables) {
-        const [[row]] = await provisioningPool.query(
-            `SELECT COUNT(*) AS c FROM \`${databaseName}\`.\`${table}\``
-        );
-        counts[table] = row.c;
-    }
-    return counts;
-}
+    const tenantConn = new Client({
+        host: process.env.PLATFORM_DB_HOST,
+        port: process.env.PLATFORM_DB_PORT,
+        user: process.env.PLATFORM_DB_USER,
+        password: process.env.PLATFORM_DB_PASSWORD,
+        database: databaseName,
+    });
 
+    try {
+        await tenantConn.connect();
+
+        const tables = await getTableNames(databaseName);
+        const counts = {};
+
+        for (const table of tables) {
+            const safeTableName = table.replace(/"/g, '""');
+
+            const result = await tenantConn.query(
+                `SELECT COUNT(*) AS c FROM public."${safeTableName}"`
+            );
+
+            counts[table] = Number(result.rows[0].c);
+        }
+
+        return counts;
+    } finally {
+        await tenantConn.end();
+    }
+}
 async function compareTenantSchema(sourceDbName, targetDbName) {
     const [sourceTables, targetTables, sourceFkCount, targetFkCount, sourceIdxCount, targetIdxCount] =
         await Promise.all([
@@ -373,7 +460,7 @@ async function dropProvisionedDatabase(databaseName) {
         return { dropped: false, reason: "did not exist" };
     }
 
-    await provisioningPool.query(`DROP DATABASE \`${databaseName}\``);
+    await provisioningPool.query(`DROP DATABASE "${databaseName}" WITH (FORCE)`);
     return { dropped: true };
 }
 

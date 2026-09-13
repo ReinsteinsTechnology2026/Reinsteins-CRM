@@ -171,7 +171,8 @@ async function createCompanyWithAdmin(ownerToken, slug, name) {
     const dupId = `paytest_dup_${Date.now()}`;
     const [insertA] = await platformPool.query(
         `INSERT INTO payments (company_id, plan_id, amount, currency, billing_cycle, payment_status, payment_provider, provider_payment_id)
-         VALUES (?, ?, 100, 'INR', 'one_time', 'paid', 'razorpay', ?)`,
+         VALUES (?, ?, 100, 'INR', 'one_time', 'paid', 'razorpay', ?)
+         RETURNING id`,
         [companyA.companyId, starterPlan.id, dupId]
     );
     check("7. First insert with a given provider_payment_id succeeds", !!insertA.insertId);
@@ -179,11 +180,12 @@ async function createCompanyWithAdmin(ownerToken, slug, name) {
     try {
         await platformPool.query(
             `INSERT INTO payments (company_id, plan_id, amount, currency, billing_cycle, payment_status, payment_provider, provider_payment_id)
-             VALUES (?, ?, 100, 'INR', 'one_time', 'paid', 'razorpay', ?)`,
+             VALUES (?, ?, 100, 'INR', 'one_time', 'paid', 'razorpay', ?)
+             RETURNING id`,
             [companyA.companyId, starterPlan.id, dupId]
         );
     } catch (dupError) {
-        duplicateRejected = dupError.code === "ER_DUP_ENTRY";
+        duplicateRejected = dupError.code === "23505";
     }
     check("7b. Second insert with the SAME provider_payment_id is rejected at the DB level (idempotency guarantee)", duplicateRejected);
 

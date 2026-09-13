@@ -300,9 +300,9 @@ async function createCompanyWithAdmin(ownerToken, slug, name) {
     const tenantDbNameA = buildTenantDbName(COMPANY_A_SLUG);
     const tenantPoolA = require("./config/tenantConnectionManager").getTenantPool(tenantDbNameA);
     const [[{ tblBefore }]] = await tenantPoolA.query(
-        `SELECT COUNT(*) AS tblBefore FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?`, [tenantDbNameA]
+        `SELECT COUNT(*) AS "tblBefore" FROM information_schema.tables WHERE table_schema = 'public'`
     );
-    const [[{ usersBefore }]] = await tenantPoolA.query(`SELECT COUNT(*) AS usersBefore FROM users`);
+    const [[{ usersBefore }]] = await tenantPoolA.query(`SELECT COUNT(*) AS "usersBefore" FROM users`);
 
     await apiPatch(`/api/platform/companies/${companyA.companyId}/subscription`, {
         planId: trialPlanRow.id, subscriptionStatus: "trial", trialEndsAt: futureTrialEnd,
@@ -312,12 +312,12 @@ async function createCompanyWithAdmin(ownerToken, slug, name) {
     }, ownerToken);
 
     const [[{ tblAfter }]] = await tenantPoolA.query(
-        `SELECT COUNT(*) AS tblAfter FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?`, [tenantDbNameA]
+        `SELECT COUNT(*) AS "tblAfter" FROM information_schema.tables WHERE table_schema = 'public'`
     );
-    const [[{ usersAfter }]] = await tenantPoolA.query(`SELECT COUNT(*) AS usersAfter FROM users`);
+    const [[{ usersAfter }]] = await tenantPoolA.query(`SELECT COUNT(*) AS "usersAfter" FROM users`);
 
     check("15. Tenant database table/user counts unchanged after repeated plan changes",
-        tblBefore === tblAfter && usersBefore === usersAfter,
+        Number(tblBefore) === Number(tblAfter) && Number(usersBefore) === Number(usersAfter),
         `tables: ${tblBefore}->${tblAfter}, users: ${usersBefore}->${usersAfter}`);
 
     const [companyARow] = await platformPool.query(`SELECT tenant_db_name FROM companies WHERE id = ?`, [companyA.companyId]);
@@ -347,9 +347,9 @@ async function createCompanyWithAdmin(ownerToken, slug, name) {
     console.log("\nSTEP 16 -- Reinsteins unchanged");
 
     const dbPool = require("./config/db");
-    const [[{ tbl }]] = await dbPool.query(`SELECT COUNT(*) AS tbl FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?`, [process.env.DB_NAME]);
+    const [[{ tbl }]] = await dbPool.query(`SELECT COUNT(*) AS tbl FROM information_schema.tables WHERE table_schema = 'public'`);
     const [[{ users }]] = await dbPool.query(`SELECT COUNT(*) AS users FROM users`);
-    check("16. reinsteins_workhub unchanged (37 tables, 17 users)", tbl === 37 && users === 17, `tables=${tbl} users=${users}`);
+    check("16. reinsteins_workhub unchanged (37 tables, 17 users)", Number(tbl) === 37 && Number(users) === 17, `tables=${tbl} users=${users}`);
 
     const legacyToken = jwt.sign({ id: 4, employeeId: "PHASE8-LEGACY-TEST", role: "employee" }, process.env.JWT_SECRET, { expiresIn: "1h" });
     const legacyDepts = await apiGet("/api/departments", legacyToken);

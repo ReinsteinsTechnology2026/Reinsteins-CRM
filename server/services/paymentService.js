@@ -102,12 +102,18 @@ const createPaymentRecord = async ({
         return await getPaymentById(result.insertId);
 
     } catch (dbError) {
-        if (dbError.code === "ER_DUP_ENTRY") {
+        // PostgreSQL SQLSTATE codes (this project's compat pool runs
+        // against PostgreSQL -- see config/pgCompat.js): 23505 =
+        // unique_violation, 23503 = foreign_key_violation. PostgreSQL
+        // uses the SAME code for both "referenced row missing" and
+        // "row still referenced" FK failures, unlike MySQL's two
+        // distinct codes.
+        if (dbError.code === "23505") {
             const error = new Error("A payment with this provider payment ID already exists.");
             error.code = "PAYMENT_DUPLICATE";
             throw error;
         }
-        if (dbError.code === "ER_NO_REFERENCED_ROW_2" || dbError.code === "ER_NO_REFERENCED_ROW") {
+        if (dbError.code === "23503") {
             const error = new Error("Invalid company or plan reference.");
             error.code = "PAYMENT_INVALID_REFERENCE";
             throw error;
@@ -238,7 +244,7 @@ const markPaymentPaid = async (id, { providerPaymentId }) => {
             [providerPaymentId, id]
         );
     } catch (dbError) {
-        if (dbError.code === "ER_DUP_ENTRY") {
+        if (dbError.code === "23505") {
             const error = new Error("This Razorpay payment ID has already been recorded against a different payment.");
             error.code = "PAYMENT_DUPLICATE";
             throw error;

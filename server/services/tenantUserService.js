@@ -37,8 +37,8 @@ const MAX_ID_ATTEMPTS = 5;
 async function generateNextAdminIdentifier(tenantPool) {
     const [rows] = await tenantPool.query(
         `SELECT employee_id FROM users
-         WHERE employee_id REGEXP ?
-         ORDER BY CAST(SUBSTRING(employee_id, ?) AS UNSIGNED) DESC
+         WHERE employee_id ~ ?
+         ORDER BY CAST(SUBSTRING(employee_id, ?) AS INTEGER) DESC
          LIMIT 1`,
         [`^${ADMIN_ID_PREFIX}[0-9]+$`, ADMIN_ID_PREFIX.length + 1]
     );
@@ -62,7 +62,7 @@ async function countAdmins(tenantPool) {
     const [[{ c }]] = await tenantPool.query(
         `SELECT COUNT(*) AS c FROM users WHERE role = 'admin'`
     );
-    return c;
+    return Number(c);
 }
 
 // The company's own admin's display name/email ONLY -- deliberately
@@ -134,12 +134,13 @@ async function createFirstAdmin(tenantPool, { name, email, phone, passwordHash }
             const [result] = await tenantPool.query(
                 `INSERT INTO users
                     (employee_id, full_name, email, phone, password, role, system_access, status)
-                 VALUES (?, ?, ?, ?, ?, 'admin', 'super_admin', 'active')`,
+                 VALUES (?, ?, ?, ?, ?, 'admin', 'super_admin', 'active')
+                 RETURNING id`,
                 [employeeId, name.trim(), cleanedEmail, phone || null, passwordHash]
             );
 
             return {
-                id: result.insertId,
+                id: result[0].id,
                 employeeId,
                 fullName: name.trim(),
                 email: cleanedEmail,
@@ -152,14 +153,14 @@ async function createFirstAdmin(tenantPool, { name, email, phone, passwordHash }
         } catch (insertError) {
 
             const isDuplicateEmployeeId =
-                insertError.code === "ER_DUP_ENTRY" &&
+                insertError.code === "23505" &&
                 insertError.message?.includes("employee_id");
 
             if (isDuplicateEmployeeId) {
                 continue; // retry with a freshly generated ID
             }
 
-            if (insertError.code === "ER_DUP_ENTRY" && insertError.message?.includes("email")) {
+            if (insertError.code === "23505" && insertError.message?.includes("email")) {
                 const error = new Error("A user with this email already exists in this tenant.");
                 error.code = "TENANT_EMAIL_TAKEN";
                 throw error;

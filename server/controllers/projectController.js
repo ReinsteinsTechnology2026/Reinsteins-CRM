@@ -171,7 +171,11 @@ const updateProject = async (req, res) => {
 
     try {
 
-        const existing = await getProjectById(req.params.id);
+        const existing = await getProjectById(req.params.id, {
+            id: req.user.id,
+            role: req.userAccess?.role,
+            systemAccess: req.userAccess?.systemAccess,
+        });
 
         if (!existing) {
             return res.status(404).json({

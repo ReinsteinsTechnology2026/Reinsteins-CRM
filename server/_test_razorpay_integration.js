@@ -140,7 +140,8 @@ async function createCompanyWithAdmin(ownerToken, slug, name) {
     // client.
     const [planInsert] = await platformPool.query(
         `INSERT INTO subscription_plans (name, slug, status, monthly_price, yearly_price, employee_limit, features)
-         VALUES ('RzpTest Plan', 'rzptest-plan', 'active', 499.00, 4999.00, 50, '[]')`
+         VALUES ('RzpTest Plan', 'rzptest-plan', 'active', 499.00, 4999.00, 50, '[]')
+         RETURNING id`
     );
     const planId = planInsert.insertId;
     check("SETUP: paid plan created", !!planId);

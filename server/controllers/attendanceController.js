@@ -22,7 +22,7 @@ const closeOldSessions = async (userId = null) => {
       total_break_seconds
     FROM attendance
     WHERE status IN ('working', 'break')
-    AND DATE(login_time) < CURDATE()
+    AND DATE(login_time) < CURRENT_DATE
   `;
 
   const values = [];
@@ -48,10 +48,7 @@ const closeOldSessions = async (userId = null) => {
       await pool.query(
         `
         SELECT
-          TIMESTAMP(
-            DATE(?),
-            '23:59:59'
-          ) AS cutoff_time
+          (?::date + TIME '23:59:59') AS cutoff_time
         `,
         [
           session.login_time,
@@ -82,11 +79,7 @@ const closeOldSessions = async (userId = null) => {
           SELECT
             GREATEST(
               0,
-              TIMESTAMPDIFF(
-                SECOND,
-                ?,
-                ?
-              )
+              FLOOR(EXTRACT(EPOCH FROM (?::timestamp - ?::timestamp)) * -1)::bigint
             ) AS unfinished_break_seconds
           `,
           [
@@ -116,11 +109,7 @@ const closeOldSessions = async (userId = null) => {
         SELECT
           GREATEST(
             0,
-            TIMESTAMPDIFF(
-              SECOND,
-              ?,
-              ?
-            )
+            FLOOR(EXTRACT(EPOCH FROM (?::timestamp - ?::timestamp)) * -1)::bigint
           ) AS session_seconds
         `,
         [
@@ -201,7 +190,7 @@ const goOnline = async (req, res) => {
           'working',
           'break'
         )
-        AND DATE(login_time) = CURDATE()
+        AND DATE(login_time) = CURRENT_DATE
         ORDER BY login_time DESC
         LIMIT 1
         `,
@@ -244,10 +233,11 @@ const goOnline = async (req, res) => {
         VALUES
         (
           ?,
-          NOW(6),
+          NOW(),
           'working',
           0
         )
+        RETURNING id
         `,
         [
           userId,
@@ -270,7 +260,7 @@ const goOnline = async (req, res) => {
         WHERE id = ?
         `,
         [
-          result.insertId,
+          result[0].id,
         ]
       );
 
@@ -327,7 +317,7 @@ const startBreak = async (
         FROM attendance
         WHERE user_id = ?
         AND status = 'working'
-        AND DATE(login_time) = CURDATE()
+        AND DATE(login_time) = CURRENT_DATE
         ORDER BY login_time DESC
         LIMIT 1
         `,
@@ -357,7 +347,7 @@ const startBreak = async (
       UPDATE attendance
       SET
         status = 'break',
-        break_start_time = NOW(6)
+        break_start_time = NOW()
       WHERE id = ?
       `,
       [
@@ -438,7 +428,7 @@ const endBreak = async (
         FROM attendance
         WHERE user_id = ?
         AND status = 'break'
-        AND DATE(login_time) = CURDATE()
+        AND DATE(login_time) = CURRENT_DATE
         ORDER BY login_time DESC
         LIMIT 1
         `,
@@ -469,11 +459,7 @@ const endBreak = async (
       SET
         total_break_seconds =
           total_break_seconds +
-          TIMESTAMPDIFF(
-            SECOND,
-            break_start_time,
-            NOW(6)
-          ),
+          FLOOR(EXTRACT(EPOCH FROM (NOW() - break_start_time)))::bigint,
 
         break_start_time =
           NULL,
@@ -567,7 +553,7 @@ const goOffline = async (
           'working',
           'break'
         )
-        AND DATE(login_time) = CURDATE()
+        AND DATE(login_time) = CURRENT_DATE
         ORDER BY login_time DESC
         LIMIT 1
         `,
@@ -610,11 +596,7 @@ const goOffline = async (
         SET
           total_break_seconds =
             total_break_seconds +
-            TIMESTAMPDIFF(
-              SECOND,
-              break_start_time,
-              NOW(6)
-            ),
+            FLOOR(EXTRACT(EPOCH FROM (NOW() - break_start_time)))::bigint,
 
           break_start_time =
             NULL
@@ -636,17 +618,13 @@ const goOffline = async (
       UPDATE attendance
       SET
         logout_time =
-          NOW(6),
+          NOW(),
 
         work_duration_seconds =
           GREATEST(
             0,
 
-            TIMESTAMPDIFF(
-              SECOND,
-              login_time,
-              NOW(6)
-            ) -
+            FLOOR(EXTRACT(EPOCH FROM (NOW() - login_time)))::bigint -
 
             COALESCE(
               total_break_seconds,
@@ -755,7 +733,7 @@ const getAttendanceStatus = async (
           'working',
           'break'
         )
-        AND DATE(login_time) = CURDATE()
+        AND DATE(login_time) = CURRENT_DATE
         ORDER BY login_time DESC
         LIMIT 1
         `,
@@ -792,7 +770,7 @@ const getAttendanceStatus = async (
         WHERE user_id = ?
 
         AND DATE(login_time) =
-          CURDATE()
+          CURRENT_DATE
 
         AND status =
           'completed'
@@ -1574,7 +1552,7 @@ const getAdminLiveAttendance =
                 AND DATE(
                   completed.login_time
                 ) =
-                  CURDATE()
+                  CURRENT_DATE
 
                 AND completed.status =
                   'completed'
@@ -1607,7 +1585,7 @@ const getAdminLiveAttendance =
               AND DATE(
                 active.login_time
               ) =
-                CURDATE()
+                CURRENT_DATE
 
               ORDER BY
                 active.login_time

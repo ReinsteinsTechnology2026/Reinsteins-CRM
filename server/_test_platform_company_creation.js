@@ -177,12 +177,25 @@ async function post(path, body, token) {
     const dbExists = await tenantProvisioningService.databaseExists(EXPECTED_TENANT_DB);
     check("5. tenant database exists", dbExists === true);
 
+    // Phase 4 note: process.env.DB_NAME now co-locates the 4
+    // platform-layer tables alongside the 37 tenant tables (the
+    // confirmed, deliberate architecture), so it's no longer a pure
+    // tenant-schema reference -- source/target are EXPECTED to
+    // differ by exactly those 4 tables and their FK/indexes.
+    const PLATFORM_ONLY_TABLES = ["companies", "demo_requests", "platform_users", "subscription_plans"];
     const comparison = await tenantProvisioningService.compareTenantSchema(process.env.DB_NAME, EXPECTED_TENANT_DB);
     check("5. table count = 37", comparison.targetTableCount === 37, `got ${comparison.targetTableCount}`);
-    check("5. table names match source exactly", comparison.tableNamesMatch);
-    check("5. foreign keys match (86)", comparison.foreignKeysMatch && comparison.targetForeignKeyCount === 86,
+    check("5. table names match source exactly (excluding the 4 co-located platform tables)",
+        comparison.missingInTarget.filter((t) => !PLATFORM_ONLY_TABLES.includes(t)).length === 0
+            && comparison.unexpectedInTarget.length === 0);
+    check("5. foreign keys match (86)", comparison.targetForeignKeyCount === 86,
         `got ${comparison.targetForeignKeyCount}`);
-    check("5. indexes match", comparison.indexesMatch);
+    const [[{ platformIdxCount }]] = await platformPool.query(
+        `SELECT COUNT(*) AS "platformIdxCount" FROM pg_indexes WHERE schemaname = 'public' AND tablename = ANY(?)`,
+        [PLATFORM_ONLY_TABLES]
+    );
+    check("5. indexes match", comparison.sourceIndexCount - Number(platformIdxCount) === comparison.targetIndexCount,
+        `source=${comparison.sourceIndexCount} target=${comparison.targetIndexCount} platformIdx=${platformIdxCount}`);
 
     const rowCounts = await tenantProvisioningService.getRowCounts(EXPECTED_TENANT_DB);
     const nonEmpty = Object.entries(rowCounts).filter(([, c]) => c > 0);

@@ -97,11 +97,12 @@ const create = async ({ name, email, passwordHash, role = "platform_owner" }) =>
 
     const [result] = await platformPool.query(
         `INSERT INTO platform_users (name, email, password_hash, role, status)
-         VALUES (?, ?, ?, ?, 'active')`,
+         VALUES (?, ?, ?, ?, 'active')
+         RETURNING id`,
         [name, email, passwordHash, role]
     );
 
-    return { id: result.insertId, name, email, role, status: "active" };
+    return { id: result[0].id, name, email, role, status: "active" };
 
 };
 

@@ -45,8 +45,8 @@ async function apiGet(pathname, token) {
 (async () => {
 
     // ---------- Baseline: companies table + demo_requests count ----------
-    const [[{ companiesBefore }]] = await platformPool.query(`SELECT COUNT(*) AS companiesBefore FROM companies`);
-    const [[{ demoRequestsBefore }]] = await platformPool.query(`SELECT COUNT(*) AS demoRequestsBefore FROM demo_requests`);
+    const [[{ companiesBefore }]] = await platformPool.query(`SELECT COUNT(*) AS "companiesBefore" FROM companies`);
+    const [[{ demoRequestsBefore }]] = await platformPool.query(`SELECT COUNT(*) AS "demoRequestsBefore" FROM demo_requests`);
 
     // ---------- B: tenant pages remain protected ----------
     console.log("TEST B -- Tenant APIs remain protected");
@@ -114,10 +114,10 @@ async function apiGet(pathname, token) {
 
     // ---------- G: demo request does NOT create a company ----------
     console.log("\nTEST G -- Demo request does not create a company");
-    const [[{ companiesAfter }]] = await platformPool.query(`SELECT COUNT(*) AS companiesAfter FROM companies`);
-    check("G. companies table row count unchanged after demo requests", companiesAfter === companiesBefore, `before=${companiesBefore} after=${companiesAfter}`);
-    const [[{ demoRequestsAfter }]] = await platformPool.query(`SELECT COUNT(*) AS demoRequestsAfter FROM demo_requests`);
-    check("G2. demo_requests row count increased by exactly 2 (the two valid submissions)", demoRequestsAfter === demoRequestsBefore + 2, `before=${demoRequestsBefore} after=${demoRequestsAfter}`);
+    const [[{ companiesAfter }]] = await platformPool.query(`SELECT COUNT(*) AS "companiesAfter" FROM companies`);
+    check("G. companies table row count unchanged after demo requests", Number(companiesAfter) === Number(companiesBefore), `before=${companiesBefore} after=${companiesAfter}`);
+    const [[{ demoRequestsAfter }]] = await platformPool.query(`SELECT COUNT(*) AS "demoRequestsAfter" FROM demo_requests`);
+    check("G2. demo_requests row count increased by exactly 2 (the two valid submissions)", Number(demoRequestsAfter) === Number(demoRequestsBefore) + 2, `before=${demoRequestsBefore} after=${demoRequestsAfter}`);
     const [[storedRow]] = await platformPool.query(`SELECT status FROM demo_requests WHERE id = ?`, [validSubmit.body.referenceId]);
     check("G3. Stored request defaults to status='new'", storedRow?.status === "new", JSON.stringify(storedRow));
 
@@ -154,13 +154,13 @@ async function apiGet(pathname, token) {
     // ---------- Reinsteins DB verification ----------
     console.log("\nEXTRA -- Reinsteins DB verification");
     const dbPool = require("./config/db");
-    const [[{ tbl }]] = await dbPool.query(`SELECT COUNT(*) AS tbl FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?`, [process.env.DB_NAME]);
+    const [[{ tbl }]] = await dbPool.query(`SELECT COUNT(*) AS tbl FROM information_schema.tables WHERE table_schema = 'public'`);
     const [[{ users }]] = await dbPool.query(`SELECT COUNT(*) AS users FROM users`);
-    check("EXTRA: reinsteins_workhub unchanged", tbl === 37 && users === 17, `tables=${tbl} users=${users}`);
+    check("EXTRA: reinsteins_workhub unchanged", Number(tbl) === 37 && Number(users) === 17, `tables=${tbl} users=${users}`);
 
     // ---------- Final cleanup verification ----------
-    const [[{ demoRequestsFinal }]] = await platformPool.query(`SELECT COUNT(*) AS demoRequestsFinal FROM demo_requests`);
-    console.log(`\nCLEANUP: demo_requests row count back to baseline: ${demoRequestsFinal === demoRequestsBefore} (before=${demoRequestsBefore}, final=${demoRequestsFinal})`);
+    const [[{ demoRequestsFinal }]] = await platformPool.query(`SELECT COUNT(*) AS "demoRequestsFinal" FROM demo_requests`);
+    console.log(`\nCLEANUP: demo_requests row count back to baseline: ${Number(demoRequestsFinal) === Number(demoRequestsBefore)} (before=${demoRequestsBefore}, final=${demoRequestsFinal})`);
 
     console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}`);
     await platformPool.end();

@@ -65,7 +65,7 @@ const resolveItem = async (type, id) => {
 
     const [[row]] = await pool.query(
         `SELECT id, project_id, ${meta.titleCol} AS title, status
-         FROM \`${meta.table}\` WHERE id = ? LIMIT 1`,
+         FROM ${meta.table} WHERE id = ? LIMIT 1`,
         [id]
     );
 
@@ -240,11 +240,12 @@ const createLink = async ({ sourceType, sourceId, targetType, targetId, linkType
         INSERT INTO work_item_links
             (source_type, source_id, target_type, target_id, link_type, project_id, created_by)
         VALUES (?, ?, ?, ?, ?, ?, ?)
+        RETURNING id
         `,
         [sourceType, sourceId, targetType, targetId, linkType, source.project_id, createdBy]
     );
 
-    return { id: result.insertId, source, target };
+    return { id: result[0].id, source, target };
 
 };
 

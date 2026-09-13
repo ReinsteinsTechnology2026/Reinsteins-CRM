@@ -109,7 +109,7 @@ async function apiGet(path, token) {
 
     const [[{ reinsteinsDeptCountBefore }]] = await (async () => {
         const p = require("./config/db");
-        return p.query(`SELECT COUNT(*) AS reinsteinsDeptCountBefore FROM departments`);
+        return p.query(`SELECT COUNT(*) AS "reinsteinsDeptCountBefore" FROM departments`);
     })();
 
     const deptsA0 = await apiGet("/api/departments", tokenA);
@@ -118,7 +118,7 @@ async function apiGet(path, token) {
 
     const deptsLegacy = await apiGet("/api/departments", legacyToken);
     check("1b. Legacy token resolves to REAL Reinsteins departments (unaffected fallback)",
-        deptsLegacy.status === 200 && deptsLegacy.body?.departments?.length === reinsteinsDeptCountBefore,
+        deptsLegacy.status === 200 && deptsLegacy.body?.departments?.length === Number(reinsteinsDeptCountBefore),
         `expected ${reinsteinsDeptCountBefore}, got ${deptsLegacy.body?.departments?.length}`);
 
     const deptsPlatform = await apiGet("/api/departments", platformToken);
@@ -161,12 +161,12 @@ async function apiGet(path, token) {
     // ---------- Reinsteins untouched by any of this ----------
     console.log("\nSTEP 4 -- Reinsteins verification");
     const p = require("./config/db");
-    const [[{ reinsteinsDeptCountAfter }]] = await p.query(`SELECT COUNT(*) AS reinsteinsDeptCountAfter FROM departments`);
-    check("4. reinsteins_workhub.departments count unchanged", reinsteinsDeptCountAfter === reinsteinsDeptCountBefore,
+    const [[{ reinsteinsDeptCountAfter }]] = await p.query(`SELECT COUNT(*) AS "reinsteinsDeptCountAfter" FROM departments`);
+    check("4. reinsteins_workhub.departments count unchanged", Number(reinsteinsDeptCountAfter) === Number(reinsteinsDeptCountBefore),
         `before=${reinsteinsDeptCountBefore} after=${reinsteinsDeptCountAfter}`);
-    const [[{ tblCount }]] = await p.query(`SELECT COUNT(*) AS tblCount FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?`, [process.env.DB_NAME]);
-    const [[{ userCount }]] = await p.query(`SELECT COUNT(*) AS userCount FROM users`);
-    check("4b. reinsteins_workhub table/user counts unchanged", tblCount === 37 && userCount === 17, `tables=${tblCount} users=${userCount}`);
+    const [[{ tblCount }]] = await p.query(`SELECT COUNT(*) AS "tblCount" FROM information_schema.tables WHERE table_schema = 'public'`);
+    const [[{ userCount }]] = await p.query(`SELECT COUNT(*) AS "userCount" FROM users`);
+    check("4b. reinsteins_workhub table/user counts unchanged", Number(tblCount) === 37 && Number(userCount) === 17, `tables=${tblCount} users=${userCount}`);
 
     // ---------- Cleanup ----------
     console.log("\nCLEANUP");

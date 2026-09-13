@@ -1,3 +1,12 @@
+// ==========================================
+// SUPERSEDED (PostgreSQL migration) -- this is a MySQL-era script;
+// its subscription_plans columns were translated into
+// schemas/platformSchema.postgresql.sql's "PHASE 10-14 ADDITIONS"
+// section instead. Left in place, unconverted, as historical record
+// only -- DO NOT RUN this against the current PostgreSQL database
+// (its SHOW COLUMNS syntax is not valid PostgreSQL).
+// ==========================================
+
 const platformPool = require("./config/platformDb");
 
 // ==========================================

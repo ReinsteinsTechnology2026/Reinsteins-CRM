@@ -48,7 +48,16 @@ const getProjectsByOrganization = async (organizationId) => {
         ORDER BY p.id DESC
     `, [organizationId]);
 
-    return projects;
+    // member_count/user_story_count/task_count come back from
+    // PostgreSQL as strings (COUNT(*) is bigint) -- normalize to
+    // numbers so frontend numeric comparisons (e.g. `=== 1` for
+    // singular/plural labels) keep working as they did on MySQL.
+    return projects.map((p) => ({
+        ...p,
+        member_count: Number(p.member_count),
+        user_story_count: Number(p.user_story_count),
+        task_count: Number(p.task_count),
+    }));
 
 };
 
@@ -127,7 +136,14 @@ const getAllProjects = async (user) => {
         ORDER BY p.id DESC
     `, isOrgAdmin ? [] : [user.id]);
 
-    return projects;
+    // Same bigint-as-string normalization as getProjectsByOrganization.
+    // `progress` is ROUND(AVG(...)) -- also numeric/string from pg.
+    return projects.map((p) => ({
+        ...p,
+        user_story_count: Number(p.user_story_count),
+        task_count: Number(p.task_count),
+        progress: p.progress === null ? null : Number(p.progress),
+    }));
 
 };
 
@@ -195,7 +211,7 @@ const getProjectById = async (id, user) => {
                 CASE
                     WHEN status != 'closed'
                         AND due_date IS NOT NULL
-                        AND due_date < CURDATE()
+                        AND due_date < CURRENT_DATE
                     THEN 1
                     ELSE 0
                 END
@@ -227,19 +243,19 @@ const getProjectById = async (id, user) => {
 
         ...project,
 
-        user_story_count: storyCount[0].total_user_stories,
+        user_story_count: Number(storyCount[0].total_user_stories),
 
-        progress: progressRow[0].progress || 0,
+        progress: Number(progressRow[0].progress) || 0,
 
         stats: {
 
-            totalTasks: taskStats[0].total_tasks,
-            backlog: taskStats[0].backlog_count,
-            todo: taskStats[0].todo_count,
-            inProgress: taskStats[0].in_progress_count,
-            pendingReview: taskStats[0].pending_review_count,
-            completed: taskStats[0].closed_count,
-            overdue: taskStats[0].overdue_count
+            totalTasks: Number(taskStats[0].total_tasks),
+            backlog: Number(taskStats[0].backlog_count),
+            todo: Number(taskStats[0].todo_count),
+            inProgress: Number(taskStats[0].in_progress_count),
+            pendingReview: Number(taskStats[0].pending_review_count),
+            completed: Number(taskStats[0].closed_count),
+            overdue: Number(taskStats[0].overdue_count)
 
         }
 
@@ -360,6 +376,7 @@ const createProject = async (data, createdBy, forcedOrganizationId) => {
             organization_id
         )
         VALUES(?,?,?,?,?,?,?,?,?)
+        RETURNING id
     `, [
 
         name,
@@ -374,10 +391,10 @@ const createProject = async (data, createdBy, forcedOrganizationId) => {
 
     ]);
 
-    const projectId = result.insertId;
+    const projectId = result[0].id;
 
     const [[adminGroup]] = await pool.query(
-        `SELECT id FROM project_security_groups WHERE name = 'Project Administrators' AND is_default = 1 LIMIT 1`
+        `SELECT id FROM project_security_groups WHERE name = 'Project Administrators' AND is_default = TRUE LIMIT 1`
     );
 
     if (adminGroup) {
@@ -393,7 +410,7 @@ const createProject = async (data, createdBy, forcedOrganizationId) => {
                 `
                 INSERT INTO project_members (project_id, user_id, security_group_id, added_by)
                 VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE security_group_id = security_group_id
+                ON CONFLICT (project_id, user_id) DO NOTHING
                 `,
                 [projectId, userId, adminGroup.id, createdBy]
             );

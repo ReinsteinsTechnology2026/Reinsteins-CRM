@@ -204,6 +204,7 @@ const createPrivateConversation =
             'private',
             ?
           )
+          RETURNING id
           `,
           [
             currentUserId,
@@ -211,8 +212,7 @@ const createPrivateConversation =
         );
 
       const conversationId =
-        conversationResult
-          .insertId;
+        conversationResult[0].id;
 
       await connection.query(
         `
@@ -489,6 +489,7 @@ const createGroupConversation =
             ?,
             ?
           )
+          RETURNING id
           `,
           [
             groupName,
@@ -497,8 +498,7 @@ const createGroupConversation =
         );
 
       const conversationId =
-        conversationResult
-          .insertId;
+        conversationResult[0].id;
 
       // Creator + selected members
 
@@ -518,6 +518,11 @@ const createGroupConversation =
           ]
         );
 
+      const memberValuePlaceholders =
+        memberValues
+          .map(() => "(?, ?)")
+          .join(", ");
+
       await connection.query(
         `
         INSERT INTO conversation_members
@@ -525,11 +530,9 @@ const createGroupConversation =
           conversation_id,
           user_id
         )
-        VALUES ?
+        VALUES ${memberValuePlaceholders}
         `,
-        [
-          memberValues,
-        ]
+        memberValues.flat()
       );
 
       await connection.commit();
@@ -643,6 +646,7 @@ const getMyConversations =
       const [conversations] =
         await pool.query(
           `
+          SELECT * FROM (
           SELECT
             c.id,
 
@@ -792,7 +796,7 @@ const getMyConversations =
 
                 AND
                 m.is_deleted =
-                  0
+                  FALSE
 
               ORDER BY
                 m.created_at DESC,
@@ -819,7 +823,7 @@ const getMyConversations =
 
                 AND
                 m.is_deleted =
-                  0
+                  FALSE
 
               ORDER BY
                 m.created_at DESC,
@@ -839,7 +843,7 @@ const getMyConversations =
 
                 AND
                 m.is_deleted =
-                  0
+                  FALSE
 
               ORDER BY
                 m.created_at DESC,
@@ -864,7 +868,7 @@ const getMyConversations =
 
                 AND
                 m.is_deleted =
-                  0
+                  FALSE
 
                 AND
                 (
@@ -890,13 +894,15 @@ const getMyConversations =
               my_member.user_id =
                 ?
 
+          ) sub
+
           ORDER BY
             COALESCE(
-              last_message_at,
-              c.updated_at
+              sub.last_message_at,
+              sub.updated_at
             ) DESC,
 
-            c.id DESC
+            sub.id DESC
           `,
           [
             currentUserId,
@@ -908,10 +914,18 @@ const getMyConversations =
           ]
         );
 
+      // member_count/unread_count are bigint (COUNT(*)) -- pg
+      // returns them as strings.
+      const normalizedConversations = conversations.map((c) => ({
+        ...c,
+        member_count: Number(c.member_count),
+        unread_count: Number(c.unread_count),
+      }));
+
       return res.status(200).json({
         success: true,
 
-        conversations,
+        conversations: normalizedConversations,
       });
 
     } catch (error) {
@@ -1205,6 +1219,17 @@ OFFSET ?
 
       messages.reverse();
 
+      // file_size is bigint (chat_attachments.file_size) -- pg returns
+      // it as a string; null for a text message (no attachment row via
+      // the LEFT JOIN) must stay null, not become 0.
+      const normalizedMessages = messages.map((m) => ({
+        ...m,
+        file_size:
+          m.file_size === null
+            ? null
+            : Number(m.file_size),
+      }));
+
       return res.status(200).json({
         success: true,
 
@@ -1212,7 +1237,7 @@ OFFSET ?
 
         limit,
 
-        messages,
+        messages: normalizedMessages,
       });
 
     } catch (error) {
@@ -1494,6 +1519,7 @@ const sendMessage =
             ?,
             'text'
           )
+          RETURNING id
           `,
           [
             conversationId,
@@ -1559,7 +1585,7 @@ const sendMessage =
           LIMIT 1
           `,
           [
-            result.insertId,
+            result[0].id,
           ]
         );
 
@@ -1747,6 +1773,7 @@ const messageType = isImage
         '',
 ?
         )
+        RETURNING id
         `,
 [
   conversationId,
@@ -1769,7 +1796,7 @@ INSERT INTO chat_attachments
 )
 VALUES (?, ?, ?, ?, ?, ?, ?)
 `, [
-    messageResult.insertId,
+    messageResult[0].id,
     req.file.originalname,
     req.file.filename,
     req.file.mimetype,
@@ -1809,7 +1836,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?)
         LIMIT 1
         `,
         [
-          messageResult.insertId,
+          messageResult[0].id,
         ]
       );
 

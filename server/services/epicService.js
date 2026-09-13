@@ -45,7 +45,11 @@ const getEpicsByProject = async (projectId) => {
         ORDER BY e.id DESC
     `, [projectId]);
 
-    return epics;
+    // feature_count is bigint (COUNT(*)) -- pg returns it as a string.
+    return epics.map((e) => ({
+        ...e,
+        feature_count: Number(e.feature_count),
+    }));
 
 };
 
@@ -105,6 +109,7 @@ const createEpic = async (projectId, data, createdBy) => {
             due_date
         )
         VALUES(?,?,?,?,?,?,?,?,?)
+        RETURNING id
     `, [
 
         projectId,
@@ -119,7 +124,7 @@ const createEpic = async (projectId, data, createdBy) => {
 
     ]);
 
-    return result.insertId;
+    return result[0].id;
 
 };
 

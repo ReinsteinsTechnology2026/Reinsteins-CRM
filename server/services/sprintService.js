@@ -42,7 +42,13 @@ const getActiveSprintsForUser = async (userId) => {
         ORDER BY s.id DESC
     `, [userId]);
 
-    return sprints;
+    // task_count/closed_task_count are bigint (COUNT(*)) -- pg
+    // returns them as strings, normalize to numbers.
+    return sprints.map((s) => ({
+        ...s,
+        task_count: Number(s.task_count),
+        closed_task_count: Number(s.closed_task_count),
+    }));
 
 };
 
@@ -79,7 +85,12 @@ const getSprintsByProject = async (projectId) => {
             s.id DESC
     `, [projectId]);
 
-    return sprints;
+    // Same bigint-as-string normalization as getActiveSprintsForUser.
+    return sprints.map((s) => ({
+        ...s,
+        task_count: Number(s.task_count),
+        closed_task_count: Number(s.closed_task_count),
+    }));
 
 };
 
@@ -184,6 +195,7 @@ const createSprint = async (projectId, data, createdBy) => {
                 created_by
             )
             VALUES(?,?,?,?,?,?)
+            RETURNING id
         `, [
 
             projectId,
@@ -195,11 +207,11 @@ const createSprint = async (projectId, data, createdBy) => {
 
         ]);
 
-        return result.insertId;
+        return result[0].id;
 
     } catch (error) {
 
-        if (error.code === "ER_DUP_ENTRY") {
+        if (error.code === "23505") {
             const dupError = new Error("A sprint with this name already exists in this project");
             dupError.name = DUPLICATE_NAME_ERROR;
             throw dupError;
@@ -255,7 +267,7 @@ const updateSprint = async (id, data) => {
 
     } catch (error) {
 
-        if (error.code === "ER_DUP_ENTRY") {
+        if (error.code === "23505") {
             const dupError = new Error("A sprint with this name already exists in this project");
             dupError.name = DUPLICATE_NAME_ERROR;
             throw dupError;
@@ -302,7 +314,7 @@ const startSprint = async (id, projectId) => {
 
     } catch (error) {
 
-        if (error.code === "ER_DUP_ENTRY") {
+        if (error.code === "23505") {
             const dupError = new Error("Another sprint became active just now. Please refresh and try again.");
             dupError.name = ALREADY_ACTIVE_ERROR;
             throw dupError;

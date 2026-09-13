@@ -1,0 +1,153 @@
+const { Pool } = require("pg");
+
+function convertPlaceholders(sql) {
+  let result = "";
+  let parameterIndex = 0;
+
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inBacktick = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+
+  for (let i = 0; i < sql.length; i++) {
+    const ch = sql[i];
+    const next = sql[i + 1];
+
+    if (inLineComment) {
+      result += ch;
+      if (ch === "\n") {
+        inLineComment = false;
+      }
+      continue;
+    }
+
+    if (inBlockComment) {
+      result += ch;
+      if (ch === "*" && next === "/") {
+        result += next;
+        i++;
+        inBlockComment = false;
+      }
+      continue;
+    }
+
+    if (!inSingleQuote && !inDoubleQuote && !inBacktick) {
+      if (ch === "-" && next === "-") {
+        result += ch + next;
+        i++;
+        inLineComment = true;
+        continue;
+      }
+
+      if (ch === "/" && next === "*") {
+        result += ch + next;
+        i++;
+        inBlockComment = true;
+        continue;
+      }
+    }
+
+    if (ch === "'" && !inDoubleQuote && !inBacktick) {
+      result += ch;
+
+      if (inSingleQuote && next === "'") {
+        result += next;
+        i++;
+      } else {
+        inSingleQuote = !inSingleQuote;
+      }
+
+      continue;
+    }
+
+    if (ch === '"' && !inSingleQuote && !inBacktick) {
+      result += ch;
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+
+    if (ch === "`" && !inSingleQuote && !inDoubleQuote) {
+      result += ch;
+      inBacktick = !inBacktick;
+      continue;
+    }
+
+    if (ch === "?" && !inSingleQuote && !inDoubleQuote && !inBacktick) {
+      parameterIndex++;
+      result += `$${parameterIndex}`;
+      continue;
+    }
+
+    result += ch;
+  }
+
+  return result;
+}
+
+function wrapClient(client) {
+  return {
+    query(sql, params = []) {
+      return client.query(convertPlaceholders(sql), params).then((result) => {
+        return [result.rows, result.fields];
+      });
+    },
+
+    beginTransaction() {
+      return client.query("BEGIN");
+    },
+
+    commit() {
+      return client.query("COMMIT");
+    },
+
+    rollback() {
+      return client.query("ROLLBACK");
+    },
+
+    release() {
+      client.release();
+    },
+  };
+}
+
+function createCompatPool(config) {
+  const pool = new Pool(config);
+
+  return {
+    query(sql, params = []) {
+      return pool.query(convertPlaceholders(sql), params).then((result) => {
+        return [result.rows, result.fields];
+      });
+    },
+
+    getConnection() {
+      return pool.connect().then((client) => wrapClient(client));
+    },
+
+    end() {
+      return pool.end();
+    },
+
+    on(...args) {
+      return pool.on(...args);
+    },
+
+    once(...args) {
+      return pool.once(...args);
+    },
+
+    removeListener(...args) {
+      return pool.removeListener(...args);
+    },
+
+    get nativePool() {
+      return pool;
+    },
+  };
+}
+
+module.exports = {
+  createCompatPool,
+  convertPlaceholders,
+};

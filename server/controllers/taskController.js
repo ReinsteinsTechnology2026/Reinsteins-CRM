@@ -116,8 +116,9 @@ tags,
                 ?,
                 ?,
                 ?,
-                NOW(6)
+                NOW()
             )
+            RETURNING id
             `,
 
             [
@@ -141,7 +142,7 @@ tags,
             WHERE id=?
             `,
 
-            [result.insertId]
+            [result[0].id]
 
         );
 
@@ -397,7 +398,7 @@ const completeTask = async (
 
       SET
         status = 'closed',
-        completed_time = NOW(6)
+        completed_time = NOW()
 
       WHERE id = ?
       AND user_id = ?

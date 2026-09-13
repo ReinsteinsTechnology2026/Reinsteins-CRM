@@ -53,20 +53,12 @@ const GLOBAL_RATE_LIMIT_MAX = Number(process.env.GLOBAL_RATE_LIMIT_MAX) || 600;
 const SENSITIVE_RATE_LIMIT_WINDOW_MS = Number(process.env.SENSITIVE_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000;
 const SENSITIVE_RATE_LIMIT_MAX = Number(process.env.SENSITIVE_RATE_LIMIT_MAX) || 20;
 
-// Reverse-proxy trust (Phase 15D) -- Express's default (trust proxy
-// disabled) is only correct when this process receives connections
-// directly from the internet. Deployed behind ANY reverse proxy
-// (Render, a Vercel edge function, Nginx, a load balancer) without
-// this set, every request's req.ip resolves to the PROXY's own IP,
-// which silently collapses the IP-keyed login/rate limiters (see
-// rateLimiters.js) into ONE shared bucket for every real visitor --
-// one user's failed logins would lock out everyone else's login
-// attempts too. Left unset (false) by default so local dev, which has
-// no proxy in front, is completely unaffected. Once deployed behind a
-// single reverse proxy hop, set TRUST_PROXY=1 (Express interprets a
-// numeric string as "trust this many hops from the client"); consult
-// Express's own trust-proxy docs for other topologies.
-const TRUST_PROXY = process.env.TRUST_PROXY || false;
+// NOTE: reverse-proxy trust (Express's `trust proxy` setting) is
+// hardcoded directly in app.js (`app.set("trust proxy", 2)`), not
+// configured here -- it describes this deployment's specific,
+// already-verified topology (Nginx + Cloudflare Tunnel, 2 hops), so
+// keeping it as a literal next to where it's used avoids a config
+// value that could silently drift from what's actually deployed.
 
 module.exports = {
     LOGIN_LOCKOUT_THRESHOLD,
@@ -83,5 +75,4 @@ module.exports = {
     GLOBAL_RATE_LIMIT_MAX,
     SENSITIVE_RATE_LIMIT_WINDOW_MS,
     SENSITIVE_RATE_LIMIT_MAX,
-    TRUST_PROXY,
 };

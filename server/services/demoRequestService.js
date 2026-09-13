@@ -13,11 +13,12 @@ const createDemoRequest = async ({ name, companyName, email, phone, employeeCoun
     const [result] = await platformPool.query(
         `INSERT INTO demo_requests
             (name, company_name, email, phone, employee_count, message, status)
-         VALUES (?, ?, ?, ?, ?, ?, 'new')`,
+         VALUES (?, ?, ?, ?, ?, ?, 'new')
+         RETURNING id`,
         [name, companyName, email, phone || null, employeeCount || null, message || null]
     );
 
-    return { id: result.insertId };
+    return { id: result[0].id };
 };
 
 // ==========================================

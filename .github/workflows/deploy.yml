@@ -1,0 +1,33 @@
+name: Deploy CRM to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Deploy latest code
+        run: |
+          set -e
+          cd /var/www/reinsteins-crm
+
+          git fetch origin main
+          git reset --hard origin/main
+
+          npm ci --omit=dev --ignore-scripts
+
+          cd client
+          npm ci
+          VITE_API_URL=https://crm.zioventure.com npm run build
+
+          cd ..
+          sudo systemctl restart reinsteins-crm
+
+          sleep 3
+          sudo systemctl is-active --quiet reinsteins-crm
+
+          echo "Deployment successful"

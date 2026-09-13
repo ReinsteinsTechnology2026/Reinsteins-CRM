@@ -100,11 +100,11 @@ async function uploadFile(pathname, fieldName, token) {
     const poolA = getTenantPool(A_DB);
     const poolB = getTenantPool(B_DB);
     const [insA] = await poolA.query(
-        `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status) VALUES ('EMP001', 'Employee A', 'emp@filetest-a.test', ?, 'employee', 'employee', 'active')`,
+        `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status) VALUES ('EMP001', 'Employee A', 'emp@filetest-a.test', ?, 'employee', 'employee', 'active') RETURNING id`,
         [empPasswordHash]
     );
     const [insB] = await poolB.query(
-        `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status) VALUES ('EMP001', 'Employee B', 'emp@filetest-b.test', ?, 'employee', 'employee', 'active')`,
+        `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status) VALUES ('EMP001', 'Employee B', 'emp@filetest-b.test', ?, 'employee', 'employee', 'active') RETURNING id`,
         [empPasswordHash]
     );
     check("SETUP: employee fixtures created in both tenants", !!insA.insertId && !!insB.insertId);
@@ -231,9 +231,9 @@ async function uploadFile(pathname, fieldName, token) {
     // ---------- Reinsteins DB unaffected ----------
     console.log("\nEXTRA -- Reinsteins DB verification");
     const dbPool = require("./config/db");
-    const [[{ tblCount }]] = await dbPool.query(`SELECT COUNT(*) AS tblCount FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?`, [process.env.DB_NAME]);
-    const [[{ userCount }]] = await dbPool.query(`SELECT COUNT(*) AS userCount FROM users`);
-    check("EXTRA: reinsteins_workhub table/user counts unchanged", tblCount === 37 && userCount === 17, `tables=${tblCount} users=${userCount}`);
+    const [[{ tblCount }]] = await dbPool.query(`SELECT COUNT(*) AS "tblCount" FROM information_schema.tables WHERE table_schema = 'public'`);
+    const [[{ userCount }]] = await dbPool.query(`SELECT COUNT(*) AS "userCount" FROM users`);
+    check("EXTRA: reinsteins_workhub table/user counts unchanged", Number(tblCount) === 37 && Number(userCount) === 17, `tables=${tblCount} users=${userCount}`);
 
     // ---------- Cleanup ----------
     console.log("\nCLEANUP");

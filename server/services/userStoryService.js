@@ -76,7 +76,13 @@ const getUserStoriesByProject = async (projectId) => {
         ORDER BY us.id DESC
     `, [projectId]);
 
-    return stories;
+    // task_count (COUNT) and progress (ROUND(AVG(...))) come back
+    // from pg as strings -- normalize to numbers.
+    return stories.map((s) => ({
+        ...s,
+        task_count: Number(s.task_count),
+        progress: Number(s.progress) || 0,
+    }));
 
 };
 
@@ -178,6 +184,7 @@ const createUserStory = async (projectId, data, createdBy) => {
             tags
         )
         VALUES(?,?,?,?,?,?,?,?,?,?,?)
+        RETURNING id
     `, [
 
         projectId,
@@ -194,7 +201,7 @@ const createUserStory = async (projectId, data, createdBy) => {
 
     ]);
 
-    return result.insertId;
+    return result[0].id;
 
 };
 
@@ -329,6 +336,7 @@ const createTaskForUserStory = async (storyId, data, assignedBy) => {
             progress
         )
         VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        RETURNING id
     `, [
 
         nextTaskNumber,
@@ -348,9 +356,9 @@ const createTaskForUserStory = async (storyId, data, assignedBy) => {
 
     ]);
 
-    await setTaskTags(result.insertId, tagNames);
+    await setTaskTags(result[0].id, tagNames);
 
-    return result.insertId;
+    return result[0].id;
 
 };
 

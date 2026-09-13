@@ -55,7 +55,7 @@ const getSprintAnalytics = async (sprintId) => {
             SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END) AS in_progress,
             SUM(CASE WHEN status = 'pending_review' THEN 1 ELSE 0 END) AS pending_review,
             SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) AS closed,
-            SUM(CASE WHEN due_date < CURDATE() AND status != 'closed' THEN 1 ELSE 0 END) AS overdue
+            SUM(CASE WHEN due_date < CURRENT_DATE AND status != 'closed' THEN 1 ELSE 0 END) AS overdue
         FROM tasks
         WHERE sprint_id = ?
         `,

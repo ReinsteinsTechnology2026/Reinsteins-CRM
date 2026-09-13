@@ -5,12 +5,6 @@ const MAX_TAGS_PER_TASK = 10;
 
 // ==========================================
 // VALIDATE + NORMALIZE
-// Trims, rejects empty/whitespace-only, enforces
-// the DB's 50-char limit, dedupes case-insensitively
-// within this request, and caps the count per task.
-// The tags.name UNIQUE constraint (case-insensitive
-// collation) remains the final protection against
-// duplicate rows across concurrent requests.
 // ==========================================
 
 function normalizeTagNames(rawNames) {
@@ -37,7 +31,9 @@ function normalizeTagNames(rawNames) {
         }
 
         if (trimmed.length > MAX_TAG_LENGTH) {
-            const error = new Error(`Tag "${trimmed.slice(0, 20)}..." exceeds the ${MAX_TAG_LENGTH}-character limit`);
+            const error = new Error(
+                `Tag "${trimmed.slice(0, 20)}..." exceeds the ${MAX_TAG_LENGTH}-character limit`
+            );
             error.name = "TagValidationError";
             throw error;
         }
@@ -50,27 +46,28 @@ function normalizeTagNames(rawNames) {
 
         seen.add(key);
         normalized.push(trimmed);
-
     }
 
     if (normalized.length > MAX_TAGS_PER_TASK) {
-        const error = new Error(`A task can have at most ${MAX_TAGS_PER_TASK} tags`);
+        const error = new Error(
+            `A task can have at most ${MAX_TAGS_PER_TASK} tags`
+        );
         error.name = "TagValidationError";
         throw error;
     }
 
     return normalized;
-
 }
 
 // ==========================================
-// FIND OR CREATE (atomic, race-safe)
-// INSERT ... ON DUPLICATE KEY UPDATE is the
-// standard MySQL get-or-create idiom -- avoids a
-// separate SELECT-then-INSERT race between
-// concurrent requests creating the same tag. The
-// existing row's casing wins if one already exists
-// (case-insensitive collation on tags.name).
+// FIND OR CREATE
+// PostgreSQL version.
+//
+// INSERT ... ON CONFLICT handles concurrent
+// requests safely.
+//
+// RETURNING gives us the row ID directly,
+// replacing MySQL LAST_INSERT_ID().
 // ==========================================
 
 async function findOrCreateTags(names) {
@@ -79,31 +76,26 @@ async function findOrCreateTags(names) {
 
     for (const name of names) {
 
-        await pool.query(
+        const [rows] = await pool.query(
             `
             INSERT INTO tags (name)
             VALUES (?)
-            ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
+            ON CONFLICT (name)
+            DO UPDATE SET name = EXCLUDED.name
+            RETURNING id, name
             `,
             [name]
         );
 
-        const [[row]] = await pool.query(
-            `SELECT id, name FROM tags WHERE id = LAST_INSERT_ID()`
-        );
-
-        results.push(row);
-
+        results.push(rows[0]);
     }
 
     return results;
-
 }
 
 // ==========================================
-// SET TASK TAGS (replace-all, matches how the
-// rest of the create/edit task form already saves
-// as one batch on submit)
+// SET TASK TAGS
+// Replace all tags for the task.
 // ==========================================
 
 async function setTaskTags(taskId, rawNames) {
@@ -112,26 +104,33 @@ async function setTaskTags(taskId, rawNames) {
 
     const tags = await findOrCreateTags(names);
 
-    await pool.query(`DELETE FROM task_tags WHERE task_id = ?`, [taskId]);
+    await pool.query(
+        `DELETE FROM task_tags WHERE task_id = ?`,
+        [taskId]
+    );
 
     if (tags.length === 0) {
         return [];
     }
 
-    const values = tags.map((tag) => [taskId, tag.id]);
+    for (const tag of tags) {
 
-    await pool.query(
-        `INSERT IGNORE INTO task_tags (task_id, tag_id) VALUES ?`,
-        [values]
-    );
+        await pool.query(
+            `
+            INSERT INTO task_tags (task_id, tag_id)
+            VALUES (?, ?)
+            ON CONFLICT (task_id, tag_id)
+            DO NOTHING
+            `,
+            [taskId, tag.id]
+        );
+    }
 
     return tags;
-
 }
 
 // ==========================================
-// BATCH FETCH (one query, avoids N+1 across a
-// task list)
+// BATCH FETCH
 // ==========================================
 
 async function getTagsForTaskIds(taskIds) {
@@ -156,20 +155,22 @@ async function getTagsForTaskIds(taskIds) {
     const byTaskId = {};
 
     for (const row of rows) {
+
         if (!byTaskId[row.task_id]) {
             byTaskId[row.task_id] = [];
         }
-        byTaskId[row.task_id].push({ id: row.id, name: row.name });
+
+        byTaskId[row.task_id].push({
+            id: row.id,
+            name: row.name
+        });
     }
 
     return byTaskId;
-
 }
 
 // ==========================================
-// ATTACH taskTags TO A LIST OF TASK OBJECTS
-// (mutates and returns the same array; each task
-// gets `taskTags: []` if it has none)
+// ATTACH taskTags TO TASK OBJECTS
 // ==========================================
 
 async function attachTagsToTasks(tasks) {
@@ -187,12 +188,10 @@ async function attachTagsToTasks(tasks) {
     }
 
     return tasks;
-
 }
 
 // ==========================================
-// SEARCH / LIST (autocomplete) -- name-only,
-// no task/project/creator metadata exposed.
+// SEARCH / LIST
 // ==========================================
 
 async function searchTags(query) {
@@ -202,20 +201,29 @@ async function searchTags(query) {
     if (trimmed) {
 
         const [rows] = await pool.query(
-            `SELECT id, name FROM tags WHERE name LIKE ? ORDER BY name LIMIT 20`,
+            `
+            SELECT id, name
+            FROM tags
+            WHERE name ILIKE ?
+            ORDER BY name
+            LIMIT 20
+            `,
             [`%${trimmed}%`]
         );
 
         return rows;
-
     }
 
     const [rows] = await pool.query(
-        `SELECT id, name FROM tags ORDER BY name LIMIT 100`
+        `
+        SELECT id, name
+        FROM tags
+        ORDER BY name
+        LIMIT 100
+        `
     );
 
     return rows;
-
 }
 
 module.exports = {

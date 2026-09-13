@@ -216,9 +216,10 @@ async function removeOrganizationMember(organizationId, userId) {
 
     const [cascadeResult] = await pool.query(
         `
-        DELETE pm FROM project_members pm
-        JOIN projects p ON p.id = pm.project_id
-        WHERE pm.user_id = ?
+        DELETE FROM project_members pm
+        USING projects p
+        WHERE p.id = pm.project_id
+        AND pm.user_id = ?
         AND p.organization_id = ?
         `,
         [userId, organizationId]

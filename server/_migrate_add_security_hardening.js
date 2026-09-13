@@ -1,3 +1,12 @@
+// ==========================================
+// SUPERSEDED (PostgreSQL migration) -- this is a MySQL-era script;
+// its platform_users columns were translated into
+// schemas/platformSchema.postgresql.sql's "PHASE 10-14 ADDITIONS"
+// section instead. Left in place, unconverted, as historical record
+// only -- DO NOT RUN this against the current PostgreSQL database
+// (its DATABASE() syntax is not valid PostgreSQL).
+// ==========================================
+
 const platformPool = require("./config/platformDb");
 
 // ==========================================

@@ -1162,7 +1162,7 @@ const deleteCompany = async (req, res) => {
             // tenant_db_name) is preserved, so this is reported
             // clearly rather than surfacing a raw foreign-key error --
             // financial records are never silently discarded.
-            if (dbError.code === "ER_ROW_IS_REFERENCED_2" || dbError.code === "ER_ROW_IS_REFERENCED") {
+            if (dbError.code === "23503") { // PostgreSQL foreign_key_violation (config/pgCompat.js runs against PostgreSQL)
                 return res.status(409).json({
                     success: false,
                     message: "This company has payment records and cannot be deleted. Its tenant database has already been removed; contact support to fully archive this company.",

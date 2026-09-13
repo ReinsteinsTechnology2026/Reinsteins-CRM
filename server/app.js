@@ -36,7 +36,7 @@ const {
 const platformCompanyService = require("./services/platformCompanyService");
 const { getTenantPoolForCompany } = require("./config/tenantConnectionManager");
 const { globalApiLimiter } = require("./middleware/rateLimiters");
-const { JSON_BODY_LIMIT, TRUST_PROXY } = require("./config/securityConfig");
+const { JSON_BODY_LIMIT } = require("./config/securityConfig");
 const {
   TENANT_JWT_ISSUER,
   TENANT_JWT_AUDIENCE,
@@ -207,21 +207,25 @@ const meetingService = require(
 const app = express();
 
 // ==========================================
-// TRUST PROXY (Phase 15D)
-// See config/securityConfig.js for the full explanation. Unset
-// (false) by default -- local dev, with no reverse proxy in front,
-// behaves exactly as before. Only takes effect when TRUST_PROXY is
-// explicitly set in the environment (e.g. TRUST_PROXY=1 once deployed
-// behind Render/Vercel/Nginx/a load balancer).
+// TRUST PROXY (production security fix, merged from origin/main's
+// PostgreSQL/CI deployment work -- see that commit for the real
+// production topology this describes)
+//
+// Node listens only on 127.0.0.1:5000, behind Nginx (127.0.0.1:80)
+// behind Cloudflare Tunnel. "2" trusts exactly the two hops in front
+// of this process (Nginx, then the Cloudflare Tunnel daemon) so
+// req.ip / req.secure / the rate limiter resolve the real client
+// address from X-Forwarded-For instead of 127.0.0.1.
+//
+// (An earlier, locally-developed version of this fix made this
+// configurable via a TRUST_PROXY env var, defaulting to disabled.
+// Superseded by this hardcoded value to exactly match what's already
+// deployed and proven working in production, rather than risk a
+// silent regression if a production .env doesn't happen to set that
+// var.)
 // ==========================================
 
-if (TRUST_PROXY) {
-  const parsedTrustProxy =
-    TRUST_PROXY === "true" ? true :
-    TRUST_PROXY === "false" ? false :
-    Number.isNaN(Number(TRUST_PROXY)) ? TRUST_PROXY : Number(TRUST_PROXY);
-  app.set("trust proxy", parsedTrustProxy);
-}
+app.set("trust proxy", 2);
 
 const server = http.createServer(
   app
@@ -2378,6 +2382,7 @@ app.use(
 
 server.listen(
   PORT,
+  "127.0.0.1",
   () => {
     console.log(
       "-------------------------------------------"

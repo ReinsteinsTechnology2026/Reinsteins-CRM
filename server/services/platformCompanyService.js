@@ -75,15 +75,16 @@ const createPendingCompany = async ({ companyName, companySlug, accessType }) =>
 
         const [result] = await platformPool.query(
             `INSERT INTO companies (company_name, company_slug, status, access_type, tenant_db_name)
-             VALUES (?, ?, 'pending', ?, NULL)`,
+             VALUES (?, ?, 'pending', ?, NULL)
+             RETURNING id`,
             [companyName, companySlug, accessType]
         );
 
-        return await getCompanyById(result.insertId);
+        return await getCompanyById(result[0].id);
 
     } catch (dbError) {
 
-        if (dbError.code === "ER_DUP_ENTRY") {
+        if (dbError.code === "23505") {
             const error = new Error("A company with this slug already exists.");
             error.code = "COMPANY_SLUG_TAKEN";
             throw error;

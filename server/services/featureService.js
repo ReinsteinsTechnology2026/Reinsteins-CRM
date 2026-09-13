@@ -87,7 +87,11 @@ const getFeaturesByProject = async (projectId) => {
         ORDER BY f.id DESC
     `, [projectId]);
 
-    return features;
+    // story_count is bigint (COUNT(*)) -- pg returns it as a string.
+    return features.map((f) => ({
+        ...f,
+        story_count: Number(f.story_count),
+    }));
 
 };
 
@@ -154,6 +158,7 @@ const createFeature = async (projectId, data, createdBy) => {
             due_date
         )
         VALUES(?,?,?,?,?,?,?,?,?,?)
+        RETURNING id
     `, [
 
         projectId,
@@ -169,7 +174,7 @@ const createFeature = async (projectId, data, createdBy) => {
 
     ]);
 
-    return result.insertId;
+    return result[0].id;
 
 };
 

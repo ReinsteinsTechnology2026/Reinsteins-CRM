@@ -187,7 +187,7 @@ const getAttendanceReport = async (req, res) => {
 //   A. it has a task_work_logs session (a completed
 //      Stop Work) whose created_at falls inside the
 //      range, or
-//   B. it is currently being worked (current_working=1,
+//   B. it is currently being worked (current_working=TRUE,
 //      work_started_at NOT NULL) and work_started_at
 //      itself falls inside the range -- so a task
 //      Started today but not yet Stopped still shows up
@@ -247,14 +247,14 @@ const fetchTaskReportRows = async ({
 
       -- Live elapsed time for a task currently being
       -- worked on, using the exact same
-      -- TIMESTAMPDIFF(MINUTE, work_started_at, NOW())/60
+      -- FLOOR(EXTRACT(EPOCH FROM (NOW() - work_started_at)) / 60) / 60
       -- formula taskWorkService.js's stopWork already
       -- uses to compute hours_worked -- read-only here,
       -- never written back, never a fabricated
       -- hours_worked row.
       CASE
-        WHEN t.current_working = 1 AND t.work_started_at IS NOT NULL
-        THEN ROUND(TIMESTAMPDIFF(MINUTE, t.work_started_at, NOW()) / 60, 2)
+        WHEN t.current_working = TRUE AND t.work_started_at IS NOT NULL
+        THEN ROUND(FLOOR(EXTRACT(EPOCH FROM (NOW() - t.work_started_at)) / 60) / 60, 2)
         ELSE NULL
       END AS active_elapsed_hours
 
@@ -272,13 +272,15 @@ const fetchTaskReportRows = async ({
         SUM(hours_worked) AS logged_hours,
         COUNT(*) AS session_count,
         MAX(created_at) AS last_activity,
-        GROUP_CONCAT(
-          DISTINCT DATE_FORMAT(created_at, '%Y-%m-%d')
-          ORDER BY created_at SEPARATOR ','
+        STRING_AGG(
+          DISTINCT TO_CHAR(created_at, 'YYYY-MM-DD'),
+          ','
+          ORDER BY TO_CHAR(created_at, 'YYYY-MM-DD')
         ) AS work_dates,
-        GROUP_CONCAT(
-          work_description
-          ORDER BY created_at SEPARATOR '\n'
+        STRING_AGG(
+          work_description,
+          E'\n'
+          ORDER BY created_at
         ) AS work_descriptions
       FROM task_work_logs
       WHERE 1 = 1
@@ -322,7 +324,7 @@ const fetchTaskReportRows = async ({
     AND (
       wl.task_id IS NOT NULL
       OR (
-        t.current_working = 1
+        t.current_working = TRUE
         AND t.work_started_at IS NOT NULL
   `;
 
@@ -386,6 +388,7 @@ const fetchTaskReportRows = async ({
       logged_hours: loggedHours,
       active_elapsed_hours: activeHours,
       total_work_hours: totalWorkHours,
+      session_count: Number(row.session_count) || 0,
       work_dates: workDates,
       work_descriptions: row.work_descriptions
         ? row.work_descriptions.split("\n").filter(Boolean)

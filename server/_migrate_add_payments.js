@@ -1,3 +1,14 @@
+// ==========================================
+// SUPERSEDED (PostgreSQL migration) -- this is a MySQL-era script,
+// written and tested against mysql2 before this project moved to
+// PostgreSQL. Its `payments` table definition was translated into
+// schemas/platformSchema.postgresql.sql's "PHASE 10-14 ADDITIONS"
+// section instead (applied via _setup_platform_db.js). Left in place,
+// unconverted, as historical record only -- DO NOT RUN this against
+// the current PostgreSQL database (its SHOW TABLES/AUTO_INCREMENT/
+// ENGINE=InnoDB syntax is not valid PostgreSQL and would simply fail).
+// ==========================================
+
 const platformPool = require("./config/platformDb");
 
 // ==========================================

@@ -54,15 +54,16 @@ const createPlan = async ({ name, slug, description, employeeLimit, storageLimit
             `INSERT INTO subscription_plans
                 (name, slug, description, status, employee_limit, storage_limit_mb,
                  monthly_price, yearly_price, trial_duration_days, features)
-             VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
+             RETURNING id`,
             [name, slug, description || null, employeeLimit, storageLimitMb,
                 monthlyPrice, yearlyPrice, trialDurationDays, JSON.stringify(features)]
         );
 
-        return await getPlanById(result.insertId);
+        return await getPlanById(result[0].id);
 
     } catch (dbError) {
-        if (dbError.code === "ER_DUP_ENTRY") {
+        if (dbError.code === "23505") {
             const error = new Error("A plan with this slug already exists.");
             error.code = "PLAN_SLUG_TAKEN";
             throw error;

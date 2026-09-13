@@ -59,11 +59,13 @@ async function apiPatch(pathname, body, token) {
     console.log("STEP 1 -- Create temporary demo requests");
     const [insA] = await platformPool.query(
         `INSERT INTO demo_requests (name, company_name, email, phone, employee_count, message, status)
-         VALUES ('Test Lead A', 'Lead Co A', 'leada@demoreqtest.test', '+1 555 0100', '11–50', 'Interested in a demo.', 'new')`
+         VALUES ('Test Lead A', 'Lead Co A', 'leada@demoreqtest.test', '+1 555 0100', '11–50', 'Interested in a demo.', 'new')
+         RETURNING id`
     );
     const [insB] = await platformPool.query(
         `INSERT INTO demo_requests (name, company_name, email, phone, employee_count, message, status)
-         VALUES ('Test Lead B', 'Lead Co B', 'leadb@demoreqtest.test', NULL, NULL, NULL, 'new')`
+         VALUES ('Test Lead B', 'Lead Co B', 'leadb@demoreqtest.test', NULL, NULL, NULL, 'new')
+         RETURNING id`
     );
     const idA = insA.insertId;
     const idB = insB.insertId;
@@ -162,13 +164,14 @@ async function apiPatch(pathname, body, token) {
 
     // ---------- 10. Verify public demo submission still works (I) ----------
     console.log("\nSTEP 10 -- Public demo submission still works (I)");
-    const [[{ demoCountBefore }]] = await platformPool.query(`SELECT COUNT(*) AS demoCountBefore FROM demo_requests`);
+    const [[{ demoCountBefore }]] = await platformPool.query(`SELECT COUNT(*) AS "demoCountBefore" FROM demo_requests`);
+    const demoCountBeforeNum = Number(demoCountBefore);
     const publicSubmit = await apiPost("/api/public/demo-request", {
         name: "Public Submitter", companyName: "Public Co", email: "public@demoreqtest.test",
     });
     check("10. Public POST /api/public/demo-request still works (201)", publicSubmit.status === 201 && !!publicSubmit.body?.referenceId, JSON.stringify(publicSubmit.body));
-    const [[{ demoCountAfter }]] = await platformPool.query(`SELECT COUNT(*) AS demoCountAfter FROM demo_requests`);
-    check("10b. demo_requests row count increased by exactly 1", demoCountAfter === demoCountBefore + 1, `before=${demoCountBefore} after=${demoCountAfter}`);
+    const [[{ demoCountAfter }]] = await platformPool.query(`SELECT COUNT(*) AS "demoCountAfter" FROM demo_requests`);
+    check("10b. demo_requests row count increased by exactly 1", Number(demoCountAfter) === demoCountBeforeNum + 1, `before=${demoCountBefore} after=${demoCountAfter}`);
 
     // ---------- Existing company management APIs still work (J) ----------
     console.log("\nEXTRA -- Existing company management APIs still work (J)");
@@ -181,9 +184,9 @@ async function apiPatch(pathname, body, token) {
     console.log("\nEXTRA -- Reinsteins tenant functionality unchanged (K)");
     const legacyToken = jwt.sign({ id: 4, employeeId: "PHASE7-LEGACY-TEST", role: "employee" }, process.env.JWT_SECRET, { expiresIn: "1h" });
     const dbPool = require("./config/db");
-    const [[{ tbl }]] = await dbPool.query(`SELECT COUNT(*) AS tbl FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?`, [process.env.DB_NAME]);
+    const [[{ tbl }]] = await dbPool.query(`SELECT COUNT(*) AS tbl FROM information_schema.tables WHERE table_schema = 'public'`);
     const [[{ users }]] = await dbPool.query(`SELECT COUNT(*) AS users FROM users`);
-    check("K. reinsteins_workhub unchanged (37 tables, 17 users)", tbl === 37 && users === 17, `tables=${tbl} users=${users}`);
+    check("K. reinsteins_workhub unchanged (37 tables, 17 users)", Number(tbl) === 37 && Number(users) === 17, `tables=${tbl} users=${users}`);
     const legacyDepts = await apiGet("/api/departments", legacyToken);
     check("K2. Legacy Reinsteins token still resolves real business data", legacyDepts.status === 200 && legacyDepts.body?.departments?.length === 3, JSON.stringify(legacyDepts.body));
 
@@ -191,7 +194,7 @@ async function apiPatch(pathname, body, token) {
     console.log("\nEXTRA -- No unwanted companies or tenant databases created by this phase's testing");
     const [companies] = await platformPool.query(`SELECT company_slug FROM companies`);
     check("No unwanted companies exist (only Reinsteins)", companies.length === 1 && companies[0].company_slug === "reinsteins", JSON.stringify(companies));
-    const [tenantDbs] = await platformPool.query(`SHOW DATABASES LIKE 'tenant_%'`);
+    const [tenantDbs] = await platformPool.query(`SELECT datname FROM pg_database WHERE datname LIKE 'tenant_%'`);
     check("No unwanted tenant databases exist (only tenant_reinsteins)", tenantDbs.length === 1, JSON.stringify(tenantDbs));
 
     // ---------- 11/12. Clean up ALL temporary test data + delete temp Platform Owner ----------
@@ -201,9 +204,9 @@ async function apiPatch(pathname, body, token) {
     await platformPool.query(`DELETE FROM platform_users WHERE email = ?`, [OWNER_EMAIL]);
 
     const [[{ remainingTestRows }]] = await platformPool.query(
-        `SELECT COUNT(*) AS remainingTestRows FROM demo_requests WHERE email LIKE '%demoreqtest.test'`
+        `SELECT COUNT(*) AS "remainingTestRows" FROM demo_requests WHERE email LIKE '%demoreqtest.test'`
     );
-    check("11. All temporary demo_requests rows deleted", remainingTestRows === 0, `remaining=${remainingTestRows}`);
+    check("11. All temporary demo_requests rows deleted", Number(remainingTestRows) === 0, `remaining=${remainingTestRows}`);
 
     const [remainingOwners] = await platformPool.query(`SELECT email FROM platform_users WHERE email = ?`, [OWNER_EMAIL]);
     check("12. Temporary Platform Owner deleted", remainingOwners.length === 0);

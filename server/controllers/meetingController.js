@@ -63,6 +63,47 @@ const canAccessMeeting = async (meeting, userId, role) => {
 };
 
 // ==========================================
+// EVICT PARTICIPANT SOCKET(S) FROM MEETING ROOM
+// REST removal/rejection updates the DB, but a
+// socket that already joined the Socket.IO
+// meeting room (via meeting:join) keeps that room
+// membership until it leaves or disconnects --
+// every meeting:* handler in app.js authorizes
+// purely on socket.rooms.has(meetingRoom(...)).
+// Without this, a removed participant whose
+// socket stays connected could keep sending/
+// receiving meeting:media-state, hand-raise,
+// screen-share, reactions, and WebRTC signaling
+// after the REST call succeeds. This removes only
+// THIS user's socket(s) from only THIS meeting's
+// room -- their other rooms (presence, chat,
+// other meetings) and every other participant's
+// membership are untouched.
+// ==========================================
+
+const evictParticipantSockets = (io, meetingId, participantUserId) => {
+
+    const roomName = currentMeetingRoom(meetingId);
+
+    const socketIds = io.sockets.adapter.rooms.get(roomName);
+
+    if (!socketIds) return;
+
+    const targetUserId = Number(participantUserId);
+
+    Array.from(socketIds).forEach((socketId) => {
+
+        const memberSocket = io.sockets.sockets.get(socketId);
+
+        if (memberSocket && Number(memberSocket.user?.id) === targetUserId) {
+            memberSocket.leave(roomName);
+        }
+
+    });
+
+};
+
+// ==========================================
 // CREATE MEETING
 // ==========================================
 
@@ -598,12 +639,14 @@ const moderateParticipant = (action) => async (req, res) => {
                 io.to(currentUserRoom(participantUserId)).emit("meeting:rejected", {
                     meetingId: Number(req.params.id)
                 });
+                evictParticipantSockets(io, req.params.id, participantUserId);
             }
 
             if (action === "remove") {
                 io.to(currentUserRoom(participantUserId)).emit("meeting:removed", {
                     meetingId: Number(req.params.id)
                 });
+                evictParticipantSockets(io, req.params.id, participantUserId);
             }
 
         }

@@ -1,0 +1,74 @@
+const { Pool } = require("pg");
+require("dotenv").config();
+
+const { isValidTenantDbName } = require("../utils/tenantDbName");
+
+const tenantPoolCache = new Map();
+
+function getTenantPool(tenantDbName) {
+  if (!isValidTenantDbName(tenantDbName)) {
+    throw new Error(
+      `Refusing to connect: "${tenantDbName}" is not a valid tenant database name.`
+    );
+  }
+
+  if (tenantPoolCache.has(tenantDbName)) {
+    return tenantPoolCache.get(tenantDbName);
+  }
+
+  const pool = new Pool({
+    host: process.env.PLATFORM_DB_HOST,
+    port: process.env.PLATFORM_DB_PORT,
+    user: process.env.PLATFORM_DB_USER,
+    password: process.env.PLATFORM_DB_PASSWORD,
+    database: tenantDbName,
+    max: 5,
+  });
+
+  tenantPoolCache.set(tenantDbName, pool);
+
+  return pool;
+}
+
+function getTenantPoolForCompany(company) {
+  if (!company) {
+    const error = new Error("Company not found.");
+    error.code = "COMPANY_NOT_FOUND";
+    throw error;
+  }
+
+  if (company.status !== "active") {
+    const error = new Error("Company is not active.");
+    error.code = "COMPANY_NOT_ACTIVE";
+    throw error;
+  }
+
+  if (!company.tenant_db_name) {
+    const error = new Error("Company has no tenant database assigned yet.");
+    error.code = "COMPANY_NO_TENANT_DB";
+    throw error;
+  }
+
+  if (!isValidTenantDbName(company.tenant_db_name)) {
+    const error = new Error("Company's tenant_db_name failed validation.");
+    error.code = "COMPANY_TENANT_DB_INVALID";
+    throw error;
+  }
+
+  return getTenantPool(company.tenant_db_name);
+}
+
+async function closeAllTenantPools() {
+  const pools = Array.from(tenantPoolCache.values());
+  tenantPoolCache.clear();
+
+  await Promise.all(
+    pools.map((pool) => pool.end().catch(() => {}))
+  );
+}
+
+module.exports = {
+  getTenantPool,
+  getTenantPoolForCompany,
+  closeAllTenantPools,
+};
