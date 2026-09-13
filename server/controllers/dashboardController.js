@@ -142,7 +142,7 @@ const getLiveTaskDetails = async (req, res) => {
 
         t.status AS task_status,
 
-        t.started_at,
+        t.work_started_at,
 
         t.estimated_hours,
 

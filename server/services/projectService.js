@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 
 const { attachTagsToTasks } = require("./tagService");
+const { PERMISSION_KEYS } = require("./projectPermissionService");
 
 // ==========================================
 // GET PROJECTS FOR ONE ORGANIZATION (Phase 2C)
@@ -393,32 +394,78 @@ const createProject = async (data, createdBy, forcedOrganizationId) => {
 
     const projectId = result[0].id;
 
-    const [[adminGroup]] = await pool.query(
-        `SELECT id FROM project_security_groups WHERE name = 'Project Administrators' AND is_default = TRUE LIMIT 1`
-    );
+    const adminGroupId = await ensureDefaultProjectAdministratorsGroupId();
 
-    if (adminGroup) {
+    const membersToAdd = new Set([Number(createdBy)]);
 
-        const membersToAdd = new Set([Number(createdBy)]);
+    if (owner_id) {
+        membersToAdd.add(Number(owner_id));
+    }
 
-        if (owner_id) {
-            membersToAdd.add(Number(owner_id));
-        }
-
-        for (const userId of membersToAdd) {
-            await pool.query(
-                `
-                INSERT INTO project_members (project_id, user_id, security_group_id, added_by)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT (project_id, user_id) DO NOTHING
-                `,
-                [projectId, userId, adminGroup.id, createdBy]
-            );
-        }
-
+    for (const userId of membersToAdd) {
+        await pool.query(
+            `
+            INSERT INTO project_members (project_id, user_id, security_group_id, added_by)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (project_id, user_id) DO NOTHING
+            `,
+            [projectId, userId, adminGroupId, createdBy]
+        );
     }
 
     return projectId;
+
+};
+
+// ==========================================
+// DEFAULT "PROJECT ADMINISTRATORS" SECURITY GROUP
+//
+// createProject (above) has always assumed this global
+// (project_id IS NULL), full-access security group
+// already exists so it can grant it to a new project's
+// creator/owner -- but nothing ever seeded it (no schema
+// seed data, no provisioning step), so on a tenant where
+// it was never created by chance, EVERY project's
+// creator ended up with a project_members row pointing
+// at a security group that doesn't exist, and every
+// permission check for them then correctly (per the
+// strict no-bypass model in projectPermissionService.js)
+// denied everything. Self-healing here -- create it once,
+// with every permission key granted -- means no separate
+// migration/seed script is needed and existing tenants
+// fix themselves on their very next project creation.
+// ==========================================
+
+const ensureDefaultProjectAdministratorsGroupId = async () => {
+
+    const [[existing]] = await pool.query(
+        `SELECT id FROM project_security_groups WHERE project_id IS NULL AND name = 'Project Administrators' AND is_default = TRUE LIMIT 1`
+    );
+
+    if (existing) {
+        return existing.id;
+    }
+
+    const [inserted] = await pool.query(
+        `
+        INSERT INTO project_security_groups (project_id, name, description, is_default)
+        VALUES (NULL, 'Project Administrators', 'Full access to every project -- automatically granted to a project''s creator and owner.', TRUE)
+        RETURNING id
+        `
+    );
+    const groupId = inserted[0].id;
+
+    for (const permissionKey of PERMISSION_KEYS) {
+        await pool.query(
+            `
+            INSERT INTO project_permissions (security_group_id, project_id, permission_key, value)
+            VALUES (?, NULL, ?, 'allow')
+            `,
+            [groupId, permissionKey]
+        );
+    }
+
+    return groupId;
 
 };
 
