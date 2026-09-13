@@ -83,7 +83,7 @@ function PlatformDemoRequestDetails() {
   return (
     <div className="platform-page">
 
-      <Link to="/platform/demo-requests" className="platform-back-link">
+      <Link to="/owner/demo-requests" className="platform-back-link">
         <FaArrowLeft /> Back to Demo Requests
       </Link>
 

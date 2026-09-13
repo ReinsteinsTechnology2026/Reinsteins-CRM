@@ -26,7 +26,20 @@ body{
     -webkit-font-smoothing:antialiased;
     -moz-osx-font-smoothing:grayscale;
 
-    overflow-x:hidden;
+    /* clip, not hidden: per the CSS Overflow spec, setting overflow-x
+       to a non-visible value (hidden/auto/scroll) while overflow-y is
+       visible forces overflow-y to compute as "auto" too -- which
+       silently turned html/body into their own internal scroll
+       container instead of the normal browser viewport scroll. That
+       broke position: sticky for every element on every page (any
+       sticky element's offset is calculated against the nearest
+       scrolling ancestor, which became this auto-scrolling body
+       instead of the viewport). overflow-x: clip prevents the same
+       horizontal scrollbar without establishing a scroll container,
+       so it doesn't force overflow-y and sticky positioning works
+       correctly again. Confirmed via a live before/after scroll test.
+    */
+    overflow-x:clip;
 }
 
 /* ==========================================

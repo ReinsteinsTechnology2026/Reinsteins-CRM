@@ -1,4 +1,5 @@
 const subscriptionPlanService = require("../services/subscriptionPlanService");
+const platformAuditService = require("../services/platformAuditService");
 
 // ==========================================
 // PLATFORM PLAN CONTROLLER (Phase 8)
@@ -21,6 +22,9 @@ const toSafePlan = (row) => ({
     status: row.status,
     employeeLimit: row.employee_limit,
     storageLimitMb: row.storage_limit_mb,
+    monthlyPrice: row.monthly_price === null ? null : Number(row.monthly_price),
+    yearlyPrice: row.yearly_price === null ? null : Number(row.yearly_price),
+    trialDurationDays: row.trial_duration_days,
     features: (() => {
         if (row.features === null || row.features === undefined) return {};
         if (typeof row.features === "object") return row.features;
@@ -79,11 +83,35 @@ const validatePlanFields = (body, { requireSlug }) => {
 
     let employeeLimit;
     let storageLimitMb;
+    let trialDurationDays;
     try {
         employeeLimit = parseLimit(body?.employeeLimit, "employeeLimit");
         storageLimitMb = parseLimit(body?.storageLimitMb, "storageLimitMb");
+        trialDurationDays = parseLimit(body?.trialDurationDays, "trialDurationDays");
     } catch (limitError) {
         return { error: limitError.message };
+    }
+
+    // Prices are optional -- NULL means "not set yet", not $0. Stored
+    // as a plain decimal; no currency/payment processing happens here
+    // or anywhere else in this codebase (see platformPaymentController
+    // -- there isn't one, deliberately).
+    const parsePrice = (value, fieldName) => {
+        if (value === undefined || value === null || value === "") return null;
+        const num = Number(value);
+        if (!Number.isFinite(num) || num < 0 || num > 10000000) {
+            throw new Error(`${fieldName} must be a non-negative number, or omitted.`);
+        }
+        return Math.round(num * 100) / 100;
+    };
+
+    let monthlyPrice;
+    let yearlyPrice;
+    try {
+        monthlyPrice = parsePrice(body?.monthlyPrice, "monthlyPrice");
+        yearlyPrice = parsePrice(body?.yearlyPrice, "yearlyPrice");
+    } catch (priceError) {
+        return { error: priceError.message };
     }
 
     let features = {};
@@ -101,6 +129,9 @@ const validatePlanFields = (body, { requireSlug }) => {
             description: typeof descriptionRaw === "string" ? descriptionRaw.trim() : null,
             employeeLimit,
             storageLimitMb,
+            monthlyPrice,
+            yearlyPrice,
+            trialDurationDays,
             features,
         },
     };
@@ -153,6 +184,11 @@ const createPlan = async (req, res) => {
             throw createError;
         }
 
+        await platformAuditService.logAction({
+            platformUserId: req.platformUser.id, actionType: "plan_created", targetType: "plan", targetId: plan.id,
+            metadata: { name: plan.name, slug: plan.slug, monthlyPrice: value.monthlyPrice, yearlyPrice: value.yearlyPrice },
+        }).catch((auditError) => console.error("[platform] audit log failed (plan_created):", auditError.message));
+
         return res.status(201).json({ success: true, plan: toSafePlan(plan) });
     } catch (error) {
         console.error("[platform] createPlan failed:", error);
@@ -176,6 +212,11 @@ const updatePlan = async (req, res) => {
         if (!updated) {
             return res.status(404).json({ success: false, message: "Plan not found." });
         }
+
+        await platformAuditService.logAction({
+            platformUserId: req.platformUser.id, actionType: "plan_updated", targetType: "plan", targetId: updated.id,
+            metadata: { name: updated.name, monthlyPrice: value.monthlyPrice, yearlyPrice: value.yearlyPrice },
+        }).catch((auditError) => console.error("[platform] audit log failed (plan_updated):", auditError.message));
 
         return res.status(200).json({ success: true, plan: toSafePlan(updated) });
     } catch (error) {
@@ -210,6 +251,12 @@ const updatePlanStatus = async (req, res) => {
         if (!updated) {
             return res.status(404).json({ success: false, message: "Plan not found." });
         }
+
+        await platformAuditService.logAction({
+            platformUserId: req.platformUser.id,
+            actionType: action === "disable" ? "plan_disabled" : "plan_enabled",
+            targetType: "plan", targetId: updated.id, metadata: { name: updated.name },
+        }).catch((auditError) => console.error("[platform] audit log failed (plan status):", auditError.message));
 
         return res.status(200).json({ success: true, plan: toSafePlan(updated) });
     } catch (error) {

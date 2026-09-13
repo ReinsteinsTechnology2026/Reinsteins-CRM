@@ -1,0 +1,48 @@
+# ==========================================
+# systemd UNIT -- SAMPLE CONFIG (Phase 15N)
+#
+# Alternative to PM2 (ecosystem.config.example.js) for a self-managed
+# Linux VPS. Only use ONE of the two, not both. Not relevant if you're
+# deploying to Render/Vercel, which manage the process for you.
+#
+# To use:
+#   1. Copy to /etc/systemd/system/zioventure-backend.service
+#   2. Edit WorkingDirectory / User / EnvironmentFile below
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable zioventure-backend   (starts on boot)
+#   5. sudo systemctl start zioventure-backend
+#   6. sudo systemctl status zioventure-backend   (check it's healthy)
+#   7. journalctl -u zioventure-backend -f        (tail logs)
+# ==========================================
+
+[Unit]
+Description=ZioVenture / Reinsteins WorkHub backend
+After=network.target mysql.service
+
+[Service]
+Type=simple
+# EDIT: the actual deploy path on this server
+WorkingDirectory=/var/www/zioventure/server
+ExecStart=/usr/bin/node app.js
+
+# EDIT: run as a dedicated non-root service account, not root
+User=zioventure
+Group=zioventure
+
+Restart=on-failure
+RestartSec=5
+# Give up after repeated rapid crashes rather than looping forever
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+Environment=NODE_ENV=production
+# Real secrets belong in server/.env (already loaded via dotenv in
+# app.js) -- do not duplicate them into this unit file, which may be
+# world-readable depending on filesystem permissions.
+
+# Prevent this process from writing outside what it actually needs.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

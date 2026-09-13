@@ -1,3 +1,20 @@
+// ==========================================
+// ENVIRONMENT (Phase 15 -- deployment-path independence)
+//
+// Must be the very first thing this file does, with an EXPLICIT path
+// -- dotenv's no-argument default resolves ".env" relative to
+// process.cwd(), which is only ever "server/" when something `cd`s
+// into this directory before running `node app.js`. Any process
+// manager/host that instead runs `node server/app.js` (or `npm start`
+// from the repo root -- see package.json) has a cwd of the REPO ROOT,
+// where no .env file exists, so every module below would silently see
+// undefined DB/JWT/SMTP/Razorpay config instead of a clear startup
+// error. Anchoring the path to this file's own directory (__dirname)
+// makes env loading work identically regardless of the invoking cwd.
+// ==========================================
+
+require("dotenv").config({ path: require("path").join(__dirname, ".env") });
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -12,14 +29,14 @@ const {
   Server,
 } = require("socket.io");
 
-require("dotenv").config();
-
 const pool = require("./config/db");
 const {
   __runWithTenantContext: runWithTenantContext,
 } = require("./config/db");
 const platformCompanyService = require("./services/platformCompanyService");
 const { getTenantPoolForCompany } = require("./config/tenantConnectionManager");
+const { globalApiLimiter } = require("./middleware/rateLimiters");
+const { JSON_BODY_LIMIT, TRUST_PROXY } = require("./config/securityConfig");
 const {
   TENANT_JWT_ISSUER,
   TENANT_JWT_AUDIENCE,
@@ -161,6 +178,23 @@ const platformDemoRequestRoutes = require(
 const platformPlanRoutes = require(
   "./routes/platformPlanRoutes"
 );
+// GrowOrgs Platform Owner payment management (Phase 10) --
+// platformProtect on every route except the Razorpay webhook (signature-
+// verified instead); see routes/platformPaymentRoutes.js.
+const platformPaymentRoutes = require(
+  "./routes/platformPaymentRoutes"
+);
+// GrowOrgs Platform Owner audit log / notification feed (Phase 12) --
+// platformProtect-only, reads/writes groworgs_platform_db exclusively.
+const platformAuditRoutes = require(
+  "./routes/platformAuditRoutes"
+);
+const platformNotificationRoutes = require(
+  "./routes/platformNotificationRoutes"
+);
+const platformEmailRoutes = require(
+  "./routes/platformEmailRoutes"
+);
 
 const meetingService = require(
   "./services/meetingService"
@@ -171,6 +205,23 @@ const meetingService = require(
 // ==========================================
 
 const app = express();
+
+// ==========================================
+// TRUST PROXY (Phase 15D)
+// See config/securityConfig.js for the full explanation. Unset
+// (false) by default -- local dev, with no reverse proxy in front,
+// behaves exactly as before. Only takes effect when TRUST_PROXY is
+// explicitly set in the environment (e.g. TRUST_PROXY=1 once deployed
+// behind Render/Vercel/Nginx/a load balancer).
+// ==========================================
+
+if (TRUST_PROXY) {
+  const parsedTrustProxy =
+    TRUST_PROXY === "true" ? true :
+    TRUST_PROXY === "false" ? false :
+    Number.isNaN(Number(TRUST_PROXY)) ? TRUST_PROXY : Number(TRUST_PROXY);
+  app.set("trust proxy", parsedTrustProxy);
+}
 
 const server = http.createServer(
   app
@@ -195,6 +246,18 @@ const PORT =
 const ALLOWED_ORIGINS = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(",").map((origin) => origin.trim())
   : ["http://localhost:5173", "http://localhost:5174"];
+
+// Phase 15A -- fails CLOSED (every real cross-origin request gets
+// rejected, nothing gets silently over-permissive) if CORS_ORIGINS is
+// forgotten in production, but that failure mode is easy to mistake
+// for "the API is down" during a first deploy. A loud startup warning
+// makes the actual cause obvious immediately instead of requiring a
+// support investigation.
+if (process.env.NODE_ENV === "production" && !process.env.CORS_ORIGINS) {
+  console.warn(
+    "[WARNING] NODE_ENV=production but CORS_ORIGINS is not set -- falling back to localhost dev origins, which will reject every request from your real deployed frontend. Set CORS_ORIGINS to your production frontend URL(s)."
+  );
+}
 
 // ==========================================
 // SOCKET.IO SERVER
@@ -1692,7 +1755,31 @@ app.set(
 require("./jobs/notificationSweep").start(io);
 
 // ==========================================
-// SECURITY MIDDLEWARE
+// SUBSCRIPTION LIFECYCLE SWEEP (Phase 12C)
+// Platform-level -- scans groworgs_platform_db.companies only, never
+// tenant business data. Disable via LIFECYCLE_SWEEP_ENABLED=false.
+// See jobs/subscriptionLifecycleSweep.js and services/
+// subscriptionLifecycleService.js for the full design.
+// ==========================================
+
+require("./jobs/subscriptionLifecycleSweep").start();
+
+// ==========================================
+// SECURITY MIDDLEWARE (Phase 14I)
+//
+// Explicit CSP rather than helmet's implicit default -- this server
+// never serves the frontend SPA itself (Vite dev / a separate static
+// host does; confirmed no express.static/sendFile of index.html
+// anywhere in this file), so CSP here is NOT what governs the React
+// app's own script loading (Razorpay Checkout, Vite assets, etc are
+// completely unaffected regardless of this policy). The ONE place CSP
+// actually matters on this server is the authenticated /uploads/*
+// file-serving route: if an uploaded file were ever served with an
+// HTML/script-capable Content-Type, a restrictive default-src/script-
+// src is real defense-in-depth against that content executing as a
+// stored-XSS payload. (The primary fix for that risk is upload
+// extension/MIME allow-listing -- see utils/fileTypeValidation.js --
+// this is the second, independent layer, not the only one.)
 // ==========================================
 
 app.use(
@@ -1700,6 +1787,16 @@ app.use(
     crossOriginResourcePolicy: {
       policy:
         "cross-origin",
+    },
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        imgSrc: ["'self'", "data:"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'none'"],
+      },
     },
   })
 );
@@ -1732,16 +1829,56 @@ app.use(
 );
 
 // ==========================================
+// GLOBAL API RATE LIMIT (Phase 14F)
+//
+// A generous backstop applied to everything EXCEPT the Razorpay
+// webhook (server-to-server traffic from Razorpay itself, which must
+// never share a budget with ordinary browser clients possibly behind
+// the same corporate NAT/proxy IP) and the authenticated file-serving
+// route (already protected by its own signed, short-lived,
+// per-file token -- see the /uploads/*splat route below). See
+// middleware/rateLimiters.js for why this is deliberately generous,
+// not a brute-force control.
+// ==========================================
+
+app.use((req, res, next) => {
+  if (req.path === "/api/platform/payments/webhook/razorpay" || req.path.startsWith("/uploads/")) {
+    return next();
+  }
+  return globalApiLimiter(req, res, next);
+});
+
+// ==========================================
 // GENERAL MIDDLEWARE
 // ==========================================
 
 app.use(
-  express.json()
+  express.json({
+    // Explicit size limit (Phase 14F) -- previously relied on
+    // express.json()'s implicit 100kb default; now documented and
+    // intentional (config/securityConfig.js). File uploads go through
+    // multer's own separate, larger, per-route limits and are
+    // unaffected.
+    limit: JSON_BODY_LIMIT,
+    // Captures the exact raw request-body bytes on every request
+    // (cheap -- just holds a reference to the buffer express.json()
+    // already reads) so a webhook route can verify a provider's HMAC
+    // signature against the SAME bytes that were signed. Re-serializing
+    // the already-parsed body (JSON.stringify(req.body)) would not
+    // reliably reproduce the original bytes (key order/whitespace can
+    // differ) and would silently break signature verification -- see
+    // paymentProviders/razorpayProvider.js and
+    // controllers/platformPaymentController.js's handleRazorpayWebhook.
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
 );
 
 app.use(
   express.urlencoded({
     extended: true,
+    limit: JSON_BODY_LIMIT,
   })
 );
 
@@ -1749,8 +1886,16 @@ app.use(
   cookieParser()
 );
 
+// Phase 15O -- "dev" is a colorized, single-line-per-request format
+// meant for an interactive terminal; it's still perfectly readable in
+// a production log file, but "combined" (Apache common log format)
+// is the more conventional choice once logs are actually being
+// collected/parsed by something (a log aggregator, `grep`, etc), and
+// neither format ever includes request/response bodies -- so no
+// password, token, or payment field is ever written to these logs
+// either way.
 app.use(
-  morgan("dev")
+  morgan(process.env.NODE_ENV === "production" ? "combined" : "dev")
 );
 
 // Signs every /uploads/... path in any outgoing JSON response with a
@@ -1893,6 +2038,45 @@ app.get(
         message:
           "Reinsteins WorkHub Backend is running",
       });
+  }
+);
+
+// ==========================================
+// HEALTH CHECK (Phase 15M)
+//
+// Deliberately unauthenticated (a load balancer / uptime monitor /
+// process manager needs to reach this without a credential) and
+// deliberately minimal in what it reveals -- a status string and,
+// optionally, a coarse per-database "healthy"/"unreachable" flag.
+// Never returns: connection strings, credentials, hostnames, error
+// messages/stack traces, row counts, or any other internal detail.
+// Each DB check is a trivial `SELECT 1` with its own short timeout so
+// a slow/down database degrades this endpoint's own status instead of
+// hanging it indefinitely.
+// ==========================================
+
+function checkPoolHealthy(poolToCheck, timeoutMs = 2000) {
+  return Promise.race([
+    poolToCheck.query("SELECT 1").then(() => true).catch(() => false),
+    new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs)),
+  ]);
+}
+
+app.get(
+  "/health",
+  async (req, res) => {
+    const [legacyDbHealthy, platformDbHealthy] = await Promise.all([
+      checkPoolHealthy(pool),
+      checkPoolHealthy(require("./config/platformDb")),
+    ]);
+
+    const allHealthy = legacyDbHealthy && platformDbHealthy;
+
+    return res.status(allHealthy ? 200 : 503).json({
+      status: allHealthy ? "ok" : "degraded",
+      database: legacyDbHealthy ? "healthy" : "unreachable",
+      platformDatabase: platformDbHealthy ? "healthy" : "unreachable",
+    });
   }
 );
 
@@ -2078,6 +2262,26 @@ app.use(
 );
 
 app.use(
+  "/api/platform/payments",
+  platformPaymentRoutes
+);
+
+app.use(
+  "/api/platform/audit-logs",
+  platformAuditRoutes
+);
+
+app.use(
+  "/api/platform/notifications",
+  platformNotificationRoutes
+);
+
+app.use(
+  "/api/platform/email-logs",
+  platformEmailRoutes
+);
+
+app.use(
   "/api/tenant-auth",
   tenantAuthRoutes
 );
@@ -2116,30 +2320,40 @@ app.use(
 );
 
 // ==========================================
-// CENTRALIZED ERROR HANDLER (Phase 8 -- production readiness)
+// CENTRALIZED ERROR HANDLER (Phase 8, consolidated in Phase 15U)
 //
 // No 4-arg Express error-handling middleware existed anywhere in
-// this app before this phase. In practice that meant a malformed
-// JSON request body (express.json() rejects it with a SyntaxError
-// and calls next(err), skipping every ordinary route/middleware
-// including the 404 handler above) fell all the way through to
-// Express's own built-in default error handler -- an HTML response,
-// inconsistent with the JSON the rest of this API always returns,
-// and one that includes the stack trace unless NODE_ENV=production.
+// this app before Phase 8. In practice that meant a malformed JSON
+// request body (express.json() rejects it with a SyntaxError and
+// calls next(err), skipping every ordinary route/middleware including
+// the 404 handler above) fell all the way through to Express's own
+// built-in default error handler -- an HTML response, inconsistent
+// with the JSON the rest of this API always returns, and one that
+// includes the stack trace unless NODE_ENV=production.
 //
-// This handler must be registered LAST (after every route AND the
-// 404 handler) -- that ordering is what makes Express treat it as
-// an error handler at all. It changes nothing about how any
-// existing route already responds (they all already catch their own
-// errors and return their own JSON), it only catches what nothing
-// else does: malformed request bodies and any error a handler
-// forwards via next(err) instead of handling itself.
+// Phase 14P had added a SECOND app.use((err,...)) block after this
+// one, intending to add production-aware message hiding. Since this
+// handler always sends a response without calling next(err), Express
+// never reached that second block -- it was dead code, and the
+// production-aware hiding it was meant to add never actually ran (the
+// message below was always the same generic string, in every
+// environment, until this fix). Consolidated back into the ONE
+// handler Express actually uses, keeping both original intents:
+// the malformed-body special case, and hiding internal error details
+// in production while keeping them visible for local debugging
+// otherwise. This must stay the LAST app.use() call -- that ordering
+// is what makes Express treat it as an error handler at all.
 // ==========================================
 
+// eslint-disable-next-line no-unused-vars
 app.use(
-  (err, _req, res, _next) => {
+  (err, req, res, next) => {
 
-    console.error("Unhandled error:", err);
+    console.error(`[unhandled error] ${req.method} ${req.originalUrl}:`, err);
+
+    if (res.headersSent) {
+      return next(err);
+    }
 
     if (err.type === "entity.parse.failed" || err instanceof SyntaxError) {
       return res.status(400).json({
@@ -2148,9 +2362,11 @@ app.use(
       });
     }
 
+    const isProduction = process.env.NODE_ENV === "production";
+
     return res.status(err.status || 500).json({
       success: false,
-      message: "Internal server error",
+      message: isProduction ? "An unexpected error occurred." : (err.message || "An unexpected error occurred."),
     });
 
   }

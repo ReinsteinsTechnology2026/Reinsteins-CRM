@@ -237,6 +237,12 @@ async function uploadFile(pathname, fieldName, token) {
 
     // ---------- Cleanup ----------
     console.log("\nCLEANUP");
+    // Phase 15 -- see _test_socket_tenant_isolation.js's cleanup
+    // comment (and the Phase 14 final report) for why this is needed.
+    await platformPool.query(`DELETE FROM email_delivery_logs WHERE company_id IN (?, ?)`, [companyAId, companyBId]);
+    const [[filetestOwnerRow]] = await platformPool.query(`SELECT id FROM platform_users WHERE email = ?`, [OWNER_EMAIL]);
+    if (filetestOwnerRow) await platformPool.query(`DELETE FROM platform_audit_logs WHERE platform_user_id = ?`, [filetestOwnerRow.id]);
+
     await closeAllTenantPools();
     await tenantProvisioningService.dropProvisionedDatabase(A_DB);
     await tenantProvisioningService.dropProvisionedDatabase(B_DB);

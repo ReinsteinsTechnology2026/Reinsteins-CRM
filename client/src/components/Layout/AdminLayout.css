@@ -28,6 +28,28 @@ MAIN AREA
 }
 
 /* ==========================================
+SUBSCRIPTION BANNER (Phase 12R)
+========================================== */
+
+.admin-subscription-banner{
+    margin:14px 25px 0;
+    padding:11px 18px;
+    border-radius:var(--radius);
+    font-size:13.5px;
+    font-weight:500;
+}
+
+.admin-subscription-banner.tone-warning{
+    background:var(--warning-light);
+    color:var(--warning);
+}
+
+.admin-subscription-banner.tone-danger{
+    background:var(--danger-light);
+    color:var(--danger);
+}
+
+/* ==========================================
 PAGE CONTENT
 ========================================== */
 

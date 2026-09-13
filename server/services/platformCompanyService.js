@@ -14,7 +14,8 @@ const platformPool = require("../config/platformDb");
 const COMPANY_COLUMNS = `
     id, company_name, company_slug, status, access_type,
     plan_id, subscription_status, trial_ends_at, subscription_started_at,
-    subscription_expires_at,
+    subscription_expires_at, grace_period_ends_at,
+    billing_contact_name, billing_contact_email, billing_contact_phone,
     tenant_db_name, created_at, updated_at
 `;
 
@@ -112,6 +113,22 @@ const activateCompany = async (id, tenantDbName) => {
         return null;
     }
     return await getCompanyById(id);
+};
+
+// Guarded exactly like suspendCompany/reactivateCompany above --
+// WHERE status IN ('active', 'suspended') means this can only ever
+// remove a company that was actually provisioned, never a
+// still-'pending' row (which has its own dedicated compensation path,
+// deletePendingCompany, above). The caller is responsible for
+// dropping the tenant database FIRST (see
+// platformCompanyController.js's deleteCompany) -- this function only
+// ever touches this one companies row.
+const deleteCompany = async (id) => {
+    const [result] = await platformPool.query(
+        `DELETE FROM companies WHERE id = ? AND status IN ('active', 'suspended')`,
+        [id]
+    );
+    return result.affectedRows > 0;
 };
 
 // Compensation step, used ONLY when tenant DB provisioning fails
@@ -232,7 +249,8 @@ const isCompanyUsable = (company) => Boolean(company) && company.status === "act
 const hasPaidAccess = (company) => Boolean(company) && company.access_type === "paid";
 
 // ==========================================
-// SUBSCRIPTION ENFORCEMENT (Phase 8)
+// SUBSCRIPTION ENFORCEMENT (Phase 8, extended Phase 12G for grace
+// periods)
 //
 // Pure function, no DB access -- called from the four existing places
 // that already gate tenant access on `company.status === 'active'`
@@ -250,6 +268,18 @@ const hasPaidAccess = (company) => Boolean(company) && company.access_type === "
 // stop working the moment a trial/expiry date passes, with no cron
 // job required, mirroring exactly how a suspended company's existing
 // tokens already stop working immediately today.
+//
+// GRACE PERIOD (Phase 12G) -- the one deliberate exception to "expired
+// = blocked immediately": if subscription_expires_at has passed but
+// grace_period_ends_at is set and still in the future, access remains
+// ALLOWED (this is the entire point of a grace period -- a short,
+// explicit, time-boxed buffer so a company isn't cut off the instant a
+// renewal payment is late). This is chosen and documented deliberately
+// -- see subscriptionLifecycleService.js for who sets/clears
+// grace_period_ends_at and why. It does NOT weaken either check above
+// it: a suspended company (status != 'active') or one with
+// subscription_status 'cancelled'/'expired' is blocked before this is
+// ever reached, regardless of any grace_period_ends_at value.
 // ==========================================
 
 const isCompanyAccessAllowed = (company) => {
@@ -263,7 +293,10 @@ const isCompanyAccessAllowed = (company) => {
     }
 
     if (company.subscription_expires_at && new Date(company.subscription_expires_at) < new Date()) {
-        return false;
+        const inGracePeriod = company.grace_period_ends_at && new Date(company.grace_period_ends_at) >= new Date();
+        if (!inGracePeriod) {
+            return false;
+        }
     }
 
     if (
@@ -303,6 +336,40 @@ const updateCompanySubscription = async (id, { planId, subscriptionStatus, trial
     }
     return await getCompanyById(id);
 };
+
+// Phase 12G -- sets/clears grace_period_ends_at ONLY. Deliberately a
+// separate, narrow function rather than widening
+// updateCompanySubscription's signature: grace period is decided by
+// subscriptionLifecycleService (automated, date-driven), never by the
+// Platform Owner's manual subscription-edit form, so it has its own
+// call path. Passing `null` clears it (used when a renewal succeeds).
+const setGracePeriodEndsAt = async (id, gracePeriodEndsAt) => {
+    const [result] = await platformPool.query(
+        `UPDATE companies SET grace_period_ends_at = ? WHERE id = ? AND status IN ('active', 'suspended')`,
+        [gracePeriodEndsAt, id]
+    );
+    if (result.affectedRows === 0) {
+        return null;
+    }
+    return await getCompanyById(id);
+};
+
+// Phase 13A -- platform-level SaaS metadata only (never touches any
+// tenant database or tenant employee data). Passing null for
+// name/phone clears just that field; passing null for email is how
+// removeBillingContact below clears the whole contact.
+const updateBillingContact = async (id, { billingContactName, billingContactEmail, billingContactPhone }) => {
+    const [result] = await platformPool.query(
+        `UPDATE companies SET billing_contact_name = ?, billing_contact_email = ?, billing_contact_phone = ? WHERE id = ? AND status IN ('active', 'suspended')`,
+        [billingContactName || null, billingContactEmail || null, billingContactPhone || null, id]
+    );
+    if (result.affectedRows === 0) {
+        return null;
+    }
+    return await getCompanyById(id);
+};
+
+const removeBillingContact = async (id) => updateBillingContact(id, { billingContactName: null, billingContactEmail: null, billingContactPhone: null });
 
 // Pure aggregation over the new subscription columns -- same
 // GROUP BY-then-fold pattern as getCompanyStats above, kept as a
@@ -350,6 +417,7 @@ module.exports = {
     createPendingCompany,
     activateCompany,
     deletePendingCompany,
+    deleteCompany,
     listCompanies,
     getCompanyStats,
     getSubscriptionStats,
@@ -357,4 +425,7 @@ module.exports = {
     reactivateCompany,
     updateCompanyAccessType,
     updateCompanySubscription,
+    setGracePeriodEndsAt,
+    updateBillingContact,
+    removeBillingContact,
 };

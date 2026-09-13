@@ -71,7 +71,7 @@ function PortalLogin() {
           </div>
 
           <div className="pub-portal-login-footer">
-            <Link to="/platform/login" className="pub-portal-owner-link">
+            <Link to="/owner/login" className="pub-portal-owner-link">
               <FaShieldAlt /> ZioVenture Platform Owner Login
             </Link>
           </div>

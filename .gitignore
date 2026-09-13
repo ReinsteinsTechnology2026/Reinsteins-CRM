@@ -27,6 +27,9 @@ server/boot_platform_phase.log
 server/uploads/**
 !server/uploads/.gitkeep
 
+# Tool-generated artifacts (never source code)
+.playwright-mcp/
+
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json
@@ -37,3 +40,21 @@ server/uploads/**
 *.njsproj
 *.sln
 *.sw?
+
+# Archives / database dumps / key material (Phase 15C -- server.zip
+# was found already committed in this repo's initial commit,
+# containing a real server/.env; these patterns only prevent NEW
+# copies of this mistake going forward -- they do not remove anything
+# already tracked, and this file never rewrites git history on its
+# own. See the Phase 15 final report for what to do about the
+# existing server.zip / rotate the credentials it contained.)
+*.zip
+*.tar
+*.tar.gz
+*.pem
+*.p12
+*.pfx
+*.key
+db_backup_*.sql
+*.dump.sql
+backups/

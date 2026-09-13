@@ -32,7 +32,7 @@ function PublicFooter() {
           <div className="pub-footer-col">
             <h4>Portal</h4>
             <Link to="/login">Company Login</Link>
-            <Link to="/platform/login">Platform Owner</Link>
+            <Link to="/owner/login">Platform Owner</Link>
           </div>
 
         </div>

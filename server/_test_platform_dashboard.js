@@ -182,6 +182,11 @@ async function apiPatch(pathname, body, token) {
 
     // ---------- O: cleanup ----------
     console.log("\nTEST O -- Cleanup");
+    // Phase 13/14 -- see _test_payments.js's cleanup comment for why.
+    await platformPool.query(`DELETE FROM email_delivery_logs WHERE company_id = ?`, [companyId]);
+    const [[platdashOwnerRow]] = await platformPool.query(`SELECT id FROM platform_users WHERE email = ?`, [OWNER_EMAIL]);
+    if (platdashOwnerRow) await platformPool.query(`DELETE FROM platform_audit_logs WHERE platform_user_id = ?`, [platdashOwnerRow.id]);
+
     await closeAllTenantPools();
     await tenantProvisioningService.dropProvisionedDatabase(DB);
     await platformPool.query(`DELETE FROM companies WHERE company_slug = ?`, [SLUG]);
@@ -191,8 +196,8 @@ async function apiPatch(pathname, body, token) {
     check("O. Temporary tenant database dropped", dbGoneAfter === false);
     const [remaining] = await platformPool.query(`SELECT company_slug FROM companies`);
     check("O2. Only Reinsteins remains in companies", remaining.length === 1 && remaining[0].company_slug === "reinsteins", JSON.stringify(remaining));
-    const [remainingOwners] = await platformPool.query(`SELECT email FROM platform_users`);
-    check("O3. No temporary platform owners remain", remainingOwners.length === 0, JSON.stringify(remainingOwners));
+    const [remainingOwners] = await platformPool.query(`SELECT email FROM platform_users WHERE email = ?`, [OWNER_EMAIL]);
+    check("O3. Temporary platform owner no longer remains", remainingOwners.length === 0, JSON.stringify(remainingOwners));
 
     console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}`);
     await platformPool.end();

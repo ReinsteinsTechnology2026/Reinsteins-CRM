@@ -67,7 +67,7 @@ function PlatformProtectedRoute({ children }) {
   }
 
   if (!authenticated) {
-    return <Navigate to="/platform/login" replace />;
+    return <Navigate to="/owner/login" replace />;
   }
 
   return children;

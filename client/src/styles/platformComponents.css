@@ -4,11 +4,14 @@
 ========================================== */
 
 .platform-page {
+    width: 100%;
     max-width: 1180px;
+    box-sizing: border-box;
 }
 
 .platform-page-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
@@ -104,13 +107,41 @@
 
 /* ---------- Cards / stat grid ---------- */
 
+/* Fixed column counts per breakpoint, not auto-fit/auto-fill -- with
+   auto-fit, a row left with just one trailing card (e.g. "Revenue"
+   after 10 other stat cards) stretches that lone card to fill the
+   whole row, leaving a large empty gap beside it. Explicit columns
+   keep every card the same width regardless of how many trail on the
+   last row. */
 .platform-stat-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
+    align-items: stretch;
     gap: 16px;
+    width: 100%;
+}
+
+@media (max-width: 1180px) {
+    .platform-stat-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 860px) {
+    .platform-stat-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 520px) {
+    .platform-stat-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .platform-stat-card {
+    box-sizing: border-box;
+    min-width: 0;
     background: var(--p-surface);
     border: 1px solid var(--p-border);
     border-radius: var(--p-radius);
@@ -119,6 +150,10 @@
     display: flex;
     align-items: center;
     gap: 14px;
+}
+
+.platform-stat-card > div:last-child {
+    min-width: 0;
 }
 
 /* Phase 7 -- the one clickable stat card (Dashboard -> Demo Requests) */
@@ -168,6 +203,8 @@
 /* ---------- Table / list ---------- */
 
 .platform-card {
+    box-sizing: border-box;
+    width: 100%;
     background: var(--p-surface);
     border: 1px solid var(--p-border);
     border-radius: var(--p-radius);
@@ -265,6 +302,22 @@
 .platform-badge.status-trial { background: var(--p-warning-light); color: var(--p-warning); }
 .platform-badge.status-expired { background: var(--p-danger-light); color: var(--p-danger); }
 .platform-badge.status-cancelled { background: #F1F5F9; color: #64748B; }
+
+/* Payment status (Phase 10) -- shares .platform-badge with no
+   collision: status-pending is already defined above (company
+   provisioning), status-cancelled just above (subscriptions), and
+   both read correctly for a payment too. Only paid/failed/refunded
+   are new. */
+.platform-badge.status-paid { background: var(--p-success-light); color: var(--p-success); }
+.platform-badge.status-failed { background: var(--p-danger-light); color: var(--p-danger); }
+.platform-badge.status-refunded { background: var(--p-info-light); color: var(--p-info); }
+
+/* Email delivery status (Phase 13) -- status-pending/status-failed
+   above already read correctly here too; only sent/skipped are new.
+   'sent' intentionally uses the same success tone as 'paid' -- both
+   mean "the external system accepted it", not "delivered/confirmed". */
+.platform-badge.status-sent { background: var(--p-success-light); color: var(--p-success); }
+.platform-badge.status-skipped { background: #F1F5F9; color: #64748B; }
 
 /* ---------- Empty / alert states ---------- */
 
@@ -376,7 +429,8 @@
 }
 
 .platform-form-group input,
-.platform-form-group select {
+.platform-form-group select,
+.platform-form-group textarea {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid var(--p-border);
@@ -384,10 +438,13 @@
     font-size: 13.5px;
     color: var(--p-text);
     background: var(--p-surface-secondary);
+    font-family: inherit;
+    resize: vertical;
 }
 
 .platform-form-group input:focus,
-.platform-form-group select:focus {
+.platform-form-group select:focus,
+.platform-form-group textarea:focus {
     outline: none;
     border-color: var(--p-primary);
     box-shadow: 0 0 0 3px var(--p-primary-light);
@@ -407,7 +464,8 @@
 }
 
 .platform-modal .platform-form-group input,
-.platform-modal .platform-form-group select {
+.platform-modal .platform-form-group select,
+.platform-modal .platform-form-group textarea {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid var(--p-border);
@@ -415,10 +473,13 @@
     font-size: 13.5px;
     color: var(--p-text);
     background: var(--p-surface-secondary);
+    font-family: inherit;
+    resize: vertical;
 }
 
 .platform-modal .platform-form-group input:focus,
-.platform-modal .platform-form-group select:focus {
+.platform-modal .platform-form-group select:focus,
+.platform-modal .platform-form-group textarea:focus {
     outline: none;
     border-color: var(--p-primary);
     box-shadow: 0 0 0 3px var(--p-primary-light);
@@ -452,4 +513,106 @@
 .platform-result-row span:last-child {
     font-weight: 600;
     color: var(--p-text);
+}
+
+/* ---------- Toolbar: search + filters + sort ---------- */
+
+.platform-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.platform-toolbar select,
+.platform-toolbar input[type="date"] {
+    padding: 9px 12px;
+    border: 1px solid var(--p-border-strong);
+    border-radius: var(--p-radius-sm);
+    font-size: 13.5px;
+    color: var(--p-text);
+    background: var(--p-surface);
+}
+
+.platform-search-input {
+    flex: 1;
+    min-width: 220px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border: 1px solid var(--p-border-strong);
+    border-radius: var(--p-radius-sm);
+    background: var(--p-surface);
+    color: var(--p-text-muted);
+}
+
+.platform-search-input input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 13.5px;
+    color: var(--p-text);
+}
+
+/* ---------- Dashboard v2: charts row, spinner, activity feed ---------- */
+
+.platform-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    width: 100%;
+}
+
+@media (max-width: 900px) {
+    .platform-grid-2col {
+        grid-template-columns: 1fr;
+    }
+}
+
+.platform-spin {
+    animation: platform-spin-anim 0.8s linear infinite;
+}
+
+@keyframes platform-spin-anim {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.platform-activity-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 8px;
+    border-radius: var(--p-radius-sm);
+    cursor: pointer;
+    transition: background .12s;
+}
+
+.platform-activity-row:hover {
+    background: var(--p-surface-secondary);
+}
+
+.platform-activity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.platform-activity-dot.tone-success { background: var(--p-success); }
+.platform-activity-dot.tone-info { background: var(--p-info); }
+
+.platform-activity-text {
+    flex: 1;
+    font-size: 13.5px;
+    color: var(--p-text);
+    min-width: 0;
+}
+
+.platform-activity-time {
+    font-size: 12px;
+    color: var(--p-text-muted);
+    flex-shrink: 0;
 }

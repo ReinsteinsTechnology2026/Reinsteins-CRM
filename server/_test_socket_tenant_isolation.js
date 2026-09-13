@@ -265,6 +265,19 @@ function waitForEvent(socket, eventName, timeoutMs = 1500) {
     connA.socket?.close();
     connB.socket?.close();
 
+    // Phase 15 -- this script predates the platform_audit_logs
+    // (Phase 12) and email_delivery_logs (Phase 13) tables; the
+    // company creations above indirectly populate platform_audit_logs
+    // (ON DELETE SET NULL on company_id/platform_user_id) as a side
+    // effect of that later integration work, so without this explicit
+    // cleanup, deleting the temp companies/owner below would silently
+    // orphan those rows instead of removing them (see the Phase 14
+    // final report for the original discovery of this class of bug in
+    // several other pre-Phase-12 test scripts).
+    await platformPool.query(`DELETE FROM email_delivery_logs WHERE company_id IN (?, ?, ?)`, [companyAId, companyBId, companyCId]);
+    const [[sockettestOwnerRow]] = await platformPool.query(`SELECT id FROM platform_users WHERE email = ?`, [OWNER_EMAIL]);
+    if (sockettestOwnerRow) await platformPool.query(`DELETE FROM platform_audit_logs WHERE platform_user_id = ?`, [sockettestOwnerRow.id]);
+
     await closeAllTenantPools();
     await tenantProvisioningService.dropProvisionedDatabase(A_DB);
     await tenantProvisioningService.dropProvisionedDatabase(B_DB);

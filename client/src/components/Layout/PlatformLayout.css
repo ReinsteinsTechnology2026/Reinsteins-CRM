@@ -1,18 +1,39 @@
 .platform-layout {
     display: flex;
+    align-items: stretch;
+    width: 100%;
     min-height: 100vh;
+    box-sizing: border-box;
+    /* Deliberately NOT overflow-x: hidden here. Setting only one
+       overflow axis makes the browser compute the other axis as
+       "auto" (CSS Overflow spec), which turned this element into its
+       own internal scroll container instead of letting the page
+       (body) scroll normally -- that's what broke the sticky sidebar
+       below: it was sticking to the top of a ~1000px internal box,
+       not the actual page, so it appeared to scroll away with the
+       content. Horizontal overflow is already prevented globally by
+       body { overflow-x: hidden } in index.css, which is the correct
+       place for it since body is the real scrolling root. */
 }
 
 .platform-sidebar {
     width: 240px;
     flex-shrink: 0;
+    box-sizing: border-box;
     background: var(--p-sidebar);
     display: flex;
     flex-direction: column;
     padding: 22px 16px;
     position: sticky;
     top: 0;
-    height: 100vh;
+    /* height:100vh with no overflow handling clipped the bottom of
+       the nav/footer on shorter viewports once more nav items were
+       added -- min-height keeps it filling the viewport on tall
+       screens, max-height + overflow-y lets it scroll internally
+       instead of clipping when it doesn't fit. */
+    min-height: 100vh;
+    max-height: 100vh;
+    overflow-y: auto;
 }
 
 .platform-sidebar-brand {
@@ -30,6 +51,7 @@
     flex-direction: column;
     gap: 4px;
     flex: 1;
+    min-height: 0;
 }
 
 .platform-nav-link {
@@ -58,6 +80,79 @@
 .platform-nav-link.active {
     background: var(--p-sidebar-active);
     color: #fff;
+}
+
+/* ---------- Notification bell ---------- */
+
+.platform-notif-badge {
+    background: var(--p-danger);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    min-width: 17px;
+    height: 17px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    margin-left: auto;
+}
+
+.platform-notif-panel {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    width: 280px;
+    background: var(--p-surface);
+    border: 1px solid var(--p-border);
+    border-radius: var(--p-radius);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .35);
+    z-index: 20;
+    overflow: hidden;
+}
+
+.platform-notif-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--p-border);
+    font-size: 13px;
+    color: var(--p-text);
+}
+
+.platform-notif-mark-read {
+    background: none;
+    border: none;
+    color: var(--p-primary);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.platform-notif-empty {
+    padding: 18px 14px;
+    font-size: 12.5px;
+    color: var(--p-text-muted);
+    text-align: center;
+}
+
+.platform-notif-item {
+    padding: 11px 14px;
+    font-size: 13px;
+    color: var(--p-text);
+    cursor: pointer;
+    border-bottom: 1px solid var(--p-border);
+    transition: background .12s;
+}
+
+.platform-notif-item:last-child {
+    border-bottom: none;
+}
+
+.platform-notif-item:hover {
+    background: var(--p-surface-secondary);
 }
 
 .platform-sidebar-footer {
@@ -135,21 +230,42 @@
 .platform-main {
     flex: 1;
     min-width: 0;
-    padding: 32px 40px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 36px 40px 48px;
+    /* No overflow-x here either -- same reasoning as .platform-layout
+       above. This is the element that must be allowed to grow to its
+       full content height so the PAGE scrolls past it naturally,
+       which is what lets .platform-sidebar's position: sticky work. */
 }
 
+/* Tablet/mobile: sidebar switches from a sticky 240px column to a
+   normal-flow block above the main content. It previously stayed a
+   single un-wrapped horizontal row here, which worked while the nav
+   only had a handful of links -- with the full set of sections it
+   no longer fits, and links past the edge were silently clipped
+   (invisible, unreachable, no wrap/scroll). Stacking the brand above
+   a WRAPPING nav (same fix already proven at the narrower breakpoint
+   below) fixes that at every width under 900px, not just 480px, and
+   also means the sidebar's height is no longer forced to 100vh here,
+   so the footer/logout no longer needs to be hidden to avoid
+   overflow -- it's simply shown after the wrapped nav in normal flow. */
 @media (max-width: 900px) {
     .platform-layout {
         flex-direction: column;
     }
     .platform-sidebar {
         width: 100%;
+        box-sizing: border-box;
+        min-height: 0;
+        max-height: none;
         height: auto;
         position: relative;
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-        padding: 14px 16px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 16px;
+        overflow-y: visible;
     }
     .platform-sidebar-brand {
         border: none;
@@ -158,27 +274,10 @@
     }
     .platform-nav {
         flex-direction: row;
-    }
-    .platform-sidebar-footer {
-        display: none;
+        flex-wrap: wrap;
+        flex: none;
     }
     .platform-main {
         padding: 20px;
-    }
-}
-
-/* Phase 8 fix: below ~480px the 900px breakpoint's single horizontal
-   row (brand + 4 nav links via space-between) has no room left and
-   the nav links crowd/overlap. Stacking brand above nav, and letting
-   the nav wrap, keeps every link reachable without redesigning the
-   layout. */
-@media (max-width: 480px) {
-    .platform-sidebar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 12px;
-    }
-    .platform-nav {
-        flex-wrap: wrap;
     }
 }

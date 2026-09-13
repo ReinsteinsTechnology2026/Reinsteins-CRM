@@ -20,6 +20,7 @@ const platformPool = require("../config/platformDb");
 
 const PLAN_COLUMNS = `
     id, name, slug, description, status, employee_limit, storage_limit_mb,
+    monthly_price, yearly_price, trial_duration_days,
     features, created_at, updated_at
 `;
 
@@ -46,14 +47,16 @@ const getPlanBySlug = async (slug) => {
     return rows[0] || null;
 };
 
-const createPlan = async ({ name, slug, description, employeeLimit, storageLimitMb, features }) => {
+const createPlan = async ({ name, slug, description, employeeLimit, storageLimitMb, monthlyPrice, yearlyPrice, trialDurationDays, features }) => {
     try {
 
         const [result] = await platformPool.query(
             `INSERT INTO subscription_plans
-                (name, slug, description, status, employee_limit, storage_limit_mb, features)
-             VALUES (?, ?, ?, 'active', ?, ?, ?)`,
-            [name, slug, description || null, employeeLimit, storageLimitMb, JSON.stringify(features)]
+                (name, slug, description, status, employee_limit, storage_limit_mb,
+                 monthly_price, yearly_price, trial_duration_days, features)
+             VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)`,
+            [name, slug, description || null, employeeLimit, storageLimitMb,
+                monthlyPrice, yearlyPrice, trialDurationDays, JSON.stringify(features)]
         );
 
         return await getPlanById(result.insertId);
@@ -68,16 +71,18 @@ const createPlan = async ({ name, slug, description, employeeLimit, storageLimit
     }
 };
 
-// Updates the plan's descriptive/limit fields only -- never its id or
-// slug (slug is immutable after creation, exactly like company_slug,
-// so nothing that already references a plan by slug can be silently
-// repointed at a different plan's identity).
-const updatePlan = async (id, { name, description, employeeLimit, storageLimitMb, features }) => {
+// Updates the plan's descriptive/limit/pricing fields only -- never
+// its id or slug (slug is immutable after creation, exactly like
+// company_slug, so nothing that already references a plan by slug
+// can be silently repointed at a different plan's identity).
+const updatePlan = async (id, { name, description, employeeLimit, storageLimitMb, monthlyPrice, yearlyPrice, trialDurationDays, features }) => {
     const [result] = await platformPool.query(
         `UPDATE subscription_plans
-         SET name = ?, description = ?, employee_limit = ?, storage_limit_mb = ?, features = ?
+         SET name = ?, description = ?, employee_limit = ?, storage_limit_mb = ?,
+             monthly_price = ?, yearly_price = ?, trial_duration_days = ?, features = ?
          WHERE id = ?`,
-        [name, description || null, employeeLimit, storageLimitMb, JSON.stringify(features), id]
+        [name, description || null, employeeLimit, storageLimitMb,
+            monthlyPrice, yearlyPrice, trialDurationDays, JSON.stringify(features), id]
     );
     if (result.affectedRows === 0) {
         return null;

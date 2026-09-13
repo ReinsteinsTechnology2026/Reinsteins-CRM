@@ -3,6 +3,7 @@ import {
   Routes,
   Route,
   Navigate,
+  useParams,
 } from "react-router-dom";
 
 import {
@@ -108,6 +109,12 @@ import PlatformCompanyDetails from "./pages/Platform/PlatformCompanyDetails";
 import PlatformDemoRequests from "./pages/Platform/PlatformDemoRequests";
 import PlatformDemoRequestDetails from "./pages/Platform/PlatformDemoRequestDetails";
 import PlatformPlans from "./pages/Platform/PlatformPlans";
+import PlatformUsers from "./pages/Platform/PlatformUsers";
+import PlatformPayments from "./pages/Platform/PlatformPayments";
+import PlatformAnalytics from "./pages/Platform/PlatformAnalytics";
+import PlatformSupport from "./pages/Platform/PlatformSupport";
+import PlatformAuditLogs from "./pages/Platform/PlatformAuditLogs";
+import PlatformEmailLogs from "./pages/Platform/PlatformEmailLogs";
 import PlatformSettings from "./pages/Platform/PlatformSettings";
 
 // ==========================================
@@ -179,6 +186,19 @@ const EMPLOYEE_ROUTES = [
   { path: "organization", Component: ExecutiveOrganization },
   { path: "reports", Component: ExecutiveReports },
 ];
+
+// Preserves the :id (or any other) URL param when redirecting an old
+// /platform/... path to its /owner/... equivalent, e.g.
+// /platform/companies/7 -> /owner/companies/7, not the literal
+// string ":id".
+function ParamRedirect({ to }) {
+  const params = useParams();
+  const resolved = Object.entries(params).reduce(
+    (path, [key, value]) => path.replace(`:${key}`, value),
+    to
+  );
+  return <Navigate to={resolved} replace />;
+}
 
 function buildRoleRoutes(basePath, IndexComponent, routeDefs, allowedRole, Layout) {
   return (
@@ -318,15 +338,21 @@ function App() {
         />
 
         {/* ==================================
-            GROWORGS PLATFORM OWNER DASHBOARD
+            ZIOVENTURE PLATFORM OWNER DASHBOARD
             Separate from every tenant/company route above --
             own login, own guard (PlatformProtectedRoute), own
             layout (PlatformLayout). Not reachable through any
             tenant navigation link.
+
+            /owner/* is the canonical path (login redirects here,
+            the sidebar links here, the public site's "Platform
+            Owner Login" link points here). The old /platform/*
+            paths are kept working as redirects below so nothing
+            that already links or is bookmarked to them breaks.
         ================================== */}
 
         <Route
-          path="/platform/login"
+          path="/owner/login"
           element={<PlatformLogin />}
         />
 
@@ -339,41 +365,82 @@ function App() {
         >
 
           <Route
-            path="/platform/dashboard"
+            path="/owner/dashboard"
             element={<PlatformDashboard />}
           />
 
           <Route
-            path="/platform/companies"
+            path="/owner/companies"
             element={<PlatformCompanies />}
           />
 
           <Route
-            path="/platform/companies/:id"
+            path="/owner/companies/:id"
             element={<PlatformCompanyDetails />}
           />
 
           <Route
-            path="/platform/demo-requests"
+            path="/owner/demo-requests"
             element={<PlatformDemoRequests />}
           />
 
           <Route
-            path="/platform/demo-requests/:id"
+            path="/owner/demo-requests/:id"
             element={<PlatformDemoRequestDetails />}
           />
 
           <Route
-            path="/platform/plans"
+            path="/owner/plans"
             element={<PlatformPlans />}
           />
 
           <Route
-            path="/platform/settings"
+            path="/owner/users"
+            element={<PlatformUsers />}
+          />
+
+          <Route
+            path="/owner/payments"
+            element={<PlatformPayments />}
+          />
+
+          <Route
+            path="/owner/analytics"
+            element={<PlatformAnalytics />}
+          />
+
+          <Route
+            path="/owner/audit-logs"
+            element={<PlatformAuditLogs />}
+          />
+
+          <Route
+            path="/owner/email-logs"
+            element={<PlatformEmailLogs />}
+          />
+
+          <Route
+            path="/owner/support"
+            element={<PlatformSupport />}
+          />
+
+          <Route
+            path="/owner/settings"
             element={<PlatformSettings />}
           />
 
         </Route>
+
+        {/* ---------- /platform/* -> /owner/* redirects (backward compatibility) ---------- */}
+
+        <Route path="/platform/login" element={<Navigate to="/owner/login" replace />} />
+        <Route path="/platform/dashboard" element={<Navigate to="/owner/dashboard" replace />} />
+        <Route path="/platform/companies" element={<Navigate to="/owner/companies" replace />} />
+        <Route path="/platform/companies/:id" element={<ParamRedirect to="/owner/companies/:id" />} />
+        <Route path="/platform/demo-requests" element={<Navigate to="/owner/demo-requests" replace />} />
+        <Route path="/platform/demo-requests/:id" element={<ParamRedirect to="/owner/demo-requests/:id" />} />
+        <Route path="/platform/plans" element={<Navigate to="/owner/plans" replace />} />
+        <Route path="/platform/settings" element={<Navigate to="/owner/settings" replace />} />
 
         {/* ==================================
             TEST ROUTES

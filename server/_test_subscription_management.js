@@ -380,6 +380,13 @@ async function createCompanyWithAdmin(ownerToken, slug, name) {
     // ========================================
     console.log("\nCLEANUP");
 
+    // Phase 13/14 -- see _test_payments.js's cleanup comment for why.
+    await platformPool.query(`DELETE FROM email_delivery_logs WHERE company_id IN (?, ?)`, [companyA.companyId, companyB.companyId]);
+    const [subtestOwnerRows] = await platformPool.query(`SELECT id FROM platform_users WHERE email IN (?, ?)`, [OWNER_EMAIL, INACTIVE_OWNER_EMAIL]);
+    if (subtestOwnerRows.length) {
+        await platformPool.query(`DELETE FROM platform_audit_logs WHERE platform_user_id IN (?)`, [subtestOwnerRows.map((r) => r.id)]);
+    }
+
     await tenantProvisioningService.dropProvisionedDatabase(buildTenantDbName(COMPANY_A_SLUG));
     await tenantProvisioningService.dropProvisionedDatabase(buildTenantDbName(COMPANY_B_SLUG));
     console.log("  Dropped both temporary tenant databases");

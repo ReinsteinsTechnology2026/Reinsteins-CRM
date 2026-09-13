@@ -65,6 +65,46 @@ async function countAdmins(tenantPool) {
     return c;
 }
 
+// The company's own admin's display name/email ONLY -- deliberately
+// the exact same two fields already visible to the Platform Owner via
+// the createFirstAdmin response, never a broader profile. No
+// password/password_hash column is ever selected here.
+async function getFirstAdmin(tenantPool) {
+    const [rows] = await tenantPool.query(
+        `SELECT full_name, email FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1`
+    );
+    return rows[0] || null;
+}
+
+// Single COUNT, not a row list -- how many accounts (any role) were
+// created on/after the given date. Used for "New Users This Month" on
+// the dashboard; only ever a number, same boundary as countAdmins.
+async function countUsersSince(tenantPool, sinceDate) {
+    const [[{ c }]] = await tenantPool.query(
+        `SELECT COUNT(*) AS c FROM users WHERE created_at >= ?`,
+        [sinceDate]
+    );
+    return c;
+}
+
+// Aggregate headcount only -- a single COUNT/GROUP BY, never a row
+// list. Used by the Platform Owner Dashboard/Companies page to show
+// "how many people" without ever returning names, emails, or any
+// other per-user detail across the platform-layer boundary.
+async function countUsersByRole(tenantPool) {
+    const [rows] = await tenantPool.query(
+        `SELECT role, COUNT(*) AS c FROM users GROUP BY role`
+    );
+    let total = 0;
+    let admins = 0;
+    for (const row of rows) {
+        const count = Number(row.c);
+        total += count;
+        if (row.role === "admin") admins += count;
+    }
+    return { total, admins, employees: total - admins };
+}
+
 // Creates the tenant's first Administrator. passwordHash must
 // already be hashed (bcrypt) by the caller -- this service never
 // hashes/compares passwords itself, matching the existing convention
@@ -138,5 +178,8 @@ async function createFirstAdmin(tenantPool, { name, email, phone, passwordHash }
 module.exports = {
     getUserByEmail,
     countAdmins,
+    countUsersByRole,
+    getFirstAdmin,
+    countUsersSince,
     createFirstAdmin,
 };

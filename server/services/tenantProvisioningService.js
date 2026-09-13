@@ -8,6 +8,7 @@ const {
     isValidTenantDbName,
     isValidTestDbName,
     isProtectedDbName,
+    isDropProtectedDbName,
 } = require("../utils/tenantDbName");
 
 // ==========================================
@@ -359,6 +360,9 @@ async function dropProvisionedDatabase(databaseName) {
     }
     if (isProtectedDbName(databaseName)) {
         throw new Error(`Refusing to drop "${databaseName}": protected database name.`);
+    }
+    if (isDropProtectedDbName(databaseName)) {
+        throw new Error(`Refusing to drop "${databaseName}": drop-protected database name.`);
     }
     if (databaseName === process.env.DB_NAME || databaseName === process.env.PLATFORM_DB_NAME) {
         throw new Error(`Refusing to drop "${databaseName}": matches a live configured database.`);

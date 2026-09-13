@@ -87,6 +87,8 @@ function PlatformPlans() {
             <thead>
               <tr>
                 <th>Plan</th>
+                <th>Monthly</th>
+                <th>Yearly</th>
                 <th>Employee Limit</th>
                 <th>Storage Limit</th>
                 <th>Status</th>
@@ -96,11 +98,11 @@ function PlatformPlans() {
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={6} className="platform-empty-state">Loading plans...</td></tr>
+                <tr><td colSpan={8} className="platform-empty-state">Loading plans...</td></tr>
               )}
 
               {!loading && plans.length === 0 && (
-                <tr><td colSpan={6} className="platform-empty-state">No plans yet.</td></tr>
+                <tr><td colSpan={8} className="platform-empty-state">No plans yet.</td></tr>
               )}
 
               {!loading && plans.map((plan) => (
@@ -109,6 +111,8 @@ function PlatformPlans() {
                     <div className="platform-company-name">{plan.name}</div>
                     <div className="platform-company-slug">{plan.slug}</div>
                   </td>
+                  <td>{plan.monthlyPrice === null ? "—" : `$${plan.monthlyPrice.toFixed(2)}`}</td>
+                  <td>{plan.yearlyPrice === null ? "—" : `$${plan.yearlyPrice.toFixed(2)}`}</td>
                   <td>{formatLimit(plan.employeeLimit)}</td>
                   <td>{formatLimit(plan.storageLimitMb)}{plan.storageLimitMb !== null ? " MB" : ""}</td>
                   <td>

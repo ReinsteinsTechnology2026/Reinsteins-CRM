@@ -98,22 +98,65 @@ async function sendMail({ to, subject, html, text }) {
         // recipient lists, never transport config or credentials.
         console.log(`[emailService] Sent "${subject}" to ${to} (messageId: ${info.messageId})`);
 
-        return { sent: true };
+        // messageId returned to the caller (Phase 13C) so callers that
+        // track delivery (emailDeliveryService) can store the real
+        // provider message id -- proof the SMTP server actually
+        // accepted it, not just that this function ran without error.
+        return { sent: true, messageId: info.messageId };
 
     } catch (error) {
 
         // error.message from nodemailer/SMTP does not include the
         // configured credentials (those live only in the transporter
         // object created above, which is never logged) -- only
-        // connection/protocol-level diagnostics.
+        // connection/protocol-level diagnostics. Still truncated by
+        // every caller before persisting, as defense in depth.
         console.error(`[emailService] Failed to send "${subject}" to ${to}:`, error.message);
 
-        return { sent: false, reason: "send_failed" };
+        return { sent: false, reason: "send_failed", error: error.message };
 
     }
 
 }
 
+// ==========================================
+// VERIFY CONNECTION (Phase 13H)
+//
+// A CONNECTION check only -- never sends an email. Used by the
+// Platform Owner's explicit "Test Connection" action and the passive
+// SMTP status endpoint. Returns only a boolean + a short, safe reason
+// string (nodemailer's verify() error messages are protocol-level,
+// e.g. "Invalid login" -- never the configured password itself, which
+// lives only in the transporter object and is never logged/returned).
+// ==========================================
+
+async function verifyConnection() {
+    const activeTransporter = getTransporter();
+    if (!activeTransporter) {
+        return { ok: false, reason: "smtp_not_configured" };
+    }
+    try {
+        await activeTransporter.verify();
+        return { ok: true };
+    } catch (error) {
+        return { ok: false, reason: "connection_failed", error: error.message };
+    }
+}
+
+// Safe, secret-free snapshot of the current SMTP configuration state
+// -- host/user PRESENCE only, never the actual values, and never the
+// password under any circumstance.
+function getConfigStatus() {
+    return {
+        configured: Boolean(process.env.SMTP_HOST),
+        fromAddress: process.env.SMTP_FROM || "WorkHub <notifications@workhub.local>",
+        hostConfigured: Boolean(process.env.SMTP_HOST),
+        userConfigured: Boolean(process.env.SMTP_USER),
+    };
+}
+
 module.exports = {
     sendMail,
+    verifyConnection,
+    getConfigStatus,
 };

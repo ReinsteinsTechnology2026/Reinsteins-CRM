@@ -2,6 +2,7 @@ const multer = require("multer");
 const path = require("path");
 
 const { tenantUploadAbsoluteDir } = require("../utils/tenantUploadPath");
+const { SAFE_DOCUMENT_EXTENSIONS, isSafeUpload } = require("../utils/fileTypeValidation");
 
 // ==========================================
 // STORAGE
@@ -68,8 +69,11 @@ const allowedTypes = [
   "application/x-rar-compressed",
 ];
 
+// Phase 14L -- mimetype AND extension must both be safe (see
+// utils/fileTypeValidation.js for why the mimetype check alone was
+// exploitable).
 const fileFilter = (req, file, callback) => {
-  if (allowedTypes.includes(file.mimetype)) {
+  if (isSafeUpload(file, allowedTypes, SAFE_DOCUMENT_EXTENSIONS)) {
     callback(null, true);
   } else {
     callback(

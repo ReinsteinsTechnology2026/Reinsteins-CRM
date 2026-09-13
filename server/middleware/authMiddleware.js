@@ -42,7 +42,11 @@ const protect = async (req, res, next) => {
     const token = authHeader.split(" ")[1];
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // Phase 14E -- algorithm explicitly pinned (this legacy path
+      // never set an issuer/audience, so this is the one meaningful
+      // verification tightening available here without changing what
+      // a legacy token looks like).
+      const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ["HS256"] });
       req.user = decoded;
       return next();
     } catch (_legacyVerifyError) {

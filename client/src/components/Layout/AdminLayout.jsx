@@ -4,6 +4,7 @@ import AdminSidebar from "./AdminSidebar";
 import AdminHeader from "./AdminHeader";
 import SidebarToggleButton from "./SidebarToggleButton";
 import MobileNavBackdrop from "./MobileNavBackdrop";
+import AdminSubscriptionBanner from "./AdminSubscriptionBanner";
 
 import useSidebarCollapsed from "../../hooks/useSidebarCollapsed";
 import useMobileNav from "../../hooks/useMobileNav";
@@ -50,6 +51,8 @@ function AdminLayout() {
                     mobileNavOpen={mobileNavOpen}
                     onOpenMobileNav={openMobileNav}
                 />
+
+                <AdminSubscriptionBanner />
 
                 <div className="admin-page-content">
 

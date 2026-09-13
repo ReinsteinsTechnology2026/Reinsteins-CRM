@@ -56,9 +56,12 @@ const tenantProtect = async (req, res, next) => {
 
         const token = authHeader.split(" ")[1];
 
+        // Phase 14E -- algorithm explicitly pinned, same reasoning as
+        // platformAuthMiddleware.js.
         const decoded = jwt.verify(token, process.env.TENANT_JWT_SECRET, {
             issuer: TENANT_JWT_ISSUER,
             audience: TENANT_JWT_AUDIENCE,
+            algorithms: ["HS256"],
         });
 
         if (decoded.type !== "tenant_user" || !decoded.userId || !decoded.companyId || !decoded.companySlug) {

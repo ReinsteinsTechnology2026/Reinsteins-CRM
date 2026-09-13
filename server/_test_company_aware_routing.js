@@ -186,6 +186,11 @@ async function apiGet(pathname, token) {
 
     // ---------- Cleanup ----------
     console.log("\nCLEANUP");
+    // Phase 13/14 -- see _test_payments.js's cleanup comment for why.
+    await platformPool.query(`DELETE FROM email_delivery_logs WHERE company_id IN (?, ?)`, [companyAId, companyBId]);
+    const [[routetestOwnerRow]] = await platformPool.query(`SELECT id FROM platform_users WHERE email = ?`, [OWNER_EMAIL]);
+    if (routetestOwnerRow) await platformPool.query(`DELETE FROM platform_audit_logs WHERE platform_user_id = ?`, [routetestOwnerRow.id]);
+
     await closeAllTenantPools();
     await tenantProvisioningService.dropProvisionedDatabase(A_DB);
     await tenantProvisioningService.dropProvisionedDatabase(B_DB);

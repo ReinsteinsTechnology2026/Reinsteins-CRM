@@ -11,8 +11,12 @@ const {
     updateStatus,
     updateAccessType,
     updateSubscription,
+    updateBillingContact,
+    removeBillingContact,
+    deleteCompany,
 } = require("../controllers/platformCompanyController");
 const { platformProtect } = require("../middleware/platformAuthMiddleware");
+const { billingContactLimiter } = require("../middleware/rateLimiters");
 
 // ==========================================
 // PLATFORM COMPANY ROUTES (Phase 2D / 2E / 4)
@@ -43,5 +47,16 @@ router.patch("/:id/access-type", platformProtect, updateAccessType);
 // Phase 8 -- company subscription/plan management. Metadata-only;
 // never touches tenant_db_name or any tenant database.
 router.patch("/:id/subscription", platformProtect, updateSubscription);
+
+// Phase 13A/13B -- billing contact (platform-level SaaS metadata
+// only, never a tenant employee record).
+router.patch("/:id/billing-contact", platformProtect, billingContactLimiter, updateBillingContact);
+router.delete("/:id/billing-contact", platformProtect, billingContactLimiter, removeBillingContact);
+
+// Delete a company (with server-side confirmation) -- drops its
+// tenant database and removes its companies row. See
+// platformCompanyController.js's deleteCompany for the safety
+// guarantees (Reinsteins is unconditionally excluded).
+router.delete("/:id", platformProtect, deleteCompany);
 
 module.exports = router;

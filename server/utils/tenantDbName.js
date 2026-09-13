@@ -46,6 +46,15 @@ const TEST_DB_NAME_PATTERN = /^groworgs_provision_test(_[a-z0-9_]{1,40})?$/;
 
 // Database names this system must never create, overwrite, or drop,
 // under any circumstances, regardless of what any caller requests.
+//
+// Deliberately does NOT include "tenant_reinsteins" -- unlike every
+// other entry here, that IS a syntactically ordinary tenant_<slug>
+// name that must remain fully connectable (isValidTenantDbName feeds
+// every normal tenant DB connection: login, tenantProtect, Socket.IO
+// auth, etc., not just provisioning/dropping). Protecting it from
+// DELETION specifically is handled by the separate, narrower
+// DROP_PROTECTED_DB_NAMES set below, checked only by
+// dropProvisionedDatabase.
 const PROTECTED_DB_NAMES = new Set([
     "reinsteins_workhub",
     "reinsteins_db",
@@ -54,6 +63,16 @@ const PROTECTED_DB_NAMES = new Set([
     "information_schema",
     "performance_schema",
     "sys",
+]);
+
+// Additional names that must never be DROPPED, even though they are
+// otherwise valid, connectable tenant database names (so they are
+// intentionally absent from PROTECTED_DB_NAMES above). Checked only
+// by dropProvisionedDatabase's own safety gate -- never by
+// isValidTenantDbName, which would incorrectly block ordinary
+// connections to a real, live tenant.
+const DROP_PROTECTED_DB_NAMES = new Set([
+    "tenant_reinsteins",
 ]);
 
 function isValidSlug(slug) {
@@ -102,6 +121,12 @@ function isProtectedDbName(name) {
     return typeof name === "string" && PROTECTED_DB_NAMES.has(name.toLowerCase());
 }
 
+// Drop-only protection -- see DROP_PROTECTED_DB_NAMES above for why
+// this is separate from isProtectedDbName.
+function isDropProtectedDbName(name) {
+    return typeof name === "string" && DROP_PROTECTED_DB_NAMES.has(name.toLowerCase());
+}
+
 // A throwaway test database name -- deliberately NEVER accepted by
 // isValidTenantDbName, and only ever used by the Phase 2C
 // provisioning self-test.
@@ -118,9 +143,11 @@ module.exports = {
     TENANT_DB_NAME_PATTERN,
     TEST_DB_NAME_PATTERN,
     PROTECTED_DB_NAMES,
+    DROP_PROTECTED_DB_NAMES,
     isValidSlug,
     buildTenantDbName,
     isValidTenantDbName,
     isValidTestDbName,
     isProtectedDbName,
+    isDropProtectedDbName,
 };

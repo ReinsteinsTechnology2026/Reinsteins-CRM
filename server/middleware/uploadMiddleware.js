@@ -2,6 +2,7 @@ const multer = require("multer");
 const path = require("path");
 
 const { tenantUploadAbsoluteDir } = require("../utils/tenantUploadPath");
+const { SAFE_IMAGE_EXTENSIONS, isSafeUpload } = require("../utils/fileTypeValidation");
 
 // ==========================================
 // STORAGE CONFIGURATION
@@ -59,8 +60,11 @@ const fileFilter = (
   ];
 
   if (
-    allowedMimeTypes.includes(
-      file.mimetype
+    // Phase 14L -- mimetype AND extension must both be safe.
+    isSafeUpload(
+      file,
+      allowedMimeTypes,
+      SAFE_IMAGE_EXTENSIONS
     )
   ) {
     callback(

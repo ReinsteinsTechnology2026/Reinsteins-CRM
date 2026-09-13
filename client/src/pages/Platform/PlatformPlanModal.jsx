@@ -30,6 +30,15 @@ function PlatformPlanModal({ plan, onClose, onSaved }) {
   const [storageLimitMb, setStorageLimitMb] = useState(
     plan?.storageLimitMb === null || plan?.storageLimitMb === undefined ? "" : String(plan.storageLimitMb)
   );
+  const [monthlyPrice, setMonthlyPrice] = useState(
+    plan?.monthlyPrice === null || plan?.monthlyPrice === undefined ? "" : String(plan.monthlyPrice)
+  );
+  const [yearlyPrice, setYearlyPrice] = useState(
+    plan?.yearlyPrice === null || plan?.yearlyPrice === undefined ? "" : String(plan.yearlyPrice)
+  );
+  const [trialDurationDays, setTrialDurationDays] = useState(
+    plan?.trialDurationDays === null || plan?.trialDurationDays === undefined ? "" : String(plan.trialDurationDays)
+  );
   const [featuresText, setFeaturesText] = useState(
     JSON.stringify(plan?.features || {}, null, 2)
   );
@@ -67,6 +76,9 @@ function PlatformPlanModal({ plan, onClose, onSaved }) {
       description: description.trim() || undefined,
       employeeLimit: employeeLimit.trim() === "" ? undefined : Number(employeeLimit),
       storageLimitMb: storageLimitMb.trim() === "" ? undefined : Number(storageLimitMb),
+      monthlyPrice: monthlyPrice.trim() === "" ? undefined : Number(monthlyPrice),
+      yearlyPrice: yearlyPrice.trim() === "" ? undefined : Number(yearlyPrice),
+      trialDurationDays: trialDurationDays.trim() === "" ? undefined : Number(trialDurationDays),
       features,
     };
 
@@ -165,6 +177,48 @@ function PlatformPlanModal({ plan, onClose, onSaved }) {
                 placeholder="Leave blank for unlimited"
                 value={storageLimitMb}
                 onChange={(event) => setStorageLimitMb(event.target.value)}
+              />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div className="platform-form-group">
+                <label htmlFor="plan-monthly-price">Monthly Price ($)</label>
+                <input
+                  id="plan-monthly-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Not set"
+                  value={monthlyPrice}
+                  onChange={(event) => setMonthlyPrice(event.target.value)}
+                />
+              </div>
+              <div className="platform-form-group">
+                <label htmlFor="plan-yearly-price">Yearly Price ($)</label>
+                <input
+                  id="plan-yearly-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Not set"
+                  value={yearlyPrice}
+                  onChange={(event) => setYearlyPrice(event.target.value)}
+                />
+              </div>
+            </div>
+            <p className="platform-form-hint" style={{ marginTop: -8, marginBottom: 16 }}>
+              No payment gateway is connected -- these are informational only, for the Platform Owner's own reference and future billing integration.
+            </p>
+
+            <div className="platform-form-group">
+              <label htmlFor="plan-trial-duration">Trial Duration (days)</label>
+              <input
+                id="plan-trial-duration"
+                type="number"
+                min="0"
+                placeholder="Not set"
+                value={trialDurationDays}
+                onChange={(event) => setTrialDurationDays(event.target.value)}
               />
             </div>
 
