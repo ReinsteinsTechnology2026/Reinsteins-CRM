@@ -173,6 +173,17 @@ async function apiGet(path, token) {
     check("10b. Tenant JWT (new) rejected by EXISTING Reinsteins-protected route -> 401",
         tenantOnLegacyTenantRoute.status === 401, `got ${tenantOnLegacyTenantRoute.status}`);
 
+    // ---------- STEP 10c: login response includes fullName ----------
+    // Phase 17, item 1 -- "Welcome back, Employee"/"Welcome back,
+    // Administrator" always showed the generic fallback in production
+    // because this response used the key "name" while
+    // EmployeeHeader.jsx/AdminHeader.jsx (and the legacy
+    // /api/auth/login response they were originally written against)
+    // read `user?.fullName`. Fixed by adding fullName here alongside
+    // the pre-existing name key; this locks that in.
+    console.log("\nSTEP 10c -- Tenant login response includes fullName (Phase 17 regression)");
+    check("10c. login response user.fullName matches full_name", loginA.body?.user?.fullName === "Admin A", JSON.stringify(loginA.body?.user));
+
     // ---------- STEP 11/12: response never leaks sensitive data ----------
     console.log("\nSTEP 11/12 -- No password/credential leakage");
     check("11. login response has no password field", loginA.body?.user && !("password" in loginA.body.user) && !("passwordHash" in loginA.body.user));

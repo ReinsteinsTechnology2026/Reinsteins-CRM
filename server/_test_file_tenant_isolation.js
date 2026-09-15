@@ -125,6 +125,53 @@ async function uploadFile(pathname, fieldName, token) {
     const uploadB = await uploadFile("/api/employees/profile/photo", "profilePhoto", tokenB);
     check("SETUP: Tenant B also uploads its own file", uploadB.status === 200);
 
+    // ---------- A2: client/src/services/api.js's default
+    // "Content-Type: application/json" header regression (Phase 17,
+    // item 2 -- "Please select a profile photo" in production).
+    //
+    // axios 1.x only lets a FormData body through unmodified when the
+    // request's resolved Content-Type does NOT already say
+    // "application/json" (see node_modules/axios/lib/defaults/index.js
+    // transformRequest: `hasJSONContentType ? JSON.stringify(...) :
+    // data`). The shared `api` axios instance sets that header as an
+    // instance default for every request, so any call site that skips
+    // the same per-request { headers: { "Content-Type":
+    // "multipart/form-data" } } override already used by every OTHER
+    // FormData upload in this codebase (Chat.jsx, meetingService.js,
+    // taskActivityService.js) never even sends the file as multipart
+    // bytes -- axios itself JSON.stringifies the FormData wrapper
+    // (which drops the actual File payload) and sends THAT as a plain
+    // JSON body, still labeled Content-Type: application/json. Multer
+    // sees a non-multipart Content-Type and leaves req.file untouched,
+    // so this controller correctly (but misleadingly, from the end
+    // user's perspective) reports "Please select a profile photo" even
+    // though a real file was chosen.
+    // client/src/pages/Employee/EmployeeProfile.jsx's handlePhotoChange
+    // was the one FormData upload site missing this override; fixed by
+    // adding it there. Note: this reproduces what axios ACTUALLY put on
+    // the wire (a plain JSON body, not a mislabeled multipart body) --
+    // real browsers let XHR/fetch regenerate a FormData body's
+    // Content-Type (boundary included) even after `setRequestHeader`,
+    // which Node's own fetch (used by this script) does not replicate,
+    // so the "fixed" side of this regression is already covered by
+    // TEST A above (uploadFile() succeeding end-to-end with a real
+    // multipart request) rather than re-tested here.
+    console.log("\nTEST A2 -- profile photo upload reproduces the axios default-Content-Type regression");
+    const brokenUpload = await fetch(`${BASE_URL}/api/employees/profile/photo`, {
+        method: "POST",
+        // Exactly what axios's transformRequest sends when the shared
+        // `api` instance's default Content-Type wins over a FormData
+        // body: a JSON-stringified husk of the form, not real bytes.
+        headers: { Authorization: `Bearer ${tokenA}`, "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+    });
+    const brokenBody = await brokenUpload.json().catch(() => null);
+    check(
+        "A2. A JSON-Content-Type request with no real file (what the pre-fix frontend actually sent) reproduces the reported bug (400, 'Please select a profile photo')",
+        brokenUpload.status === 400 && brokenBody?.message === "Please select a profile photo",
+        JSON.stringify(brokenBody)
+    );
+
     // ---------- B: Tenant A can access its own file ----------
     console.log("\nTEST B -- Tenant A can access its own file");
     const profileA = await apiGet("/api/employees/profile/me", tokenA);

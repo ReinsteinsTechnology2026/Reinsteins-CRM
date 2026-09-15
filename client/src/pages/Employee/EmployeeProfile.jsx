@@ -463,7 +463,13 @@ function EmployeeProfile() {
         const response =
           await api.post(
             "/employees/profile/photo",
-            uploadData
+            uploadData,
+            {
+              headers: {
+                "Content-Type":
+                  "multipart/form-data",
+              },
+            }
           );
 
         updateProfileState(

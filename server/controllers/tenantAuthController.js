@@ -147,6 +147,7 @@ const login = async (req, res) => {
             user: {
                 id: user.id,
                 name: user.full_name,
+                fullName: user.full_name,
                 employeeId: user.employee_id,
                 role: user.role,
             },
