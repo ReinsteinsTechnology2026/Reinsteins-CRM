@@ -49,7 +49,7 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
   // company-aware tenant users (see AdminSidebar.jsx for the same
   // fix and full reasoning).
   const { companySlug } = useParams();
-  const basePath = companySlug ? `/${companySlug}/employee` : basePath;
+  const basePath = companySlug ? `/${companySlug}/employee` : "/employee";
 
   // ==========================================
   // MOBILE/TABLET DRAWER — FOCUS ON OPEN

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import {
     FaVideo,
@@ -69,6 +69,8 @@ function formatTimeRange(meeting) {
 function MeetingsList() {
 
     const navigate = useNavigate();
+
+    const { companySlug } = useParams();
 
     const currentUser = getCurrentUser();
 
@@ -145,7 +147,13 @@ function MeetingsList() {
 
     }, [meetings]);
 
-    const basePath = isAdmin ? "/admin" : "/employee";
+    // Company-aware tenant users are rendered under
+    // "/:companySlug/admin"/"/:companySlug/employee" -- navigating to
+    // the unprefixed path would take them off that route tree.
+    // Reinsteins (no companySlug) keeps the existing unprefixed path.
+    const basePath = companySlug
+        ? `/${companySlug}/${isAdmin ? "admin" : "employee"}`
+        : isAdmin ? "/admin" : "/employee";
 
     function isHost(meeting) {
         return Number(meeting.host_id) === Number(currentUser?.id);

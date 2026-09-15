@@ -903,11 +903,15 @@ function AdminReports() {
       const pending =
         reportData.filter(
           (leave) =>
-            String(
-              leave.status ||
-                ""
-            ).toLowerCase() ===
-            "pending"
+            [
+              "pending_manager",
+              "pending_final",
+            ].includes(
+              String(
+                leave.status ||
+                  ""
+              ).toLowerCase()
+            )
         ).length;
 
       const approved =
@@ -923,11 +927,15 @@ function AdminReports() {
       const rejected =
         reportData.filter(
           (leave) =>
-            String(
-              leave.status ||
-                ""
-            ).toLowerCase() ===
-            "rejected"
+            [
+              "rejected",
+              "manager_rejected",
+            ].includes(
+              String(
+                leave.status ||
+                  ""
+              ).toLowerCase()
+            )
         ).length;
 
       return {

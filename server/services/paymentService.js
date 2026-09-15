@@ -306,7 +306,7 @@ const getPaymentStats = async () => {
     // as pending today and marked paid next month counts toward the
     // month it was actually paid).
     const [monthlyRows] = await platformPool.query(
-        `SELECT DATE_FORMAT(paid_at, '%Y-%m') AS month, COALESCE(SUM(amount), 0) AS total
+        `SELECT TO_CHAR(paid_at, 'YYYY-MM') AS month, COALESCE(SUM(amount), 0) AS total
          FROM payments WHERE payment_status = 'paid' AND paid_at IS NOT NULL
          GROUP BY month ORDER BY month ASC`
     );

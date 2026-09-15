@@ -184,7 +184,7 @@ const updateProject = async (req, res) => {
             });
         }
 
-        await updateProjectService(req.params.id, req.body);
+        await updateProjectService(req.params.id, req.body, req.user.id);
 
         return res.json({
             success: true,
