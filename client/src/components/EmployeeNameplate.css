@@ -1,0 +1,45 @@
+/* ==========================================
+   EMPLOYEE NAMEPLATE
+   Shared name + designation stacked display.
+   See EmployeeNameplate.jsx for usage.
+========================================== */
+
+.employee-nameplate {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+    min-width: 0;
+}
+
+.employee-nameplate-name {
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.employee-nameplate-designation {
+    font-size: 0.8em;
+    font-weight: 400;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.employee-nameplate-sm .employee-nameplate-name {
+    font-size: 0.9rem;
+}
+
+.employee-nameplate-sm .employee-nameplate-designation {
+    font-size: 0.75rem;
+}
+
+.employee-nameplate-md .employee-nameplate-name {
+    font-size: 1rem;
+}
+
+.employee-nameplate-lg .employee-nameplate-name {
+    font-size: 1.15rem;
+}

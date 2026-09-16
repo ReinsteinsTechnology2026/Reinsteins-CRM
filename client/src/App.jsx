@@ -30,6 +30,7 @@ import AdminLayout from "./components/Layout/AdminLayout";
 import AdminHome from "./pages/Admin/AdminHome";
 import Employees from "./pages/Admin/Employees";
 import AdminAttendance from "./pages/Admin/AdminAttendance";
+import AdminShiftManagement from "./pages/Admin/AdminShiftManagement";
 import AdminLeave from "./pages/Admin/AdminLeave";
 import AdminReports from "./pages/Admin/AdminReports";
 import AdminSettings from "./pages/Admin/AdminSettings";
@@ -45,9 +46,11 @@ import EmployeeLayout from "./components/Layout/EmployeeLayout";
 
 import EmployeeHome from "./pages/Employee/EmployeeHome";
 import EmployeeAttendance from "./pages/Employee/EmployeeAttendance";
+import EmployeeShiftSchedule from "./pages/Employee/EmployeeShiftSchedule";
 import EmployeeLeave from "./pages/Employee/EmployeeLeave";
 import EmployeeProfile from "./pages/Employee/EmployeeProfile";
 import EmployeeSettings from "./pages/Employee/EmployeeSettings";
+import EmployeeEmail from "./pages/Employee/EmployeeEmail";
 import MyTeam from "./pages/Employee/MyTeam";
 import MyReportingManager from "./pages/Employee/MyReportingManager";
 import TeamLeaveApprovals from "./pages/Employee/TeamLeaveApprovals";
@@ -149,6 +152,7 @@ import PortalLogin from "./pages/Public/PortalLogin";
 const ADMIN_ROUTES = [
   { path: "employees", Component: Employees },
   { path: "attendance", Component: AdminAttendance },
+  { path: "shift-management", Component: AdminShiftManagement },
   { path: "tasks", Component: AdminTasksList },
   { path: "task-workspace/:taskId", Component: TaskWorkspace },
   { path: "projects", Component: ProjectsList },
@@ -169,11 +173,13 @@ const ADMIN_ROUTES = [
 
 const EMPLOYEE_ROUTES = [
   { path: "attendance", Component: EmployeeAttendance },
+  { path: "shift-schedule", Component: EmployeeShiftSchedule },
   { path: "tasks", Component: EmployeeTasks },
   { path: "task-workspace/:taskId", Component: TaskWorkspace },
   { path: "leave", Component: EmployeeLeave },
   { path: "profile", Component: EmployeeProfile },
   { path: "chat", Component: Chat },
+  { path: "email", Component: EmployeeEmail },
   { path: "meetings", Component: MeetingsList },
   { path: "meetings/:id", Component: MeetingDetails },
   { path: "meetings/:id/room", Component: MeetingLobby },

@@ -1,0 +1,140 @@
+/* ==========================================
+   ADMIN SHIFT MANAGEMENT
+   Reuses .shift-schedule-header / .shift-schedule-week-nav /
+   .shift-week-nav-button / .shift-week-range / .shift-schedule-card /
+   .shift-schedule-loading / .shift-schedule-error /
+   .shift-schedule-empty / .shift-table* / .shift-cell* /
+   .shift-cell-editable / .shift-row-self / .shift-form-time-row /
+   .shift-delete-button / .shift-form-actions-right already defined in
+   EmployeeShiftSchedule.css (globally bundled, same convention
+   Organization.css already uses to reuse Employees.css's modal
+   classes) -- both the employee self-service modal and this page's
+   admin-override modal share that one definition. Only admin-specific
+   additions live here.
+
+   Modal chrome (.employee-modal-overlay / .employee-modal /
+   .employee-form-group / .cancel-employee-button /
+   .save-employee-button) is reused from Employees.css unchanged, same
+   as every other admin CRUD page.
+========================================== */
+
+.shift-secondary-button{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:var(--card-light);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    padding:9px 16px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background 0.15s ease;
+}
+
+.shift-secondary-button:hover{
+    background:var(--hover);
+}
+
+.shift-secondary-button:disabled,
+.shift-override-button:disabled{
+    opacity:0.6;
+    cursor:not-allowed;
+}
+
+/* ---------- ADMINISTRATIVE OVERRIDE ----------
+   Deliberately warning-toned and visually separate from the rest of
+   the page -- this is the one place an Admin/Super Admin can act on
+   another employee's schedule, and it should never look like a normal
+   part of the everyday self-service flow. */
+
+.shift-override-panel{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:16px;
+    flex-wrap:wrap;
+    background:var(--warning-light);
+    border:1px solid var(--warning);
+    border-radius:var(--radius);
+    padding:14px 18px;
+    margin-bottom:16px;
+}
+
+.shift-override-panel-text{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    color:var(--text);
+}
+
+.shift-override-panel-text svg{
+    color:var(--warning);
+    font-size:18px;
+    margin-top:2px;
+    flex-shrink:0;
+}
+
+.shift-override-panel-text strong{
+    display:block;
+    font-size:14px;
+    margin-bottom:2px;
+}
+
+.shift-override-panel-text p{
+    margin:0;
+    font-size:12px;
+    color:var(--text-secondary);
+}
+
+.shift-override-panel-actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.shift-override-button{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:var(--warning);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:9px 16px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:opacity 0.15s ease;
+}
+
+.shift-override-button:hover{
+    opacity:0.9;
+}
+
+.shift-override-modal .employee-modal-header h2{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:var(--warning);
+}
+
+@media (max-width: 768px){
+
+    .shift-schedule-header{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:12px;
+    }
+
+    .shift-override-panel{
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .shift-override-panel-actions{
+        flex-direction:column;
+    }
+
+}

@@ -99,7 +99,7 @@ const login = async (req, res) => {
         // authController.js login -- just run against the resolved
         // tenant pool instead of the fixed Reinsteins pool.
         const [users] = await tenantPool.query(
-            `SELECT id, employee_id, full_name, email, password, role, status, employment_status, system_access
+            `SELECT id, employee_id, full_name, email, password, role, status, employment_status, system_access, designation
              FROM users WHERE employee_id = ? LIMIT 1`,
             [employeeId]
         );
@@ -150,6 +150,8 @@ const login = async (req, res) => {
                 fullName: user.full_name,
                 employeeId: user.employee_id,
                 role: user.role,
+                systemAccess: user.system_access,
+                designation: user.designation || null,
             },
             company: {
                 id: company.id,

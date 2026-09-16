@@ -676,6 +676,12 @@ function EmployeeHeader({ mobileNavOpen, onOpenMobileNav }) {
               "Employee"}
           </p>
 
+          {user?.designation ? (
+            <span className="employee-header-designation">
+              {user.designation}
+            </span>
+          ) : null}
+
         </div>
 
       </div>

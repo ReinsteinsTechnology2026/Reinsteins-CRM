@@ -15,6 +15,7 @@ import {
   FaChartPie,
   FaUsers,
   FaCalendarCheck,
+  FaCalendarWeek,
   FaTasks,
   FaCalendarAlt,
   FaChartBar,
@@ -497,6 +498,30 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
 
           <span className="admin-sidebar-menu-name">
             Attendance
+          </span>
+        </button>
+
+        {/* SHIFT MANAGEMENT */}
+
+        <button
+          type="button"
+          className={`sidebar-item ${
+            isActive(
+              `${basePath}/shift-management`
+            )
+              ? "active"
+              : ""
+          }`}
+          onClick={() =>
+            handleNavigate(
+              `${basePath}/shift-management`
+            )
+          }
+        >
+          <FaCalendarWeek />
+
+          <span className="admin-sidebar-menu-name">
+            Shift Management
           </span>
         </button>
 

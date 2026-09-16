@@ -16,10 +16,12 @@ import {
 import {
   FaHome,
   FaCalendarCheck,
+  FaCalendarWeek,
   FaTasks,
   FaCalendarAlt,
   FaUser,
   FaComments,
+  FaEnvelope,
   FaVideo,
   FaCog,
   FaChevronLeft,
@@ -362,6 +364,11 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
       showBadge: true,
     },
     {
+      name: "Email",
+      icon: <FaEnvelope />,
+      path: `${basePath}/email`,
+    },
+    {
       name: "Meetings",
       icon: <FaVideo />,
       path: `${basePath}/meetings`,
@@ -389,6 +396,12 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
       icon: <FaCalendarCheck />,
       path:
         `${basePath}/attendance`,
+    },
+    {
+      name: "Shift Schedule",
+      icon: <FaCalendarWeek />,
+      path:
+        `${basePath}/shift-schedule`,
     },
     {
       name: "My Tasks",
@@ -443,6 +456,12 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
       path:
         `${basePath}/chat`,
       showBadge: true,
+    },
+    {
+      name: "Email",
+      icon: <FaEnvelope />,
+      path:
+        `${basePath}/email`,
     },
     {
       name: "Meetings",

@@ -84,6 +84,10 @@ const attendanceRoutes = require(
   "./routes/attendanceRoutes"
 );
 
+const shiftScheduleRoutes = require(
+  "./routes/shiftScheduleRoutes"
+);
+
 const taskRoutes = require(
   "./routes/taskRoutes"
 );
@@ -194,6 +198,14 @@ const platformNotificationRoutes = require(
 );
 const platformEmailRoutes = require(
   "./routes/platformEmailRoutes"
+);
+// ZioVenture multi-tenant business email (Phase 16A) -- tenantProtect
+// on every route, entirely separate from platformEmailRoutes above
+// (that one is the Platform Owner's SMTP status/retry surface for
+// ZioVenture's OWN system email; this one is customer-owned business
+// domains/mailboxes). See routes/tenantEmailRoutes.js.
+const tenantEmailRoutes = require(
+  "./routes/tenantEmailRoutes"
 );
 
 const meetingService = require(
@@ -2200,7 +2212,12 @@ app.use(
   attendanceRoutes
 );
 
+// SHIFT SCHEDULE
 
+app.use(
+  "/api/shifts",
+  shiftScheduleRoutes
+);
 
 // LEAVE
 
@@ -2288,6 +2305,11 @@ app.use(
 app.use(
   "/api/tenant-auth",
   tenantAuthRoutes
+);
+
+app.use(
+  "/api/email",
+  tenantEmailRoutes
 );
 
 // ==========================================

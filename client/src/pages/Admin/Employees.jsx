@@ -2791,6 +2791,7 @@ function Employees() {
                     <option value="department_head">Department Head</option>
                     <option value="hr">HR</option>
                     <option value="executive">Executive</option>
+                    <option value="admin">Admin</option>
                     {currentUser?.systemAccess === "super_admin" && (
                       <option value="super_admin">Super Admin</option>
                     )}
@@ -5183,6 +5184,7 @@ function Employees() {
                     <option value="department_head">Department Head</option>
                     <option value="hr">HR</option>
                     <option value="executive">Executive</option>
+                    <option value="admin">Admin</option>
                     {currentUser?.systemAccess === "super_admin" && (
                       <option value="super_admin">Super Admin</option>
                     )}

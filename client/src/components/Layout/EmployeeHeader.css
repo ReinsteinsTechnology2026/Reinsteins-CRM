@@ -92,6 +92,14 @@
   font-size:13px;
 }
 
+.employee-header-designation{
+  display:block;
+  margin-top:2px;
+  color:var(--text-muted);
+  font-size:12px;
+  font-weight:500;
+}
+
 /* ==========================================
    RIGHT SIDE
 ========================================== */

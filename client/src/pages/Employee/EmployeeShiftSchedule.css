@@ -1,0 +1,306 @@
+/* ==========================================
+   EMPLOYEE SHIFT SCHEDULE
+   Reuses the shared page/card/table token set already established
+   across Organization.css / EmployeeAttendance.css -- only
+   page-specific classes are defined here.
+========================================== */
+
+.shift-schedule-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:20px;
+}
+
+.shift-schedule-header h2{
+    margin:0;
+    color:var(--text);
+    font-size:22px;
+    font-weight:700;
+}
+
+.shift-schedule-header p{
+    margin:4px 0 0;
+    color:var(--text-secondary);
+    font-size:13px;
+}
+
+.shift-schedule-week-nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:12px 16px;
+    margin-bottom:16px;
+    flex-wrap:wrap;
+}
+
+.shift-week-nav-button{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:var(--card-light);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    font-size:13px;
+    font-weight:600;
+    padding:8px 14px;
+    cursor:pointer;
+    transition:background 0.15s ease;
+}
+
+.shift-week-nav-button:hover{
+    background:var(--hover);
+}
+
+.shift-week-range{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    color:var(--text);
+    font-weight:600;
+    font-size:14px;
+}
+
+.shift-schedule-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+}
+
+.shift-schedule-loading,
+.shift-schedule-error{
+    padding:40px 20px;
+    text-align:center;
+    color:var(--text-secondary);
+}
+
+.shift-schedule-error{
+    color:var(--danger);
+}
+
+.shift-schedule-empty{
+    padding:50px 20px;
+    text-align:center;
+    color:var(--text-secondary);
+}
+
+.shift-schedule-empty svg{
+    font-size:28px;
+    color:var(--text-muted);
+    margin-bottom:10px;
+}
+
+.shift-schedule-empty h3{
+    margin:0 0 6px;
+    color:var(--text);
+    font-size:16px;
+}
+
+.shift-schedule-empty p{
+    margin:0;
+    font-size:13px;
+}
+
+/* ---------- DESKTOP TABLE ---------- */
+
+.shift-table-wrapper{
+    overflow-x:auto;
+}
+
+.shift-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.shift-table th,
+.shift-table td{
+    padding:12px 14px;
+    text-align:left;
+    border-bottom:1px solid var(--border);
+    white-space:nowrap;
+}
+
+.shift-table thead th{
+    background:var(--card-light);
+    color:var(--text-secondary);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+}
+
+.shift-table-date{
+    display:block;
+    font-size:11px;
+    font-weight:400;
+    text-transform:none;
+    color:var(--text-muted);
+    margin-top:2px;
+}
+
+.shift-table tbody tr:last-child td{
+    border-bottom:none;
+}
+
+.shift-cell{
+    font-size:13px;
+    font-weight:600;
+}
+
+.shift-cell-working{
+    color:var(--primary-dark);
+}
+
+.shift-cell-off{
+    color:var(--text-muted);
+}
+
+.shift-cell-leave{
+    color:var(--danger);
+}
+
+.shift-cell-empty{
+    color:var(--text-muted);
+    font-weight:400;
+}
+
+.shift-cell-editable{
+    cursor:pointer;
+    transition:background 0.12s ease;
+}
+
+.shift-cell-editable:hover{
+    background:var(--hover);
+}
+
+.shift-row-self{
+    background:var(--hover);
+}
+
+.shift-row-self td:first-child{
+    border-left:3px solid var(--primary);
+}
+
+/* ---------- SHARED FORM (used by both the employee self-service
+   modal and the admin override modal) ---------- */
+
+.shift-form-time-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+}
+
+.shift-delete-button{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:var(--danger-light);
+    color:var(--danger);
+    border:1px solid var(--danger-light);
+    border-radius:10px;
+    padding:9px 16px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.shift-delete-button:hover{
+    opacity:0.85;
+}
+
+.shift-delete-button:disabled{
+    opacity:0.6;
+    cursor:not-allowed;
+}
+
+.employee-modal-actions{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.shift-form-actions-right{
+    display:flex;
+    gap:10px;
+}
+
+/* ---------- MOBILE CARDS ---------- */
+
+.shift-cards-mobile{
+    display:none;
+}
+
+.shift-employee-card{
+    padding:16px;
+    border-bottom:1px solid var(--border);
+}
+
+.shift-employee-card:last-child{
+    border-bottom:none;
+}
+
+.shift-employee-card-days{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:8px;
+    margin-top:12px;
+}
+
+.shift-employee-card-day{
+    display:flex;
+    flex-direction:column;
+    background:var(--card-light);
+    border-radius:10px;
+    padding:8px 10px;
+}
+
+.shift-row-self .shift-employee-card-day{
+    cursor:pointer;
+}
+
+.shift-employee-card-day-label{
+    font-size:11px;
+    color:var(--text-muted);
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+}
+
+.shift-day-badge{
+    font-size:13px;
+    font-weight:600;
+    margin-top:2px;
+}
+
+/* ---------- RESPONSIVE SWITCH ---------- */
+
+@media (max-width: 768px){
+
+    .shift-desktop-only{
+        display:none;
+    }
+
+    .shift-cards-mobile{
+        display:block;
+    }
+
+    .shift-schedule-week-nav{
+        flex-direction:column;
+        align-items:stretch;
+        text-align:center;
+    }
+
+    .shift-week-nav-button{
+        justify-content:center;
+    }
+
+    .shift-form-time-row{
+        grid-template-columns:1fr;
+    }
+
+}
