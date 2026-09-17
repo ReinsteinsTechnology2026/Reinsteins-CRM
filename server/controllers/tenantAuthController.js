@@ -53,6 +53,14 @@ const login = async (req, res) => {
             return res.status(400).json({ success: false, message: "Employee ID and password are required." });
         }
 
+        // Phase 17c: the same submitted value is accepted as EITHER an
+        // employee ID (e.g. "RS001") OR a company email address (e.g.
+        // "shafiqmohammed@reinsteins.com") -- the request body field is
+        // deliberately left named `employeeId` (no wire-format change)
+        // since it is just a string identifier either way; only the
+        // lookup below is widened.
+        const loginIdentifier = String(employeeId).trim();
+
         // ---------- Resolve company -> tenant database ----------
         const company = await platformCompanyService.getCompanyBySlug(companySlug);
 
@@ -100,8 +108,8 @@ const login = async (req, res) => {
         // tenant pool instead of the fixed Reinsteins pool.
         const [users] = await tenantPool.query(
             `SELECT id, employee_id, full_name, email, password, role, status, employment_status, system_access, designation
-             FROM users WHERE employee_id = ? LIMIT 1`,
-            [employeeId]
+             FROM users WHERE employee_id = ? OR LOWER(email) = LOWER(?) LIMIT 1`,
+            [loginIdentifier, loginIdentifier]
         );
 
         if (users.length === 0) {

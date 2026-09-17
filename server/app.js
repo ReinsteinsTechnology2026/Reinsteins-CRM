@@ -88,6 +88,10 @@ const shiftScheduleRoutes = require(
   "./routes/shiftScheduleRoutes"
 );
 
+const sopRoutes = require(
+  "./routes/sopRoutes"
+);
+
 const taskRoutes = require(
   "./routes/taskRoutes"
 );
@@ -2217,6 +2221,13 @@ app.use(
 app.use(
   "/api/shifts",
   shiftScheduleRoutes
+);
+
+// SOP LIBRARY
+
+app.use(
+  "/api/sops",
+  sopRoutes
 );
 
 // LEAVE

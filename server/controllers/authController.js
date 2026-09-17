@@ -24,6 +24,12 @@ const login = async (req, res) => {
       });
     }
 
+    // Phase 17c: accepts the same submitted value as either an
+    // employee ID or a company email address, same widening as
+    // tenantAuthController.js's login.
+    const loginIdentifier =
+      String(employeeId).trim();
+
     const [users] =
       await pool.query(
         `
@@ -40,11 +46,12 @@ const login = async (req, res) => {
           system_access,
           project_access_override
         FROM users
-        WHERE employee_id = ?
+        WHERE employee_id = ? OR LOWER(email) = LOWER(?)
         LIMIT 1
         `,
         [
-          employeeId,
+          loginIdentifier,
+          loginIdentifier,
         ]
       );
 

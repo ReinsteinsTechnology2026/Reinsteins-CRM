@@ -49,6 +49,13 @@ const SAFE_DOCUMENT_EXTENSIONS = new Set([
 
 const SAFE_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
+// Phase 17c -- SOP library allow-list: PDF/DOC/DOCX plus the same
+// image types as SAFE_IMAGE_EXTENSIONS (a scanned/photographed SOP is
+// a legitimate upload), explicitly narrower than
+// SAFE_DOCUMENT_EXTENSIONS (no xls/xlsx/ppt/pptx/txt/zip/rar/gif) per
+// the feature's own explicit allow-list.
+const SAFE_SOP_EXTENSIONS = new Set([".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".webp"]);
+
 function isSafeExtension(originalName, allowedExtensions) {
     const extension = path.extname(originalName || "").toLowerCase();
     return allowedExtensions.has(extension);
@@ -64,6 +71,7 @@ function isSafeUpload(file, mimetypeAllowList, extensionAllowList) {
 module.exports = {
     SAFE_DOCUMENT_EXTENSIONS,
     SAFE_IMAGE_EXTENSIONS,
+    SAFE_SOP_EXTENSIONS,
     isSafeExtension,
     isSafeUpload,
 };

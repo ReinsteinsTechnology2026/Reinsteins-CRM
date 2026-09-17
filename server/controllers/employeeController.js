@@ -12,6 +12,11 @@ const {
   recordOrganizationHistory,
 } = require("../services/organizationService");
 
+const {
+  getVerifiedCompanyDomain,
+  generateUniqueCompanyEmail,
+} = require("../utils/employeeEmailGenerator");
+
 // ==========================================
 // MANAGER-EXIT SAFETY CHECK
 // Before resigning/terminating/completing/
@@ -75,12 +80,30 @@ const {
 
 async function generateNextIdentifier(prefix) {
 
+  // Phase 17c discovery -- the SUBSTRING start-position parameter
+  // (prefix.length + 1) MUST be explicitly cast (::integer). Left
+  // untyped, PostgreSQL's extended-query-protocol parameter type
+  // inference resolves it to something other than integer for this
+  // specific "SUBSTRING(col, $n)" shape, which silently produces the
+  // WRONG sort order for `ORDER BY CAST(SUBSTRING(...) AS INTEGER)
+  // DESC` as soon as 2+ rows match -- confirmed directly: the exact
+  // same query with a LITERAL start position (or this explicit cast)
+  // correctly returns the highest id; without it, it returned the
+  // SECOND-highest every time, so every "next id" this function
+  // generated was already taken, and (since it deterministically
+  // recomputes the SAME wrong value on every retry) the existing
+  // retry-on-23505 loop in createEmployee/convertInternToEmployee
+  // could never actually recover -- it would exhaust its attempts
+  // and fail outright the moment 2+ ids with the same prefix existed.
+  // This was latent in the query since the MySQL->PostgreSQL
+  // migration (MySQL's driver does not have this parameter-typing
+  // behavior) and had nothing to do with concurrency.
   const [rows] = await pool.query(
     `
     SELECT employee_id
     FROM users
     WHERE employee_id ~ ?
-    ORDER BY CAST(SUBSTRING(employee_id, ?) AS INTEGER) DESC
+    ORDER BY CAST(SUBSTRING(employee_id, ?::integer) AS INTEGER) DESC
     LIMIT 1
     `,
     [
@@ -162,6 +185,40 @@ const getNextInternId = async (req, res) => {
       success: false,
       message:
         "Unable to generate the next intern ID",
+    });
+  }
+};
+
+// ==========================================
+// GET COMPANY EMAIL DOMAIN (PREVIEW) - ADMIN
+//
+// Display-only, for the Add Employee modal to build a live
+// "name -> local-part@domain" preview client-side as the Admin
+// types, without an API call per keystroke -- mirrors
+// getNextEmployeeId's own "fetch once when the modal opens" pattern
+// above. Returns domain: null (not an error) when the company has no
+// verified, active email domain yet -- the frontend is expected to
+// show that state explicitly rather than guess a domain.
+// ==========================================
+
+const getCompanyEmailDomain = async (req, res) => {
+  try {
+    const domain = await getVerifiedCompanyDomain(req.tenantCompany?.id);
+
+    return res.status(200).json({
+      success: true,
+      domain,
+    });
+  } catch (error) {
+    console.error(
+      "Get Company Email Domain Error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Unable to look up the company email domain",
     });
   }
 };
@@ -251,7 +308,6 @@ const createEmployee = async (req, res) => {
   try {
     const {
       fullName,
-      email,
       designation,
       password,
       employmentType,
@@ -321,9 +377,15 @@ const createEmployee = async (req, res) => {
     const cleanedNotes =
       notes?.trim() || null;
 
-    const cleanedEmail =
-      email?.trim().toLowerCase() ||
-      null;
+    // Company email is always server-generated from the employee's
+    // name + the company's own verified email domain (Phase 17c) --
+    // never taken from req.body, exactly like employee_id above.
+    // req.tenantCompany is set by tenantProtect for a company-scoped
+    // tenant-JWT request; it is undefined for the legacy, unprefixed
+    // Reinsteins login path (which predates the multi-tenant company
+    // model), so that path simply gets no auto-generated email,
+    // preserving its existing behavior untouched.
+    const companyDomain = await getVerifiedCompanyDomain(req.tenantCompany?.id);
 
     // ======================================
     // VALIDATE MENTOR (interns only — a simple
@@ -412,53 +474,11 @@ const createEmployee = async (req, res) => {
 
     }
 
-    // ======================================
-    // VALIDATE EMAIL
-    // ======================================
-
-    if (cleanedEmail) {
-      const emailPattern =
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-      if (
-        !emailPattern.test(
-          cleanedEmail
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Please enter a valid email address",
-        });
-      }
-    }
-
-    // ======================================
-    // CHECK EMAIL
-    // ======================================
-
-    if (cleanedEmail) {
-      const [existingEmail] =
-        await pool.query(
-          `
-          SELECT id
-          FROM users
-          WHERE LOWER(email) = ?
-          LIMIT 1
-          `,
-          [cleanedEmail]
-        );
-
-      if (
-        existingEmail.length > 0
-      ) {
-        return res.status(409).json({
-          success: false,
-          message:
-            "Email address already exists",
-        });
-      }
-    }
+    // Email format/duplicate validation no longer applies here --
+    // the address is always server-generated (below, inside the same
+    // retry loop that already handles employee_id collisions) rather
+    // than taken from client input, so it is well-formed and
+    // pre-checked for uniqueness by construction.
 
     // ======================================
     // HASH PASSWORD
@@ -473,24 +493,23 @@ const createEmployee = async (req, res) => {
     // ======================================
     // CREATE EMPLOYEE
     //
-    // employee_id has a UNIQUE index (confirmed
-    // on the live schema), so this is safe under
-    // concurrent creation: if two requests race
-    // and both compute the same "next" ID, only
-    // one INSERT succeeds — the loser catches
-    // PostgreSQL's 23505 unique-violation on the
-    // "employee_id" constraint specifically,
-    // recomputes the next ID (now accounting for
-    // the row that just won), and retries. A
-    // duplicate on the email column is a real
-    // validation error, not a race to retry, so
-    // it is re-thrown as-is.
+    // employee_id AND email both have UNIQUE indexes (confirmed on
+    // the live schema), so this loop is safe under concurrent
+    // creation for both: if two requests race and compute the same
+    // "next" employee_id, or the same generated email (e.g. two
+    // "John Smith"s created in the same instant), only one INSERT
+    // per colliding value wins — the loser catches PostgreSQL's
+    // 23505 unique-violation on whichever specific constraint fired,
+    // recomputes JUST that value (now accounting for the row that
+    // just won), and retries. A genuinely unrelated DB error is
+    // re-thrown as-is, not retried.
     // ======================================
 
     const MAX_ID_ATTEMPTS = 5;
 
     let insertResult = null;
     let finalEmployeeId = null;
+    let finalEmail = null;
 
     for (
       let attempt = 0;
@@ -502,6 +521,8 @@ const createEmployee = async (req, res) => {
         isIntern
           ? await generateNextInternId()
           : await generateNextEmployeeId();
+
+      finalEmail = await generateUniqueCompanyEmail(pool, fullName.trim(), companyDomain);
 
       try {
 
@@ -551,7 +572,7 @@ const createEmployee = async (req, res) => {
             [
               finalEmployeeId,
               fullName.trim(),
-              cleanedEmail,
+              finalEmail,
               designation.trim(),
               hashedPassword,
               isIntern ? "intern" : "employee",
@@ -569,16 +590,16 @@ const createEmployee = async (req, res) => {
 
       } catch (insertError) {
 
-        const isDuplicateEmployeeId =
+        const isRetryableCollision =
           insertError.code === "23505" &&
-          insertError.constraint === "employee_id";
+          (insertError.constraint === "employee_id" || insertError.constraint === "email");
 
-        if (!isDuplicateEmployeeId) {
+        if (!isRetryableCollision) {
           throw insertError;
         }
 
         insertResult = null;
-        // loop again with a freshly generated ID
+        // loop again with a freshly generated employee_id and/or email
 
       }
 
@@ -661,6 +682,11 @@ const createEmployee = async (req, res) => {
           : "Employee created successfully",
       id: insertResult.insertId,
       employeeId: finalEmployeeId,
+      email: finalEmail,
+      // Lets the UI distinguish "no email was generated because this
+      // company has no verified domain yet" from an unrelated null --
+      // this employee can still log in with their Employee ID.
+      emailGenerated: Boolean(finalEmail),
     });
   } catch (error) {
     console.error(
@@ -3028,6 +3054,7 @@ module.exports = {
   uploadMyProfilePhoto,
   getNextEmployeeId,
   getNextInternId,
+  getCompanyEmailDomain,
   resignEmployee,
   terminateEmployee,
   rehireEmployee,

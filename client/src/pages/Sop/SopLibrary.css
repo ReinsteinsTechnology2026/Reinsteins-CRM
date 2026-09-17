@@ -1,0 +1,199 @@
+/* ==========================================
+   SOP LIBRARY
+   Reuses .employee-modal-overlay / .employee-modal / .employee-form-group /
+   .employee-modal-actions / .cancel-employee-button / .save-employee-button
+   (Employees.css) and .shift-form-actions-right (EmployeeShiftSchedule.css)
+   for the upload modal, same cross-file reuse convention already
+   established by Organization.css/AdminShiftManagement.css. Only
+   page-specific classes are defined here.
+========================================== */
+
+.sop-page-content{
+    padding:30px;
+}
+
+.sop-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-bottom:20px;
+}
+
+.sop-header h2{
+    margin:0;
+    color:var(--text);
+    font-size:22px;
+    font-weight:700;
+}
+
+.sop-header p{
+    margin:4px 0 0;
+    color:var(--text-secondary);
+    font-size:13px;
+}
+
+.sop-upload-button{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:var(--primary);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:9px 16px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background 0.15s ease;
+}
+
+.sop-upload-button:hover{
+    background:var(--primary-hover);
+}
+
+.sop-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+}
+
+.sop-loading,
+.sop-error{
+    padding:40px 20px;
+    text-align:center;
+    color:var(--text-secondary);
+}
+
+.sop-error{
+    color:var(--danger);
+}
+
+.sop-empty{
+    padding:50px 20px;
+    text-align:center;
+    color:var(--text-secondary);
+}
+
+.sop-empty svg{
+    font-size:28px;
+    color:var(--text-muted);
+    margin-bottom:10px;
+}
+
+.sop-empty h3{
+    margin:0 0 6px;
+    color:var(--text);
+    font-size:16px;
+}
+
+.sop-empty p{
+    margin:0;
+    font-size:13px;
+}
+
+.sop-table-wrapper{
+    overflow-x:auto;
+}
+
+.sop-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.sop-table th,
+.sop-table td{
+    padding:12px 14px;
+    text-align:left;
+    border-bottom:1px solid var(--border);
+    white-space:nowrap;
+}
+
+.sop-table thead th{
+    background:var(--card-light);
+    color:var(--text-secondary);
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+}
+
+.sop-table tbody tr:last-child td{
+    border-bottom:none;
+}
+
+.sop-title-cell{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    font-weight:600;
+    color:var(--text);
+}
+
+.sop-title-cell svg{
+    color:var(--primary);
+}
+
+.sop-filename-cell{
+    color:var(--text-secondary);
+    font-size:13px;
+    max-width:220px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.sop-row-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+.sop-download-button,
+.sop-delete-icon-button{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:32px;
+    height:32px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--card-light);
+    color:var(--text);
+    cursor:pointer;
+    text-decoration:none;
+    transition:background 0.15s ease;
+}
+
+.sop-download-button:hover{
+    background:var(--hover);
+    color:var(--primary);
+}
+
+.sop-delete-icon-button:hover{
+    background:var(--danger-light);
+    color:var(--danger);
+    border-color:var(--danger-light);
+}
+
+@media (max-width: 768px){
+
+    .sop-page-content{
+        padding:20px;
+    }
+
+    .sop-header{
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .sop-upload-button{
+        justify-content:center;
+    }
+
+    .sop-filename-cell{
+        max-width:140px;
+    }
+
+}

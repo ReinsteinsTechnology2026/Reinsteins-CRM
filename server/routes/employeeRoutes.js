@@ -10,6 +10,7 @@ const {
   uploadMyProfilePhoto,
   getNextEmployeeId,
   getNextInternId,
+  getCompanyEmailDomain,
   resignEmployee,
   terminateEmployee,
   rehireEmployee,
@@ -115,6 +116,20 @@ router.get(
   protect,
   manageEmployees,
 getNextInternId
+);
+
+// ==========================================
+// ADMIN - PREVIEW COMPANY EMAIL DOMAIN
+// Display-only, for the Add Employee modal to build a live email
+// preview client-side. requires tenantProtect (via protect's
+// fallthrough) to have set req.tenantCompany.
+// ==========================================
+
+router.get(
+  "/company-email-domain",
+  protect,
+  manageEmployees,
+  getCompanyEmailDomain
 );
 
 // ==========================================

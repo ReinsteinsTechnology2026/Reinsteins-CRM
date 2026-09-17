@@ -303,7 +303,7 @@ function Login() {
             <div className="form-group">
 
               <label>
-                Employee ID
+                Employee ID or Company Email
               </label>
 
               <div className="input-container">
@@ -314,7 +314,7 @@ function Login() {
 
                 <input
                   type="text"
-                  placeholder="Enter your Employee ID"
+                  placeholder="Employee ID or company email"
                   value={
                     employeeId
                   }

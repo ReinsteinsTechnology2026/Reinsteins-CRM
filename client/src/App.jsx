@@ -79,6 +79,7 @@ import UserStoryDetail from "./pages/Projects/UserStoryDetail";
 // ==========================================
 
 import Chat from "./pages/Chat/Chat";
+import SopLibrary from "./pages/Sop/SopLibrary";
 
 // ==========================================
 // MEETINGS
@@ -160,6 +161,7 @@ const ADMIN_ROUTES = [
   { path: "user-stories/:id", Component: UserStoryDetail },
   { path: "leave", Component: AdminLeave },
   { path: "reports", Component: AdminReports },
+  { path: "sops", Component: SopLibrary },
   { path: "chat", Component: Chat },
   { path: "meetings", Component: MeetingsList },
   { path: "meetings/:id", Component: MeetingDetails },
@@ -178,6 +180,7 @@ const EMPLOYEE_ROUTES = [
   { path: "task-workspace/:taskId", Component: TaskWorkspace },
   { path: "leave", Component: EmployeeLeave },
   { path: "profile", Component: EmployeeProfile },
+  { path: "sops", Component: SopLibrary },
   { path: "chat", Component: Chat },
   { path: "email", Component: EmployeeEmail },
   { path: "meetings", Component: MeetingsList },

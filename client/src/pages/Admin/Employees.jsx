@@ -99,6 +99,11 @@ function Employees() {
   ] = useState(false);
 
   const [
+    companyEmailDomain,
+    setCompanyEmailDomain,
+  ] = useState(null);
+
+  const [
     departments,
     setDepartments,
   ] = useState([]);
@@ -273,7 +278,26 @@ function Employees() {
     loadEmployees();
     loadDepartments();
     loadDesignationsCatalog();
+    loadCompanyEmailDomain();
   }, []);
+
+  // ========================================
+  // COMPANY EMAIL DOMAIN (for live email preview)
+  // Fetched once on mount -- same "not per-keystroke" convention as
+  // fetchNextEmployeeId. null means this company has no verified,
+  // active email domain yet; the email preview/field reflects that
+  // explicitly rather than guessing a domain.
+  // ========================================
+
+  const loadCompanyEmailDomain = async () => {
+    try {
+      const response = await api.get("/employees/company-email-domain");
+      setCompanyEmailDomain(response.data.domain || null);
+    } catch (error) {
+      console.error("Load company email domain error:", error);
+      setCompanyEmailDomain(null);
+    }
+  };
 
   // ========================================
   // DEPARTMENTS + DESIGNATIONS CATALOG
@@ -330,6 +354,32 @@ function Employees() {
   // the modal at once) can never cause a
   // duplicate.
   // ========================================
+
+  // ========================================
+  // COMPANY EMAIL PREVIEW (client-side only)
+  // Mirrors server/utils/employeeEmailGenerator.js's
+  // slugifyNameForEmail exactly (lowercase, strip everything but
+  // a-z0-9, no separator) so what the Admin sees while typing matches
+  // what the backend will actually generate. This is a PREVIEW only
+  // -- the backend is still the authoritative source (it also
+  // resolves duplicate-name collisions with a numeric suffix, which a
+  // live keystroke-driven preview does not attempt), same convention
+  // as the Employee ID preview above it.
+  // ========================================
+
+  const previewCompanyEmail = (fullName) => {
+    const localPart = String(fullName || "")
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
+    if (!localPart || !companyEmailDomain) {
+      return "";
+    }
+
+    return `${localPart}@${companyEmailDomain}`;
+  };
 
   const fetchNextEmployeeId =
     async () => {
@@ -511,7 +561,7 @@ function Employees() {
 
         setSaving(true);
 
-        await api.post(
+        const response = await api.post(
           "/employees",
           {
             ...internFormData,
@@ -521,7 +571,9 @@ function Employees() {
         );
 
         toast.success(
-          "Intern created successfully"
+          response.data?.emailGenerated
+            ? `Intern created successfully. Login email: ${response.data.email}`
+            : "Intern created successfully. No company email was generated -- this intern can log in with their Intern ID."
         );
 
         setShowInternForm(
@@ -765,18 +817,20 @@ function Employees() {
 
         setSaving(true);
 
-        // formData.employeeId is sent along as a hint, but the
-        // backend never trusts it — it independently generates the
-        // real employee_id at creation time (see
-        // createEmployee/generateNextEmployeeId server-side).
+        // formData.employeeId/email are sent along as hints, but the
+        // backend never trusts either — it independently generates
+        // the real employee_id AND company email at creation time
+        // (see createEmployee server-side).
 
-        await api.post(
+        const response = await api.post(
           "/employees",
           formData
         );
 
         toast.success(
-          "Employee created successfully"
+          response.data?.emailGenerated
+            ? `Employee created successfully. Login email: ${response.data.email}`
+            : "Employee created successfully. No company email was generated -- this employee can log in with their Employee ID."
         );
 
         setFormData({
@@ -2667,22 +2721,24 @@ function Employees() {
               <div className="employee-form-group">
 
                 <label>
-                  Email Address
+                  Company Email
                 </label>
 
                 <input
-                  type="email"
-                  name="email"
+                  type="text"
                   value={
-                    formData
-                      .email
+                    companyEmailDomain
+                      ? (previewCompanyEmail(formData.fullName) || "Enter the employee's name first")
+                      : "No verified email domain configured for this company"
                   }
-                  onChange={
-                    handleChange
-                  }
-                  placeholder="Enter employee email"
-                  required
+                  disabled
                 />
+
+                <span className="employee-form-help">
+                  {companyEmailDomain
+                    ? "Generated automatically from the employee's name. If this name is already taken, a number is added automatically (e.g. johnsmith2@...)."
+                    : "Set up and verify a business email domain in Email Settings to auto-generate employee emails. This employee can still log in with their Employee ID."}
+                </span>
 
               </div>
 
@@ -2962,22 +3018,24 @@ function Employees() {
               <div className="employee-form-group">
 
                 <label>
-                  Email Address
+                  Company Email
                 </label>
 
                 <input
-                  type="email"
-                  name="email"
+                  type="text"
                   value={
-                    internFormData
-                      .email
+                    companyEmailDomain
+                      ? (previewCompanyEmail(internFormData.fullName) || "Enter the intern's name first")
+                      : "No verified email domain configured for this company"
                   }
-                  onChange={
-                    handleInternFormChange
-                  }
-                  placeholder="Enter intern email"
-                  required
+                  disabled
                 />
+
+                <span className="employee-form-help">
+                  {companyEmailDomain
+                    ? "Generated automatically from the intern's name. If this name is already taken, a number is added automatically (e.g. johnsmith2@...)."
+                    : "Set up and verify a business email domain in Email Settings to auto-generate emails. This intern can still log in with their Intern ID."}
+                </span>
 
               </div>
 

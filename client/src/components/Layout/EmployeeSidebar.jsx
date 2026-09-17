@@ -24,6 +24,7 @@ import {
   FaEnvelope,
   FaVideo,
   FaCog,
+  FaBook,
   FaChevronLeft,
   FaUsers,
   FaUserTie,
@@ -374,6 +375,11 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
       path: `${basePath}/meetings`,
     },
     {
+      name: "SOPs",
+      icon: <FaBook />,
+      path: `${basePath}/sops`,
+    },
+    {
       name: "My Profile",
       icon: <FaUser />,
       path: `${basePath}/profile`,
@@ -468,6 +474,12 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
       icon: <FaVideo />,
       path:
         `${basePath}/meetings`,
+    },
+    {
+      name: "SOPs",
+      icon: <FaBook />,
+      path:
+        `${basePath}/sops`,
     },
     {
       name: "Settings",

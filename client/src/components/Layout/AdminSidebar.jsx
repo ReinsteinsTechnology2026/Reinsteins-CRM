@@ -16,6 +16,7 @@ import {
   FaUsers,
   FaCalendarCheck,
   FaCalendarWeek,
+  FaBook,
   FaTasks,
   FaCalendarAlt,
   FaChartBar,
@@ -522,6 +523,30 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
 
           <span className="admin-sidebar-menu-name">
             Shift Management
+          </span>
+        </button>
+
+        {/* SOP LIBRARY */}
+
+        <button
+          type="button"
+          className={`sidebar-item ${
+            isActive(
+              `${basePath}/sops`
+            )
+              ? "active"
+              : ""
+          }`}
+          onClick={() =>
+            handleNavigate(
+              `${basePath}/sops`
+            )
+          }
+        >
+          <FaBook />
+
+          <span className="admin-sidebar-menu-name">
+            SOPs
           </span>
         </button>
 
