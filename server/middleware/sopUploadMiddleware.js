@@ -7,20 +7,20 @@ const { SAFE_SOP_EXTENSIONS, isSafeUpload } = require("../utils/fileTypeValidati
 // ==========================================
 // SOP UPLOAD MIDDLEWARE (Phase 17c)
 //
-// Destination resolved per-request from the authenticated tenant
-// context (req.tenantCompany, set synchronously by tenantAuthMiddleware.js
-// BEFORE multer ever runs) -- never from req.body/req.params, and
-// never via the AsyncLocalStorage-backed getCurrentCompanySlug()
-// inside a multer callback specifically (see tenantUploadPath.js's
-// own "Phase 16B" comment for why that specific combination is
-// unsafe under concurrency). This exactly matches every other
-// tenant-scoped multer config in this codebase
-// (uploadMiddleware.js/chatUploadMiddleware.js/etc.).
+// tenantUploadAbsoluteDir(category) takes just the category -- it
+// resolves the tenant itself via the AsyncLocalStorage-backed
+// getCurrentCompanySlug(), set by tenantProtect's
+// runWithTenantContext() before this middleware chain ever runs
+// (see tenantAuthMiddleware.js). This is the same proven convention
+// every other tenant-scoped multer config in this codebase already
+// uses (uploadMiddleware.js/chatUploadMiddleware.js/taskUploadMiddleware.js/
+// meetingUploadMiddleware.js/fileUpload.js) -- nothing SOP-specific
+// is needed here.
 // ==========================================
 
 const storage = multer.diskStorage({
   destination(req, file, callback) {
-    callback(null, tenantUploadAbsoluteDir(req, "sops"));
+    callback(null, tenantUploadAbsoluteDir("sops"));
   },
 
   filename(req, file, callback) {
