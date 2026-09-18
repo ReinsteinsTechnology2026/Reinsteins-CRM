@@ -4,17 +4,30 @@ const {
     getUserStoryById,
     createUserStory: createUserStoryService,
     updateUserStory: updateUserStoryService,
+    assignUserStoryToSprint: assignUserStoryToSprintService,
     createTaskForUserStory,
-    deleteUserStory: deleteUserStoryService
 } = require("../services/userStoryService");
+
+const {
+    softDeleteUserStory,
+    restoreUserStory: restoreUserStoryService,
+    permanentlyDeleteUserStory,
+    NOT_SOFT_DELETED_ERROR
+} = require("../services/workItemDeletionService");
 
 const {
     isEligibleProjectAssignee,
 } = require("../services/projectPermissionService");
 
 const {
+    getSprintProjectId
+} = require("../services/sprintService");
+
+const {
     createActivity
 } = require("../services/taskActivityService");
+
+const { createNotification } = require("../services/notificationService");
 
 const pool = require("../config/db");
 
@@ -272,27 +285,27 @@ const createTask = async (req, res) => {
 };
 
 // ==========================================
-// DELETE USER STORY
+// DELETE USER STORY (soft delete -- moves to Recycle Bin)
+// Cascades to this Story's Tasks.
 // ==========================================
 
 const deleteUserStory = async (req, res) => {
 
     try {
 
-        const existing = await getUserStoryById(req.params.id);
+        const result = await softDeleteUserStory(req.params.id, req.user.id);
 
-        if (!existing) {
+        if (!result) {
             return res.status(404).json({
                 success: false,
                 message: "User story not found"
             });
         }
 
-        await deleteUserStoryService(req.params.id);
-
         return res.json({
             success: true,
-            message: "User story deleted successfully"
+            message: "User story moved to Recycle Bin",
+            ...result
         });
 
     } catch (error) {
@@ -308,13 +321,189 @@ const deleteUserStory = async (req, res) => {
 
 };
 
+// ==========================================
+// RESTORE USER STORY
+// ==========================================
+
+const restoreUserStory = async (req, res) => {
+
+    try {
+
+        const restored = await restoreUserStoryService(req.params.id);
+
+        if (!restored) {
+            return res.status(404).json({
+                success: false,
+                message: "User story not found in Recycle Bin"
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "User story restored successfully"
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to restore user story"
+        });
+
+    }
+
+};
+
+// ==========================================
+// PERMANENTLY DELETE USER STORY (from Recycle Bin)
+// ==========================================
+
+const permanentDeleteUserStory = async (req, res) => {
+
+    try {
+
+        await permanentlyDeleteUserStory(req.params.id);
+
+        return res.json({
+            success: true,
+            message: "User story permanently deleted"
+        });
+
+    } catch (error) {
+
+        if (error.name === NOT_SOFT_DELETED_ERROR) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to permanently delete user story"
+        });
+
+    }
+
+};
+
+// ==========================================
+// ASSIGN USER STORY TO SPRINT (or back to Backlog)
+// Mirrors taskManagementController.assignTaskToSprint -- same
+// "touches only sprint_id", same backlog<->sprint<->sprint coverage
+// in one endpoint. Powers both "Add existing User Story to Sprint"
+// and moving a Story between Sprints. Only ever available for
+// project-linked stories (all User Stories are project-linked).
+// sprint_id === null clears the story back to the Backlog.
+// ==========================================
+
+const assignUserStoryToSprint = async (req, res) => {
+
+    try {
+
+        const { sprint_id } = req.body;
+
+        const story = await getUserStoryById(req.params.id);
+
+        if (!story) {
+            return res.status(404).json({
+                success: false,
+                message: "User story not found"
+            });
+        }
+
+        let targetSprint = null;
+
+        if (sprint_id !== null && sprint_id !== undefined) {
+
+            targetSprint = await getSprintProjectId(sprint_id);
+
+            if (!targetSprint) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Sprint not found"
+                });
+            }
+
+            if (Number(targetSprint.project_id) !== Number(story.project_id)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "This sprint does not belong to the same project as this user story"
+                });
+            }
+
+        }
+
+        if (Number(story.sprint_id || 0) === Number(sprint_id || 0)) {
+            return res.status(400).json({
+                success: false,
+                message: "User story is already in this sprint"
+            });
+        }
+
+        await assignUserStoryToSprintService(req.params.id, sprint_id || null);
+
+        const oldLabel = story.sprint_name || "Backlog";
+        const newLabel = targetSprint?.name || "Backlog";
+
+        let body;
+
+        if (!story.sprint_id && targetSprint) {
+            body = `Added to sprint: ${newLabel}`;
+        } else if (story.sprint_id && !targetSprint) {
+            body = `Removed from sprint: ${oldLabel}`;
+        } else {
+            body = `Moved from sprint ${oldLabel} to ${newLabel}`;
+        }
+
+        if (story.owner_id && Number(story.owner_id) !== Number(req.user.id)) {
+
+            const sprintChangeText = body.charAt(0).toLowerCase() + body.slice(1);
+
+            await createNotification({
+                req,
+                userId: story.owner_id,
+                title: "Sprint assignment updated",
+                message: `"${story.title}" was ${sprintChangeText}.`,
+                type: "user_story_sprint_changed",
+                referenceType: "user_story",
+                referenceId: story.id,
+            });
+
+        }
+
+        return res.json({
+            success: true,
+            message: "User story sprint updated successfully"
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to update user story's sprint"
+        });
+
+    }
+
+};
+
 module.exports = {
 
     getUserStories,
     getUserStory,
     createUserStory,
     updateUserStory,
+    assignUserStoryToSprint,
     createTask,
-    deleteUserStory
+    deleteUserStory,
+    restoreUserStory,
+    permanentDeleteUserStory
 
 };

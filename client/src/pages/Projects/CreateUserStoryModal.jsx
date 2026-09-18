@@ -9,8 +9,14 @@ import {
     updateUserStory,
 } from "../../services/userStoryService";
 
+import { createUserStoryInSprint } from "../../services/sprintService";
+
 import "./ProjectModal.css";
 
+// sprintId (optional): when set, the story is created directly inside
+// that Sprint (Sprint -> "Create User Story") instead of the plain
+// Project-level create -- Sprint is auto-selected, never chosen by the
+// user. Editing an existing story never passes this.
 function CreateUserStoryModal({
 
     projectId,
@@ -20,6 +26,8 @@ function CreateUserStoryModal({
     story,
 
     defaultFeatureId,
+
+    sprintId,
 
     onClose,
 
@@ -110,6 +118,14 @@ function CreateUserStoryModal({
 
                 onUpdated();
 
+            } else if (sprintId) {
+
+                await createUserStoryInSprint(sprintId, formData);
+
+                toast.success("User story created successfully");
+
+                onCreated();
+
             } else {
 
                 await createUserStory(projectId, formData);
@@ -148,7 +164,11 @@ function CreateUserStoryModal({
 
                     <div>
                         <h2>{isEditing ? "Edit User Story" : "Create New User Story"}</h2>
-                        <p>Describe the feature or requirement this story covers.</p>
+                        <p>
+                            {sprintId
+                                ? "This user story will be created directly in the current sprint."
+                                : "Describe the feature or requirement this story covers."}
+                        </p>
                     </div>
 
                     <button

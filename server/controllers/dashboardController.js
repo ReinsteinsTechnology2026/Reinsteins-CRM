@@ -50,6 +50,7 @@ const getDashboardStats = async (req, res) => {
       SELECT COUNT(*) AS "activeTasks"
       FROM tasks
       WHERE status = 'in_progress'
+      AND deleted_at IS NULL
       `
     );
 

@@ -2,9 +2,15 @@ const {
     getEpicsByProject,
     getEpicById,
     createEpic: createEpicService,
-    updateEpic: updateEpicService,
-    deleteEpic: deleteEpicService
+    updateEpic: updateEpicService
 } = require("../services/epicService");
+
+const {
+    softDeleteEpic,
+    restoreEpic: restoreEpicService,
+    permanentlyDeleteEpic,
+    NOT_SOFT_DELETED_ERROR
+} = require("../services/workItemDeletionService");
 
 // ==========================================
 // GET EPICS FOR A PROJECT
@@ -158,27 +164,28 @@ const updateEpic = async (req, res) => {
 };
 
 // ==========================================
-// DELETE EPIC
+// DELETE EPIC (soft delete -- moves to Recycle Bin)
+// Cascades to this Epic's Features/User Stories/Tasks -- see
+// workItemDeletionService.js's header comment for the full reasoning.
 // ==========================================
 
 const deleteEpic = async (req, res) => {
 
     try {
 
-        const existing = await getEpicById(req.params.id);
+        const result = await softDeleteEpic(req.params.id, req.user.id);
 
-        if (!existing) {
+        if (!result) {
             return res.status(404).json({
                 success: false,
                 message: "Epic not found"
             });
         }
 
-        await deleteEpicService(req.params.id);
-
         return res.json({
             success: true,
-            message: "Epic deleted successfully"
+            message: "Epic moved to Recycle Bin",
+            ...result
         });
 
     } catch (error) {
@@ -194,12 +201,84 @@ const deleteEpic = async (req, res) => {
 
 };
 
+// ==========================================
+// RESTORE EPIC
+// ==========================================
+
+const restoreEpic = async (req, res) => {
+
+    try {
+
+        const restored = await restoreEpicService(req.params.id);
+
+        if (!restored) {
+            return res.status(404).json({
+                success: false,
+                message: "Epic not found in Recycle Bin"
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "Epic restored successfully"
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to restore epic"
+        });
+
+    }
+
+};
+
+// ==========================================
+// PERMANENTLY DELETE EPIC (from Recycle Bin)
+// ==========================================
+
+const permanentDeleteEpic = async (req, res) => {
+
+    try {
+
+        await permanentlyDeleteEpic(req.params.id);
+
+        return res.json({
+            success: true,
+            message: "Epic permanently deleted"
+        });
+
+    } catch (error) {
+
+        if (error.name === NOT_SOFT_DELETED_ERROR) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to permanently delete epic"
+        });
+
+    }
+
+};
+
 module.exports = {
 
     getEpics,
     getEpic,
     createEpic,
     updateEpic,
-    deleteEpic
+    deleteEpic,
+    restoreEpic,
+    permanentDeleteEpic
 
 };

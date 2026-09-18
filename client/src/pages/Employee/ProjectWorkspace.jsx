@@ -39,11 +39,32 @@ import {
 } from "recharts";
 
 import { getProject, getProjectTasks, deleteProject } from "../../services/projectService";
-import { getEpics, deleteEpic } from "../../services/epicService";
-import { getFeatures, deleteFeature } from "../../services/featureService";
-import { getUserStories, deleteUserStory } from "../../services/userStoryService";
-import { getSprints, startSprint, completeSprint, deleteSprint, getSprintAnalytics } from "../../services/sprintService";
-import { changeTaskStatus, assignTaskToSprint } from "../../services/taskManagementService";
+import { getEpics, deleteEpic, restoreEpic, permanentDeleteEpic } from "../../services/epicService";
+import { getFeatures, deleteFeature, restoreFeature, permanentDeleteFeature } from "../../services/featureService";
+import {
+  getUserStories,
+  deleteUserStory,
+  restoreUserStory,
+  permanentDeleteUserStory,
+  assignUserStoryToSprint,
+} from "../../services/userStoryService";
+import {
+  getSprints,
+  startSprint,
+  completeSprint,
+  deleteSprint,
+  restoreSprint,
+  permanentDeleteSprint,
+  getSprintAnalytics,
+} from "../../services/sprintService";
+import {
+  changeTaskStatus,
+  assignTaskToSprint,
+  deleteTask,
+  restoreTask,
+  permanentDeleteTask,
+} from "../../services/taskManagementService";
+import { getRecycleBin, restoreRecycleBinBatch } from "../../services/recycleBinService";
 import { getMyProjectPermissions } from "../../services/projectMemberService";
 
 import CreateProjectModal from "../Projects/CreateProjectModal";
@@ -51,6 +72,7 @@ import CreateEpicModal from "../Projects/CreateEpicModal";
 import CreateFeatureModal from "../Projects/CreateFeatureModal";
 import CreateUserStoryModal from "../Projects/CreateUserStoryModal";
 import CreateStoryTaskModal from "../Projects/CreateStoryTaskModal";
+import CreateLinkedTaskModal from "../Projects/CreateLinkedTaskModal";
 import CreateSprintModal from "../Projects/CreateSprintModal";
 import ProjectSettings from "./ProjectSettings";
 import TagChips from "../../components/TagChips";
@@ -195,6 +217,15 @@ function ProjectWorkspace() {
   const [createFeatureForEpic, setCreateFeatureForEpic] = useState(null);
   const [editingFeature, setEditingFeature] = useState(null);
 
+  // Project-level "Add Task" (Backlog header) and Sprint-level
+  // "Create Task"/"Create User Story" -- { mode: "project"|"sprint",
+  // sprintId } or null.
+  const [createLinkedTask, setCreateLinkedTask] = useState(null);
+  const [createStoryForSprint, setCreateStoryForSprint] = useState(null);
+
+  const [recycleBin, setRecycleBin] = useState(null);
+  const [recycleBinLoading, setRecycleBinLoading] = useState(false);
+
   // Phase 1 — effective permissions for the current project,
   // resolved server-side (see projectPermissionService.js). Used
   // ONLY to show/hide buttons here; every action they gate is
@@ -225,6 +256,7 @@ function ProjectWorkspace() {
   const canEditFeature = Boolean(myPermissions?.FEATURE_EDIT);
   const canDeleteFeature = Boolean(myPermissions?.FEATURE_DELETE);
   const canDeleteUserStory = Boolean(myPermissions?.USER_STORY_DELETE);
+  const canDeleteTask = Boolean(myPermissions?.TASK_DELETE);
 
   // Shared by Backlog and Board (Kanban) -- both tabs read from the
   // same already-loaded, already permission-scoped `tasks` array
@@ -396,14 +428,14 @@ function ProjectWorkspace() {
   const handleDeleteSprint = async (sprintId, sprintName) => {
 
     const confirmed = window.confirm(
-      `Delete "${sprintName}"? Any tasks still in it will be moved back to the Backlog. This cannot be undone.`
+      `Delete "${sprintName}"? Any tasks or user stories still in it will be moved back to the Backlog. The Sprint itself moves to the Recycle Bin, where it can be restored.`
     );
 
     if (!confirmed) return;
 
     try {
       await deleteSprint(sprintId);
-      toast.success("Sprint deleted");
+      toast.success("Sprint moved to Recycle Bin");
       await loadAll();
     } catch (error) {
       toast.error(error.response?.data?.message || "Unable to delete sprint");
@@ -433,14 +465,14 @@ function ProjectWorkspace() {
   const handleDeleteEpic = async (epicId, epicName) => {
 
     const confirmed = window.confirm(
-      `Delete "${epicName}"? Its Features will move back to "No Epic" — they will not be deleted. This cannot be undone.`
+      `Delete "${epicName}"? This Epic and everything under it (Features, User Stories, Tasks) will move to the Recycle Bin, where it can be restored. This does not permanently delete anything.`
     );
 
     if (!confirmed) return;
 
     try {
       await deleteEpic(epicId);
-      toast.success("Epic deleted");
+      toast.success("Epic moved to Recycle Bin");
       await loadAll();
     } catch (error) {
       toast.error(error.response?.data?.message || "Unable to delete epic");
@@ -450,14 +482,14 @@ function ProjectWorkspace() {
   const handleDeleteFeature = async (featureId, featureName) => {
 
     const confirmed = window.confirm(
-      `Delete "${featureName}"? Its User Stories will move back to "No Feature" — they will not be deleted. This cannot be undone.`
+      `Delete "${featureName}"? This Feature and everything under it (User Stories, Tasks) will move to the Recycle Bin, where it can be restored. This does not permanently delete anything.`
     );
 
     if (!confirmed) return;
 
     try {
       await deleteFeature(featureId);
-      toast.success("Feature deleted");
+      toast.success("Feature moved to Recycle Bin");
       await loadAll();
     } catch (error) {
       toast.error(error.response?.data?.message || "Unable to delete feature");
@@ -467,17 +499,139 @@ function ProjectWorkspace() {
   const handleDeleteStory = async (storyId, storyName) => {
 
     const confirmed = window.confirm(
-      `Delete "${storyName}"? Its Tasks will move back to "No User Story" — they will not be deleted. This cannot be undone.`
+      `Delete "${storyName}"? This User Story and its Tasks will move to the Recycle Bin, where it can be restored. This does not permanently delete anything.`
     );
 
     if (!confirmed) return;
 
     try {
       await deleteUserStory(storyId);
-      toast.success("User story deleted");
+      toast.success("User story moved to Recycle Bin");
       await loadAll();
     } catch (error) {
       toast.error(error.response?.data?.message || "Unable to delete user story");
+    }
+  };
+
+  const handleDeleteTask = async (taskId, taskTitle) => {
+
+    const confirmed = window.confirm(
+      `Delete "${taskTitle}"? It will move to the Recycle Bin, where it can be restored. This does not permanently delete it.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await deleteTask(taskId);
+      toast.success("Task moved to Recycle Bin");
+      await loadAll();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Unable to delete task");
+    }
+  };
+
+  const handleAssignStoryToSprint = async (storyId, sprintId) => {
+    try {
+      await assignUserStoryToSprint(storyId, sprintId);
+      await loadAll();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Unable to update user story's sprint");
+    }
+  };
+
+  // ==========================================
+  // RECYCLE BIN
+  // Lazily loaded (and reloaded on every restore/permanent-delete
+  // action) rather than fetched inside loadAll() on every tab switch
+  // -- most sessions never open this tab at all.
+  // ==========================================
+
+  const loadRecycleBin = async () => {
+    try {
+      setRecycleBinLoading(true);
+      const response = await getRecycleBin(id);
+      setRecycleBin(response);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Unable to load recycle bin");
+    } finally {
+      setRecycleBinLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "recyclebin") {
+      loadRecycleBin();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const RESTORE_ACTIONS = {
+    epic: restoreEpic,
+    feature: restoreFeature,
+    userStory: restoreUserStory,
+    task: restoreTask,
+    sprint: restoreSprint,
+  };
+
+  const PERMANENT_DELETE_ACTIONS = {
+    epic: permanentDeleteEpic,
+    feature: permanentDeleteFeature,
+    userStory: permanentDeleteUserStory,
+    task: permanentDeleteTask,
+    sprint: permanentDeleteSprint,
+  };
+
+  const handleRestoreItem = async (type, itemId, label) => {
+    try {
+      await RESTORE_ACTIONS[type](itemId);
+      toast.success(`"${label}" restored`);
+      await loadRecycleBin();
+      await loadAll();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Unable to restore this item");
+    }
+  };
+
+  const handlePermanentDeleteItem = async (type, itemId, label) => {
+
+    const confirmed = window.confirm(
+      `Permanently delete "${label}"? This cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await PERMANENT_DELETE_ACTIONS[type](itemId);
+      toast.success(`"${label}" permanently deleted`);
+      await loadRecycleBin();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Unable to permanently delete this item");
+    }
+  };
+
+  // ==========================================
+  // RESTORE ALL (a cascade-deleted group)
+  // Restores every item that shares this batchId -- exactly what was
+  // moved to the Recycle Bin together by one cascading delete. An
+  // item deleted independently, even under the same parent, is never
+  // touched (it was never given this batchId in the first place).
+  // ==========================================
+
+  const handleRestoreBatch = async (batchId, memberCount) => {
+
+    const confirmed = window.confirm(
+      `Restore all ${memberCount} items in this group? Each will reappear exactly where it was.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await restoreRecycleBinBatch(id, batchId);
+      toast.success("Group restored");
+      await loadRecycleBin();
+      await loadAll();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Unable to restore this group");
     }
   };
 
@@ -576,14 +730,14 @@ function ProjectWorkspace() {
       </section>
 
       <div className="pw-tabs">
-        {["overview", "backlog", "kanban", "sprints", "analytics", ...(canOpenSettings ? ["settings"] : [])].map((tab) => (
+        {["overview", "backlog", "kanban", "sprints", "analytics", "recyclebin", ...(canOpenSettings ? ["settings"] : [])].map((tab) => (
           <button
             key={tab}
             type="button"
             className={activeTab === tab ? "pw-tab active" : "pw-tab"}
             onClick={() => setActiveTab(tab)}
           >
-            {tab === "overview" ? "Overview" : tab === "backlog" ? "Backlog" : tab === "kanban" ? "Board" : tab === "sprints" ? "Sprints" : tab === "analytics" ? "Analytics" : "Settings"}
+            {tab === "overview" ? "Overview" : tab === "backlog" ? "Backlog" : tab === "kanban" ? "Board" : tab === "sprints" ? "Sprints" : tab === "analytics" ? "Analytics" : tab === "recyclebin" ? "Recycle Bin" : "Settings"}
           </button>
         ))}
       </div>
@@ -626,6 +780,8 @@ function ProjectWorkspace() {
           onEditStory={(story) => setEditingStory(story)}
           onDeleteStory={handleDeleteStory}
           onAddTask={(storyId) => setCreateTaskForStory(storyId)}
+          onAddProjectTask={() => setCreateLinkedTask({ mode: "project" })}
+          onDeleteTask={handleDeleteTask}
           canCreateEpic={canCreateEpic}
           canEditEpic={canEditEpic}
           canDeleteEpic={canDeleteEpic}
@@ -636,6 +792,7 @@ function ProjectWorkspace() {
           canEditUserStory={Boolean(myPermissions?.USER_STORY_EDIT)}
           canDeleteUserStory={canDeleteUserStory}
           canCreateTask={canCreateTask}
+          canDeleteTask={canDeleteTask}
         />
       )}
 
@@ -652,6 +809,7 @@ function ProjectWorkspace() {
         <SprintsTab
           sprints={sprints}
           tasks={tasks}
+          stories={stories}
           onOpenTask={openTask}
           onAddSprint={() => setShowCreateSprint(true)}
           onEditSprint={(sprint) => setEditingSprint(sprint)}
@@ -659,13 +817,28 @@ function ProjectWorkspace() {
           onCompleteSprint={handleCompleteSprint}
           onDeleteSprint={handleDeleteSprint}
           onAssignTaskToSprint={handleAssignTaskToSprint}
+          onAssignStoryToSprint={handleAssignStoryToSprint}
+          onAddStoryToSprint={(sprintId) => setCreateStoryForSprint(sprintId)}
+          onAddTaskToSprint={(sprintId) => setCreateLinkedTask({ mode: "sprint", sprintId })}
           canManageSprints={canManageSprints}
           canAssignTaskToSprint={canAssignTaskToSprint}
+          canCreateUserStory={canCreateUserStory}
+          canCreateTask={canCreateTask}
         />
       )}
 
       {activeTab === "analytics" && (
         <AnalyticsTab sprints={sprints} />
+      )}
+
+      {activeTab === "recyclebin" && (
+        <RecycleBinTab
+          recycleBin={recycleBin}
+          loading={recycleBinLoading}
+          onRestore={handleRestoreItem}
+          onRestoreBatch={handleRestoreBatch}
+          onPermanentDelete={handlePermanentDeleteItem}
+        />
       )}
 
       {activeTab === "settings" && canOpenSettings && (
@@ -784,6 +957,33 @@ function ProjectWorkspace() {
         />
       )}
 
+      {createLinkedTask && (
+        <CreateLinkedTaskModal
+          mode={createLinkedTask.mode}
+          projectId={id}
+          sprintId={createLinkedTask.sprintId}
+          userStories={stories}
+          onClose={() => setCreateLinkedTask(null)}
+          onCreated={() => {
+            setCreateLinkedTask(null);
+            loadAll();
+          }}
+        />
+      )}
+
+      {createStoryForSprint && (
+        <CreateUserStoryModal
+          projectId={id}
+          features={features}
+          sprintId={createStoryForSprint}
+          onClose={() => setCreateStoryForSprint(null)}
+          onCreated={() => {
+            setCreateStoryForSprint(null);
+            loadAll();
+          }}
+        />
+      )}
+
       {showCreateSprint && (
         <CreateSprintModal
           projectId={id}
@@ -883,6 +1083,8 @@ function BacklogTab({
   onEditStory,
   onDeleteStory,
   onAddTask,
+  onAddProjectTask,
+  onDeleteTask,
   canCreateEpic,
   canEditEpic,
   canDeleteEpic,
@@ -893,6 +1095,7 @@ function BacklogTab({
   canEditUserStory,
   canDeleteUserStory,
   canCreateTask,
+  canDeleteTask,
 }) {
 
   // Grouped from the same already-loaded, already filtered project
@@ -975,6 +1178,18 @@ function BacklogTab({
                 <td><span className={`pw-priority ${task.priority}`}>{task.priority}</span></td>
                 <td>{task.assigned_to_name || "Unassigned"}</td>
                 <td><span className={`pw-status ${task.status}`}>{STATUS_LABELS[task.status] || task.status}</span></td>
+                {canDeleteTask && (
+                  <td onClick={(event) => event.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="pw-icon-button pw-icon-button-danger"
+                      title="Delete Task"
+                      onClick={() => onDeleteTask(task.id, task.task_title)}
+                    >
+                      <FaTrash />
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -1228,6 +1443,11 @@ function BacklogTab({
           {canCreateUserStory && (
             <button type="button" className="exec-new-project-button" onClick={() => onAddStory(null)}>
               <FaPlus /> Add User Story
+            </button>
+          )}
+          {canCreateTask && (
+            <button type="button" className="exec-new-project-button" onClick={onAddProjectTask}>
+              <FaPlus /> Add Task
             </button>
           )}
         </div>
@@ -1540,6 +1760,7 @@ function SprintProgressBar({ closed, total }) {
 function SprintsTab({
   sprints,
   tasks,
+  stories,
   onOpenTask,
   onAddSprint,
   onEditSprint,
@@ -1547,12 +1768,18 @@ function SprintsTab({
   onCompleteSprint,
   onDeleteSprint,
   onAssignTaskToSprint,
+  onAssignStoryToSprint,
+  onAddStoryToSprint,
+  onAddTaskToSprint,
   canManageSprints,
   canAssignTaskToSprint,
+  canCreateUserStory,
+  canCreateTask,
 }) {
 
   const [expanded, setExpanded] = useState({});
   const [pickerValue, setPickerValue] = useState({});
+  const [storyPickerValue, setStoryPickerValue] = useState({});
 
   const toggleSprint = (sprintId) => {
     setExpanded((prev) => ({ ...prev, [sprintId]: !prev[sprintId] }));
@@ -1571,6 +1798,21 @@ function SprintsTab({
   const backlogTasks = useMemo(
     () => tasks.filter((task) => !task.sprint_id),
     [tasks]
+  );
+
+  const storiesBySprint = useMemo(() => {
+    const map = new Map();
+    (stories || []).forEach((story) => {
+      if (!story.sprint_id) return;
+      if (!map.has(story.sprint_id)) map.set(story.sprint_id, []);
+      map.get(story.sprint_id).push(story);
+    });
+    return map;
+  }, [stories]);
+
+  const backlogStories = useMemo(
+    () => (stories || []).filter((story) => !story.sprint_id),
+    [stories]
   );
 
   return (
@@ -1595,6 +1837,7 @@ function SprintsTab({
           {sprints.map((sprint) => {
 
             const sprintTasks = tasksBySprint.get(sprint.id) || [];
+            const sprintStories = storiesBySprint.get(sprint.id) || [];
             const isOpen = Boolean(expanded[sprint.id]);
             const isCompleted = sprint.status === "completed";
 
@@ -1650,7 +1893,7 @@ function SprintsTab({
                             Complete Sprint
                           </button>
                         )}
-                        {!isCompleted && (
+                        {!isCompleted && sprint.status !== "active" && (
                           <button
                             type="button"
                             className="pw-sprint-delete-button"
@@ -1659,8 +1902,85 @@ function SprintsTab({
                             Delete
                           </button>
                         )}
+                        {canCreateUserStory && !isCompleted && (
+                          <button type="button" className="wi-secondary-button" onClick={() => onAddStoryToSprint(sprint.id)}>
+                            <FaPlus /> Create User Story
+                          </button>
+                        )}
+                        {canCreateTask && !isCompleted && (
+                          <button type="button" className="wi-secondary-button" onClick={() => onAddTaskToSprint(sprint.id)}>
+                            <FaPlus /> Create Task
+                          </button>
+                        )}
                       </div>
                     )}
+
+                    <h4 className="pw-sprint-subheading">User Stories</h4>
+
+                    {sprintStories.length === 0 ? (
+                      <div className="pw-empty-cell">No user stories in this sprint yet.</div>
+                    ) : (
+                      <table className="pw-table">
+                        <tbody>
+                          {sprintStories.map((story) => (
+                            <tr key={story.id}>
+                              <td className="pw-task-title-cell">
+                                {story.story_code ? `${story.story_code} — ` : ""}{story.title}
+                              </td>
+                              <td><span className={`pw-priority ${story.priority}`}>{story.priority}</span></td>
+                              <td>{story.owner_name || "Unassigned"}</td>
+                              <td>{story.task_count} task{story.task_count === 1 ? "" : "s"}</td>
+                              {canAssignTaskToSprint && !isCompleted && (
+                                <td onClick={(event) => event.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    className="wi-secondary-button"
+                                    onClick={() => onAssignStoryToSprint(story.id, null)}
+                                  >
+                                    Remove
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    {canAssignTaskToSprint && !isCompleted && (
+                      <div className="pw-sprint-add-from-backlog" onClick={(event) => event.stopPropagation()}>
+                        {backlogStories.length === 0 ? (
+                          <p className="pw-empty-cell">No user stories in the Backlog to add.</p>
+                        ) : (
+                          <>
+                            <select
+                              value={storyPickerValue[sprint.id] || ""}
+                              onChange={(event) =>
+                                setStoryPickerValue((prev) => ({ ...prev, [sprint.id]: event.target.value }))
+                              }
+                            >
+                              <option value="">Select a Backlog user story...</option>
+                              {backlogStories.map((story) => (
+                                <option key={story.id} value={story.id}>{story.title}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="pw-add-task-button"
+                              disabled={!storyPickerValue[sprint.id]}
+                              onClick={() => {
+                                onAssignStoryToSprint(Number(storyPickerValue[sprint.id]), sprint.id);
+                                setStoryPickerValue((prev) => ({ ...prev, [sprint.id]: "" }));
+                              }}
+                            >
+                              <FaPlus /> Add to Sprint
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <h4 className="pw-sprint-subheading">Tasks</h4>
 
                     {sprintTasks.length === 0 ? (
                       <div className="pw-empty-cell">No tasks in this sprint yet.</div>
@@ -2004,6 +2324,252 @@ function AnalyticsTab({ sprints }) {
           </table>
         </div>
       </div>
+
+    </section>
+  );
+
+}
+
+// ==========================================
+// RECYCLE BIN TAB
+// Every soft-deleted Epic/Feature/User Story/Task/Sprint for this
+// project, grouped by type. Restore puts an item back exactly where
+// it was (its parent/Sprint relationship was never touched by the
+// soft delete) -- Permanent Delete is a real, unrecoverable delete.
+// ==========================================
+
+const RECYCLE_BIN_SECTIONS = [
+  { key: "epics", type: "epic", label: "Epics", titleField: "title", codeField: "code" },
+  { key: "features", type: "feature", label: "Features", titleField: "title", codeField: "code", parentField: "epic_title", parentLabel: "Epic" },
+  { key: "userStories", type: "userStory", label: "User Stories", titleField: "title", codeField: "code", parentField: "feature_title", parentLabel: "Feature" },
+  { key: "tasks", type: "task", label: "Tasks", titleField: "title", codeField: "code", parentField: "user_story_title", parentLabel: "User Story" },
+  { key: "sprints", type: "sprint", label: "Sprints", titleField: "title", codeField: null },
+];
+
+// Types whose rows carry deleted_batch_id -- Sprint delete never
+// cascades to a "group" the way Epic/Feature/User Story do, so
+// Sprints are never part of a Restore-All group.
+const BATCH_SECTION_KEYS = ["epics", "features", "userStories", "tasks"];
+
+function RecycleBinTab({ recycleBin, loading, onRestore, onRestoreBatch, onPermanentDelete }) {
+
+  if (loading) {
+    return (
+      <section className="my-team-card">
+        <div className="my-team-empty">Loading Recycle Bin...</div>
+      </section>
+    );
+  }
+
+  const isEmpty = !recycleBin || RECYCLE_BIN_SECTIONS.every(
+    (section) => (recycleBin[section.key] || []).length === 0
+  );
+
+  // Group every batch-carrying item by deleted_batch_id, across all 4
+  // types -- a single cascade (e.g. deleting an Epic) can span Epic +
+  // Feature + User Story + Task rows at once. Only batches with 2+
+  // members are true "groups" (a batch of 1 is just that one item,
+  // already covered by its own Restore button) -- see
+  // workItemDeletionService.js for how batchId is assigned.
+  const groupsByBatchId = new Map();
+
+  if (recycleBin) {
+    for (const key of BATCH_SECTION_KEYS) {
+      for (const item of recycleBin[key] || []) {
+        if (!item.deleted_batch_id) continue;
+        if (!groupsByBatchId.has(item.deleted_batch_id)) {
+          groupsByBatchId.set(item.deleted_batch_id, { epics: [], features: [], userStories: [], tasks: [] });
+        }
+        groupsByBatchId.get(item.deleted_batch_id)[key].push(item);
+      }
+    }
+  }
+
+  const groups = Array.from(groupsByBatchId.entries())
+    .map(([batchId, members]) => ({
+      batchId,
+      members,
+      total: members.epics.length + members.features.length + members.userStories.length + members.tasks.length,
+    }))
+    .filter((group) => group.total > 1);
+
+  // Membership lookup so each per-type row can show a small "part of a
+  // group" indicator, distinguishing it from a standalone deleted item.
+  const batchIdByItemKey = new Map();
+  for (const group of groups) {
+    for (const key of BATCH_SECTION_KEYS) {
+      for (const item of group.members[key]) {
+        batchIdByItemKey.set(`${key}-${item.id}`, group.batchId);
+      }
+    }
+  }
+
+  function describeGroup(group) {
+    // The "root" of a cascade is whichever level triggered it -- an
+    // Epic-triggered cascade always includes exactly one Epic; a
+    // Feature-triggered one never includes an Epic and includes
+    // exactly one Feature; a User-Story-triggered one includes neither
+    // Epic nor Feature and exactly one User Story. See
+    // workItemDeletionService.js's softDeleteEpic/Feature/UserStory.
+    // The root's own type is excluded below from the trailing counts
+    // -- it's already named as the root, counting it again would
+    // double-count it.
+    const isEpicRoot = group.members.epics.length > 0;
+    const isFeatureRoot = !isEpicRoot && group.members.features.length > 0;
+
+    const root = isEpicRoot
+      ? { label: "Epic", item: group.members.epics[0] }
+      : isFeatureRoot
+        ? { label: "Feature", item: group.members.features[0] }
+        : { label: "User Story", item: group.members.userStories[0] };
+
+    const featureCount = isFeatureRoot ? 0 : group.members.features.length;
+    const userStoryCount = isFeatureRoot || isEpicRoot
+      ? group.members.userStories.length
+      : group.members.userStories.length - 1;
+    const taskCount = group.members.tasks.length;
+
+    const counts = [];
+    if (featureCount > 0) counts.push(`${featureCount} Feature${featureCount === 1 ? "" : "s"}`);
+    if (userStoryCount > 0) counts.push(`${userStoryCount} User Stor${userStoryCount === 1 ? "y" : "ies"}`);
+    if (taskCount > 0) counts.push(`${taskCount} Task${taskCount === 1 ? "" : "s"}`);
+
+    const trailing = counts.length > 0 ? ` (+ ${counts.join(", ")})` : "";
+
+    return `${root.label}: ${root.item.title}${trailing}`;
+  }
+
+  return (
+    <section className="my-team-card">
+
+      <div className="my-team-header">
+        <h2>Recycle Bin</h2>
+        <p>Deleted Epics, Features, User Stories, Tasks, and Sprints — restore an item to bring it back exactly where it was, or permanently delete it.</p>
+      </div>
+
+      {isEmpty ? (
+        <div className="my-team-empty">Recycle Bin is empty.</div>
+      ) : (
+        <>
+
+          {groups.length > 0 && (
+            <div className="pw-analytics-table-block">
+              <h4>Cascade-Deleted Groups</h4>
+              <p className="pw-recyclebin-group-hint">
+                Deleting an Epic, Feature, or User Story moves it and everything under it to the Recycle Bin together. Use "Restore All" to bring the whole group back at once, or restore items individually below.
+              </p>
+              <div className="pw-table-scroll">
+                <table className="pw-table">
+                  <thead>
+                    <tr>
+                      <th>Group</th>
+                      <th>Deleted By</th>
+                      <th>Deleted At</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {groups.map((group) => {
+
+                      const rootItem = group.members.epics[0] || group.members.features[0] || group.members.userStories[0];
+
+                      return (
+                        <tr key={group.batchId}>
+                          <td className="pw-task-title-cell">{describeGroup(group)}</td>
+                          <td>{rootItem?.deleted_by_name || "—"}</td>
+                          <td>{formatDate(rootItem?.deleted_at)}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="wi-primary-button"
+                              onClick={() => onRestoreBatch(group.batchId, group.total)}
+                            >
+                              Restore All ({group.total})
+                            </button>
+                          </td>
+                        </tr>
+                      );
+
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {RECYCLE_BIN_SECTIONS.map((section) => {
+
+            const items = recycleBin[section.key] || [];
+
+            if (items.length === 0) return null;
+
+            return (
+              <div className="pw-analytics-table-block" key={section.key}>
+                <h4>{section.label}</h4>
+                <div className="pw-table-scroll">
+                  <table className="pw-table">
+                    <thead>
+                      <tr>
+                        <th>Title</th>
+                        {section.parentField && <th>{section.parentLabel}</th>}
+                        <th>Deleted By</th>
+                        <th>Deleted At</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item) => {
+
+                        const label = section.codeField && item[section.codeField]
+                          ? `${item[section.codeField]} — ${item[section.titleField]}`
+                          : item[section.titleField];
+
+                        const inGroup = batchIdByItemKey.has(`${section.key}-${item.id}`);
+
+                        return (
+                          <tr key={item.id}>
+                            <td className="pw-task-title-cell">
+                              {label}
+                              {inGroup && <span className="pw-recyclebin-group-badge">part of a group</span>}
+                            </td>
+                            {section.parentField && (
+                              <td>{item[section.parentField] || "—"}</td>
+                            )}
+                            <td>{item.deleted_by_name || "—"}</td>
+                            <td>{formatDate(item.deleted_at)}</td>
+                            <td>
+                              <div className="pw-row-actions">
+                                <button
+                                  type="button"
+                                  className="wi-secondary-button"
+                                  onClick={() => onRestore(section.type, item.id, item[section.titleField])}
+                                >
+                                  Restore
+                                </button>
+                                <button
+                                  type="button"
+                                  className="pw-icon-button pw-icon-button-danger"
+                                  title="Permanently Delete"
+                                  onClick={() => onPermanentDelete(section.type, item.id, item[section.titleField])}
+                                >
+                                  <FaTrash />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+
+          })}
+
+        </>
+      )}
 
     </section>
   );

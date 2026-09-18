@@ -2,15 +2,35 @@ const {
     getSprintsByProject,
     getActiveSprintsForUser,
     getSprintById,
+    getSprintProjectId,
     createSprint: createSprintService,
     updateSprint: updateSprintService,
     startSprint: startSprintService,
     completeSprint: completeSprintService,
-    deleteSprint: deleteSprintService,
     DUPLICATE_NAME_ERROR,
     INVALID_DATES_ERROR,
     ALREADY_ACTIVE_ERROR
 } = require("../services/sprintService");
+
+const {
+    createUserStory: createUserStoryService
+} = require("../services/userStoryService");
+
+const {
+    createProjectLinkedTask
+} = require("../services/taskService");
+
+const {
+    softDeleteSprint,
+    restoreSprint: restoreSprintService,
+    permanentlyDeleteSprint,
+    ACTIVE_SPRINT_DELETE_ERROR,
+    NOT_SOFT_DELETED_ERROR
+} = require("../services/workItemDeletionService");
+
+const {
+    isEligibleProjectAssignee
+} = require("../services/projectPermissionService");
 
 const {
     createActivity
@@ -305,7 +325,12 @@ const completeSprint = async (req, res) => {
 };
 
 // ==========================================
-// DELETE SPRINT
+// DELETE SPRINT (soft delete -- moves to Recycle Bin)
+// Does NOT cascade to its Tasks/User Stories (a Sprint is a planning
+// layer over the hierarchy, not part of it) -- they are detached back
+// to the Backlog instead, exactly like a normal sprint completion. An
+// active sprint cannot be deleted (must be completed first) -- see
+// workItemDeletionService.js's header comment for the full reasoning.
 // ==========================================
 
 const deleteSprint = async (req, res) => {
@@ -321,11 +346,81 @@ const deleteSprint = async (req, res) => {
             });
         }
 
-        await deleteSprintService(req.params.id);
+        const result = await softDeleteSprint(req.params.id, req.user.id);
+
+        if (!result) {
+            return res.status(404).json({
+                success: false,
+                message: "Sprint not found"
+            });
+        }
+
+        const io = req.app.get("io");
+
+        for (const taskId of result.detachedTaskIds) {
+
+            await createActivity(
+                taskId,
+                req.user.id,
+                {
+                    activityType: "system",
+                    body: `Removed from sprint: ${existing.name} (sprint deleted)`,
+                },
+                [],
+                io
+            );
+
+        }
 
         return res.json({
             success: true,
-            message: "Sprint deleted successfully"
+            message: "Sprint moved to Recycle Bin",
+            detachedTaskCount: result.detachedTaskIds.length,
+            detachedUserStoryCount: result.detachedUserStoryIds.length
+        });
+
+    } catch (error) {
+
+        if (error.name === ACTIVE_SPRINT_DELETE_ERROR) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to delete sprint"
+        });
+
+    }
+
+};
+
+// ==========================================
+// RESTORE SPRINT
+// Does NOT re-attach the Tasks/User Stories that were detached to the
+// Backlog when it was deleted -- see workItemDeletionService.js.
+// ==========================================
+
+const restoreSprint = async (req, res) => {
+
+    try {
+
+        const restored = await restoreSprintService(req.params.id);
+
+        if (!restored) {
+            return res.status(404).json({
+                success: false,
+                message: "Sprint not found in Recycle Bin"
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "Sprint restored successfully"
         });
 
     } catch (error) {
@@ -334,7 +429,179 @@ const deleteSprint = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: "Unable to delete sprint"
+            message: "Unable to restore sprint"
+        });
+
+    }
+
+};
+
+// ==========================================
+// PERMANENTLY DELETE SPRINT (from Recycle Bin)
+// ==========================================
+
+const permanentDeleteSprint = async (req, res) => {
+
+    try {
+
+        await permanentlyDeleteSprint(req.params.id);
+
+        return res.json({
+            success: true,
+            message: "Sprint permanently deleted"
+        });
+
+    } catch (error) {
+
+        if (error.name === NOT_SOFT_DELETED_ERROR) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to permanently delete sprint"
+        });
+
+    }
+
+};
+
+// ==========================================
+// CREATE USER STORY DIRECTLY IN A SPRINT
+// POST /api/sprints/:id/user-stories -- Sprint is auto-selected
+// (sprint_id forced from the route, never trusted from the body).
+// feature_id, if supplied, is still validated against the sprint's
+// own project (see userStoryService.assertFeatureBelongsToProject).
+// ==========================================
+
+const createUserStoryInSprint = async (req, res) => {
+
+    try {
+
+        const { title } = req.body;
+
+        if (!title?.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: "User story title is required"
+            });
+        }
+
+        const sprint = await getSprintProjectId(req.params.id);
+
+        if (!sprint) {
+            return res.status(404).json({
+                success: false,
+                message: "Sprint not found"
+            });
+        }
+
+        const id = await createUserStoryService(
+            sprint.project_id,
+            { ...req.body, sprint_id: req.params.id },
+            req.user.id
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: "User story created successfully",
+            id
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to create user story"
+        });
+
+    }
+
+};
+
+// ==========================================
+// CREATE TASK DIRECTLY IN A SPRINT
+// POST /api/sprints/:id/tasks -- Sprint is auto-selected (sprint_id
+// forced from the route). user_story_id, if supplied, is optional and
+// validated against the sprint's own project (see
+// taskService.assertUserStoryBelongsToProject).
+// ==========================================
+
+const createTaskInSprint = async (req, res) => {
+
+    try {
+
+        const { title, description, assigned_to } = req.body;
+
+        if (!title?.trim() || !description?.trim() || !assigned_to) {
+            return res.status(400).json({
+                success: false,
+                message: "Title, description and assignee are required"
+            });
+        }
+
+        const sprint = await getSprintProjectId(req.params.id);
+
+        if (!sprint) {
+            return res.status(404).json({
+                success: false,
+                message: "Sprint not found"
+            });
+        }
+
+        const eligible = await isEligibleProjectAssignee(Number(assigned_to), sprint.project_id);
+
+        if (!eligible) {
+            return res.status(400).json({
+                success: false,
+                message: "Selected user must be an active member of this project"
+            });
+        }
+
+        const taskId = await createProjectLinkedTask(
+            sprint.project_id,
+            { ...req.body, sprint_id: req.params.id },
+            req.user.id
+        );
+
+        await createActivity(
+            taskId,
+            req.user.id,
+            {
+                activityType: "system",
+                body: "Created this task.",
+            },
+            [],
+            req.app.get("io")
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: "Task created successfully",
+            id: taskId
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        if (error.name === "TagValidationError") {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to create task"
         });
 
     }
@@ -350,6 +617,10 @@ module.exports = {
     updateSprint,
     startSprint,
     completeSprint,
-    deleteSprint
+    deleteSprint,
+    restoreSprint,
+    permanentDeleteSprint,
+    createUserStoryInSprint,
+    createTaskInSprint
 
 };

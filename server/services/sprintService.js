@@ -21,6 +21,7 @@ const getActiveSprintsForUser = async (userId) => {
                 SELECT COUNT(*)
                 FROM tasks t
                 WHERE t.sprint_id = s.id
+                AND t.deleted_at IS NULL
             ) AS task_count,
 
             (
@@ -28,12 +29,14 @@ const getActiveSprintsForUser = async (userId) => {
                 FROM tasks t
                 WHERE t.sprint_id = s.id
                 AND t.status = 'closed'
+                AND t.deleted_at IS NULL
             ) AS closed_task_count
 
         FROM sprints s
         INNER JOIN projects p
             ON p.id = s.project_id
         WHERE s.status = 'active'
+        AND s.deleted_at IS NULL
         AND EXISTS (
             SELECT 1 FROM project_members pm
             WHERE pm.project_id = s.project_id
@@ -67,6 +70,7 @@ const getSprintsByProject = async (projectId) => {
                 SELECT COUNT(*)
                 FROM tasks t
                 WHERE t.sprint_id = s.id
+                AND t.deleted_at IS NULL
             ) AS task_count,
 
             (
@@ -74,12 +78,14 @@ const getSprintsByProject = async (projectId) => {
                 FROM tasks t
                 WHERE t.sprint_id = s.id
                 AND t.status = 'closed'
+                AND t.deleted_at IS NULL
             ) AS closed_task_count
 
         FROM sprints s
         LEFT JOIN users creator
             ON creator.id = s.created_by
         WHERE s.project_id = ?
+        AND s.deleted_at IS NULL
         ORDER BY
             CASE s.status WHEN 'active' THEN 0 WHEN 'planning' THEN 1 ELSE 2 END,
             s.id DESC
@@ -111,6 +117,7 @@ const getSprintById = async (id) => {
         LEFT JOIN users creator
             ON creator.id = s.created_by
         WHERE s.id = ?
+        AND s.deleted_at IS NULL
         LIMIT 1
     `, [id]);
 
@@ -128,14 +135,32 @@ const getSprintById = async (id) => {
         LEFT JOIN users assignee
             ON assignee.id = t.assigned_to
         WHERE t.sprint_id = ?
+        AND t.deleted_at IS NULL
         ORDER BY t.id DESC
+    `, [id]);
+
+    // User Stories committed to this sprint -- see the new
+    // user_stories.sprint_id column (Part 6/7/9 of the spec: User
+    // Stories, not just Tasks, must be assignable to a Sprint).
+    const [userStories] = await pool.query(`
+        SELECT
+            us.*,
+            owner.full_name AS owner_name
+        FROM user_stories us
+        LEFT JOIN users owner
+            ON owner.id = us.owner_id
+        WHERE us.sprint_id = ?
+        AND us.deleted_at IS NULL
+        ORDER BY us.id DESC
     `, [id]);
 
     return {
 
         ...sprint,
 
-        tasks
+        tasks,
+
+        userStories
 
     };
 
@@ -152,7 +177,7 @@ const getSprintById = async (id) => {
 const getSprintProjectId = async (sprintId) => {
 
     const [[row]] = await pool.query(
-        `SELECT project_id, status, name FROM sprints WHERE id = ? LIMIT 1`,
+        `SELECT project_id, status, name FROM sprints WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
         [sprintId]
     );
 
@@ -293,7 +318,7 @@ const startSprint = async (id, projectId) => {
 
     const [[existingActive]] = await pool.query(`
         SELECT id, name FROM sprints
-        WHERE project_id = ? AND status = 'active' AND id != ?
+        WHERE project_id = ? AND status = 'active' AND deleted_at IS NULL AND id != ?
         LIMIT 1
     `, [projectId, id]);
 

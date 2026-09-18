@@ -12,7 +12,11 @@ const {
     updateSprint,
     startSprint,
     completeSprint,
-    deleteSprint
+    deleteSprint,
+    restoreSprint,
+    permanentDeleteSprint,
+    createUserStoryInSprint,
+    createTaskInSprint
 } = require("../controllers/sprintController");
 
 const {
@@ -172,6 +176,54 @@ router.delete(
     requireProjectAccess,
     requireProjectPermission("PROJECT_EDIT", projectIdFromSprint),
     deleteSprint
+);
+
+// ==========================================
+// RESTORE / PERMANENT DELETE (Recycle Bin)
+// Both reuse PROJECT_EDIT, same as every other Sprint mutation route
+// above -- Sprints have no dedicated SPRINT_* permission keys.
+// ==========================================
+
+router.patch(
+    "/:id/restore",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("PROJECT_EDIT", projectIdFromSprint),
+    restoreSprint
+);
+
+router.delete(
+    "/:id/permanent",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("PROJECT_EDIT", projectIdFromSprint),
+    permanentDeleteSprint
+);
+
+// ==========================================
+// CREATE USER STORY DIRECTLY IN A SPRINT
+// POST /api/sprints/:id/user-stories
+// ==========================================
+
+router.post(
+    "/:id/user-stories",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("USER_STORY_CREATE", projectIdFromSprint),
+    createUserStoryInSprint
+);
+
+// ==========================================
+// CREATE TASK DIRECTLY IN A SPRINT
+// POST /api/sprints/:id/tasks
+// ==========================================
+
+router.post(
+    "/:id/tasks",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("TASK_CREATE", projectIdFromSprint),
+    createTaskInSprint
 );
 
 module.exports = router;

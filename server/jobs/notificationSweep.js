@@ -91,6 +91,7 @@ async function runSweepOnce(io) {
         WHERE t.assigned_to IS NOT NULL
         AND t.status != 'closed'
         AND t.due_date IS NOT NULL
+        AND t.deleted_at IS NULL
         `
     );
 

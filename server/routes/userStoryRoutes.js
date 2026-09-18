@@ -9,8 +9,11 @@ const {
     getUserStory,
     createUserStory,
     updateUserStory,
+    assignUserStoryToSprint,
     createTask,
-    deleteUserStory
+    deleteUserStory,
+    restoreUserStory,
+    permanentDeleteUserStory
 } = require("../controllers/userStoryController");
 
 const {
@@ -109,6 +112,44 @@ router.delete(
     requireProjectAccess,
     requireProjectPermission("USER_STORY_DELETE", projectIdFromStory),
     deleteUserStory
+);
+
+// ==========================================
+// RESTORE / PERMANENT DELETE (Recycle Bin)
+// Both reuse USER_STORY_DELETE -- see epicRoutes.js for the pattern.
+// ==========================================
+
+router.patch(
+    "/:id/restore",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("USER_STORY_DELETE", projectIdFromStory),
+    restoreUserStory
+);
+
+router.delete(
+    "/:id/permanent",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("USER_STORY_DELETE", projectIdFromStory),
+    permanentDeleteUserStory
+);
+
+// ==========================================
+// ASSIGN USER STORY TO SPRINT (or back to Backlog)
+// PATCH /api/user-stories/:id/sprint
+// Gated by USER_STORY_EDIT, no ownership requirement -- same
+// reasoning as taskManagementController.assignTaskToSprint (Sprint
+// planning is normally done by whoever runs planning, not by each
+// story's individual owner).
+// ==========================================
+
+router.patch(
+    "/:id/sprint",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("USER_STORY_EDIT", projectIdFromStory),
+    assignUserStoryToSprint
 );
 
 // ==========================================

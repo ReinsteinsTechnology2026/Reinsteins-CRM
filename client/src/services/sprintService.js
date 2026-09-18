@@ -103,6 +103,56 @@ export const deleteSprint = async (id) => {
 };
 
 // ==========================================
+// RESTORE / PERMANENTLY DELETE (Recycle Bin)
+// ==========================================
+
+export const restoreSprint = async (id) => {
+
+    const { data } = await api.patch(`/sprints/${id}/restore`);
+
+    return data;
+
+};
+
+export const permanentDeleteSprint = async (id) => {
+
+    const { data } = await api.delete(`/sprints/${id}/permanent`);
+
+    return data;
+
+};
+
+// ==========================================
+// CREATE USER STORY DIRECTLY IN A SPRINT
+// ==========================================
+
+export const createUserStoryInSprint = async (sprintId, storyData) => {
+
+    const { data } = await api.post(
+        `/sprints/${sprintId}/user-stories`,
+        storyData
+    );
+
+    return data;
+
+};
+
+// ==========================================
+// CREATE TASK DIRECTLY IN A SPRINT
+// ==========================================
+
+export const createTaskInSprint = async (sprintId, taskData) => {
+
+    const { data } = await api.post(
+        `/sprints/${sprintId}/tasks`,
+        taskData
+    );
+
+    return data;
+
+};
+
+// ==========================================
 // GET SPRINT ANALYTICS (read-only)
 // ==========================================
 

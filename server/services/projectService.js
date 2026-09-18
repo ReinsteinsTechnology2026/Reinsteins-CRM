@@ -32,12 +32,14 @@ const getProjectsByOrganization = async (organizationId) => {
                 SELECT COUNT(*)
                 FROM user_stories us
                 WHERE us.project_id = p.id
+                AND us.deleted_at IS NULL
             ) AS user_story_count,
 
             (
                 SELECT COUNT(*)
                 FROM tasks t
                 WHERE t.project_id = p.id
+                AND t.deleted_at IS NULL
             ) AS task_count
 
         FROM projects p
@@ -101,12 +103,14 @@ const getAllProjects = async (user) => {
                 SELECT COUNT(*)
                 FROM user_stories us
                 WHERE us.project_id = p.id
+                AND us.deleted_at IS NULL
             ) AS user_story_count,
 
             (
                 SELECT COUNT(*)
                 FROM tasks t
                 WHERE t.project_id = p.id
+                AND t.deleted_at IS NULL
             ) AS task_count,
 
             (
@@ -117,7 +121,9 @@ const getAllProjects = async (user) => {
                     FROM user_stories us
                     LEFT JOIN tasks t
                         ON t.user_story_id = us.id
+                        AND t.deleted_at IS NULL
                     WHERE us.project_id = p.id
+                    AND us.deleted_at IS NULL
                     GROUP BY us.id
                 ) AS us_progress
             ) AS progress
@@ -219,12 +225,14 @@ const getProjectById = async (id, user) => {
             ) AS overdue_count
         FROM tasks
         WHERE project_id = ?
+        AND deleted_at IS NULL
     `, [id]);
 
     const [storyCount] = await pool.query(`
         SELECT COUNT(*) AS total_user_stories
         FROM user_stories
         WHERE project_id = ?
+        AND deleted_at IS NULL
     `, [id]);
 
     const [progressRow] = await pool.query(`
@@ -235,7 +243,9 @@ const getProjectById = async (id, user) => {
             FROM user_stories us
             LEFT JOIN tasks t
                 ON t.user_story_id = us.id
+                AND t.deleted_at IS NULL
             WHERE us.project_id = ?
+            AND us.deleted_at IS NULL
             GROUP BY us.id
         ) AS us_progress
     `, [id]);
@@ -294,6 +304,7 @@ const getProjectTasks = async (projectId) => {
         LEFT JOIN sprints sp ON sp.id = t.sprint_id
         LEFT JOIN users assignee ON assignee.id = t.assigned_to
         WHERE t.project_id = ?
+        AND t.deleted_at IS NULL
         ORDER BY t.id DESC
     `, [projectId]);
 

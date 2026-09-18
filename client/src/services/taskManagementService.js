@@ -157,6 +157,48 @@ export const deleteTask = async (id) => {
 };
 
 // ==========================================
+// RESTORE / PERMANENTLY DELETE (Recycle Bin --
+// project-linked tasks only)
+// ==========================================
+
+export const restoreTask = async (id) => {
+
+    const { data } = await api.patch(
+        `/task-management/${id}/restore`
+    );
+
+    return data;
+
+};
+
+export const permanentDeleteTask = async (id) => {
+
+    const { data } = await api.delete(
+        `/task-management/${id}/permanent`
+    );
+
+    return data;
+
+};
+
+// ==========================================
+// CREATE TASK DIRECTLY UNDER A PROJECT
+// User Story is optional -- a task doesn't have to go through a
+// User Story.
+// ==========================================
+
+export const createProjectTask = async (projectId, taskData) => {
+
+    const { data } = await api.post(
+        `/projects/${projectId}/tasks`,
+        taskData
+    );
+
+    return data;
+
+};
+
+// ==========================================
 // TRANSFER TARGETS
 // Every active Employee/Intern, unscoped — used
 // only by the Transfer modal. Task CREATION

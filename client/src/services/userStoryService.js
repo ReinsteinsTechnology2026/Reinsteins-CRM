@@ -66,6 +66,41 @@ export const deleteUserStory = async (id) => {
 };
 
 // ==========================================
+// RESTORE / PERMANENTLY DELETE (Recycle Bin)
+// ==========================================
+
+export const restoreUserStory = async (id) => {
+
+    const { data } = await api.patch(`/user-stories/${id}/restore`);
+
+    return data;
+
+};
+
+export const permanentDeleteUserStory = async (id) => {
+
+    const { data } = await api.delete(`/user-stories/${id}/permanent`);
+
+    return data;
+
+};
+
+// ==========================================
+// ASSIGN USER STORY TO SPRINT (or back to Backlog)
+// sprintId === null clears the story back to the Backlog.
+// ==========================================
+
+export const assignUserStoryToSprint = async (id, sprintId) => {
+
+    const { data } = await api.patch(`/user-stories/${id}/sprint`, {
+        sprint_id: sprintId
+    });
+
+    return data;
+
+};
+
+// ==========================================
 // CREATE TASK UNDER A USER STORY
 // ==========================================
 

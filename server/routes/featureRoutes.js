@@ -9,7 +9,9 @@ const {
     getFeature,
     createFeature,
     updateFeature,
-    deleteFeature
+    deleteFeature,
+    restoreFeature,
+    permanentDeleteFeature
 } = require("../controllers/featureController");
 
 const {
@@ -104,6 +106,27 @@ router.delete(
     requireProjectAccess,
     requireProjectPermission("FEATURE_DELETE", projectIdFromFeature),
     deleteFeature
+);
+
+// ==========================================
+// RESTORE / PERMANENT DELETE (Recycle Bin)
+// Both reuse FEATURE_DELETE -- see epicRoutes.js for the same pattern.
+// ==========================================
+
+router.patch(
+    "/:id/restore",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("FEATURE_DELETE", projectIdFromFeature),
+    restoreFeature
+);
+
+router.delete(
+    "/:id/permanent",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("FEATURE_DELETE", projectIdFromFeature),
+    permanentDeleteFeature
 );
 
 module.exports = router;

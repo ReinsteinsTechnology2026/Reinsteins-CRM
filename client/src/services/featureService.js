@@ -64,3 +64,23 @@ export const deleteFeature = async (id) => {
     return data;
 
 };
+
+// ==========================================
+// RESTORE / PERMANENTLY DELETE (Recycle Bin)
+// ==========================================
+
+export const restoreFeature = async (id) => {
+
+    const { data } = await api.patch(`/features/${id}/restore`);
+
+    return data;
+
+};
+
+export const permanentDeleteFeature = async (id) => {
+
+    const { data } = await api.delete(`/features/${id}/permanent`);
+
+    return data;
+
+};

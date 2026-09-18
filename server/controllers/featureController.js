@@ -3,9 +3,15 @@ const {
     getFeaturesByProject,
     getFeatureById,
     createFeature: createFeatureService,
-    updateFeature: updateFeatureService,
-    deleteFeature: deleteFeatureService
+    updateFeature: updateFeatureService
 } = require("../services/featureService");
+
+const {
+    softDeleteFeature,
+    restoreFeature: restoreFeatureService,
+    permanentlyDeleteFeature,
+    NOT_SOFT_DELETED_ERROR
+} = require("../services/workItemDeletionService");
 
 // ==========================================
 // GET FEATURES FOR A PROJECT
@@ -182,27 +188,27 @@ const updateFeature = async (req, res) => {
 };
 
 // ==========================================
-// DELETE FEATURE
+// DELETE FEATURE (soft delete -- moves to Recycle Bin)
+// Cascades to this Feature's User Stories/Tasks.
 // ==========================================
 
 const deleteFeature = async (req, res) => {
 
     try {
 
-        const existing = await getFeatureById(req.params.id);
+        const result = await softDeleteFeature(req.params.id, req.user.id);
 
-        if (!existing) {
+        if (!result) {
             return res.status(404).json({
                 success: false,
                 message: "Feature not found"
             });
         }
 
-        await deleteFeatureService(req.params.id);
-
         return res.json({
             success: true,
-            message: "Feature deleted successfully"
+            message: "Feature moved to Recycle Bin",
+            ...result
         });
 
     } catch (error) {
@@ -218,12 +224,84 @@ const deleteFeature = async (req, res) => {
 
 };
 
+// ==========================================
+// RESTORE FEATURE
+// ==========================================
+
+const restoreFeature = async (req, res) => {
+
+    try {
+
+        const restored = await restoreFeatureService(req.params.id);
+
+        if (!restored) {
+            return res.status(404).json({
+                success: false,
+                message: "Feature not found in Recycle Bin"
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "Feature restored successfully"
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to restore feature"
+        });
+
+    }
+
+};
+
+// ==========================================
+// PERMANENTLY DELETE FEATURE (from Recycle Bin)
+// ==========================================
+
+const permanentDeleteFeature = async (req, res) => {
+
+    try {
+
+        await permanentlyDeleteFeature(req.params.id);
+
+        return res.json({
+            success: true,
+            message: "Feature permanently deleted"
+        });
+
+    } catch (error) {
+
+        if (error.name === NOT_SOFT_DELETED_ERROR) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to permanently delete feature"
+        });
+
+    }
+
+};
+
 module.exports = {
 
     getFeatures,
     getFeature,
     createFeature,
     updateFeature,
-    deleteFeature
+    deleteFeature,
+    restoreFeature,
+    permanentDeleteFeature
 
 };

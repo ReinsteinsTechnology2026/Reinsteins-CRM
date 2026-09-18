@@ -304,6 +304,7 @@ const fetchTaskReportRows = async ({
       ON wl.task_id = t.id
 
     WHERE u.role = 'employee'
+    AND t.deleted_at IS NULL
   `;
 
   const values = [...wlValues];

@@ -503,6 +503,15 @@
   flex-wrap: wrap;
 }
 
+.pw-sprint-subheading {
+  margin: 16px 0 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #53615A;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .pw-sprint-delete-button {
   padding: 8px 12px;
   border-radius: 6px;
@@ -850,6 +859,26 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+.pw-recyclebin-group-hint {
+  margin: -4px 0 10px;
+  color: #7A8780;
+  font-size: 12px;
+}
+
+.pw-recyclebin-group-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #F0F4F1;
+  color: #53615A;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
 }
 
 .pw-table-scroll {

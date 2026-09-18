@@ -4,16 +4,25 @@ const {
     getProjectMemberEmployees,
     getAllTasks,
     getTaskDetailById,
+    getTaskProjectIdRaw,
     createTask: createTaskService,
+    createProjectLinkedTask,
     updateTask: updateTaskService,
     updateTaskStatus: updateTaskStatusService,
     assignTaskToSprint: assignTaskToSprintService,
-    deleteTask: deleteTaskService,
+    deleteTask: hardDeleteLegacyTask,
     transferTask: transferTaskService,
     assignTask: assignTaskService,
     approveAndCloseTask: approveAndCloseTaskService,
     sendBackTask: sendBackTaskService
 } = require("../services/taskService");
+
+const {
+    softDeleteTask,
+    restoreTask: restoreTaskService,
+    permanentlyDeleteTask,
+    NOT_SOFT_DELETED_ERROR
+} = require("../services/workItemDeletionService");
 
 const {
     getAssignableScope,
@@ -969,13 +978,22 @@ const deleteTask = async (req, res) => {
 
         }
 
-        await deleteTaskService(req.params.id);
+        // Project-linked task: soft delete -- moves to the project's
+        // Recycle Bin (restorable). Legacy non-project task: unchanged
+        // hard delete -- the Recycle Bin is project-scoped, and this
+        // flow predates the Project module entirely, so a soft delete
+        // with no restore UI anywhere would be a silent regression.
+        if (task.project_id) {
+            await softDeleteTask(req.params.id, req.user.id);
+        } else {
+            await hardDeleteLegacyTask(req.params.id);
+        }
 
         return res.json({
 
             success: true,
 
-            message: "Task deleted successfully"
+            message: task.project_id ? "Task moved to Recycle Bin" : "Task deleted successfully"
 
         });
 
@@ -989,6 +1007,189 @@ const deleteTask = async (req, res) => {
 
             message: "Unable to delete task"
 
+        });
+
+    }
+
+};
+
+// ========================================
+// RESTORE TASK (from Recycle Bin -- project-linked tasks only)
+// ========================================
+
+const restoreTask = async (req, res) => {
+
+    try {
+
+        const task = await getTaskProjectIdRaw(req.params.id);
+
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: "Task not found in Recycle Bin"
+            });
+        }
+
+        if (!await passesProjectPermission(req, task, "TASK_DELETE")) {
+            return res.status(403).json({
+                success: false,
+                message: "You do not have permission to restore this task"
+            });
+        }
+
+        const restored = await restoreTaskService(req.params.id);
+
+        if (!restored) {
+            return res.status(404).json({
+                success: false,
+                message: "Task not found in Recycle Bin"
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "Task restored successfully"
+        });
+
+    } catch (error) {
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to restore task"
+        });
+
+    }
+
+};
+
+// ========================================
+// PERMANENTLY DELETE TASK (from Recycle Bin)
+// ========================================
+
+const permanentDeleteTask = async (req, res) => {
+
+    try {
+
+        const task = await getTaskProjectIdRaw(req.params.id);
+
+        if (!task) {
+            return res.status(404).json({
+                success: false,
+                message: "Task not found in Recycle Bin"
+            });
+        }
+
+        if (!await passesProjectPermission(req, task, "TASK_DELETE")) {
+            return res.status(403).json({
+                success: false,
+                message: "You do not have permission to permanently delete this task"
+            });
+        }
+
+        await permanentlyDeleteTask(req.params.id);
+
+        return res.json({
+            success: true,
+            message: "Task permanently deleted"
+        });
+
+    } catch (error) {
+
+        if (error.name === NOT_SOFT_DELETED_ERROR) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to permanently delete task"
+        });
+
+    }
+
+};
+
+// ========================================
+// CREATE TASK DIRECTLY UNDER A PROJECT
+// POST /api/projects/:id/tasks -- User Story is OPTIONAL here (a task
+// may belong to a Project without going through a User Story). Both
+// user_story_id and sprint_id, if supplied, are validated server-side
+// against THIS project (taskService.assertUserStoryBelongsToProject /
+// assertSprintBelongsToProject) -- never trusted from the client.
+// ========================================
+
+const createProjectTask = async (req, res) => {
+
+    try {
+
+        const { title, description, assigned_to } = req.body;
+
+        if (!title?.trim() || !description?.trim() || !assigned_to) {
+            return res.status(400).json({
+                success: false,
+                message: "Title, description and assignee are required"
+            });
+        }
+
+        const eligible = await isEligibleProjectAssignee(Number(assigned_to), req.params.id);
+
+        if (!eligible) {
+            return res.status(400).json({
+                success: false,
+                message: "Selected user must be an active member of this project"
+            });
+        }
+
+        const taskId = await createProjectLinkedTask(
+            req.params.id,
+            req.body,
+            req.user.id
+        );
+
+        await createActivity(
+            taskId,
+            req.user.id,
+            {
+                activityType: "system",
+                body: "Created this task.",
+            },
+            [],
+            req.app.get("io")
+        );
+
+        return res.status(201).json({
+            success: true,
+            message: "Task created successfully",
+            id: taskId
+        });
+
+    } catch (error) {
+
+        if (error.name === "CrossProjectParentError") {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        console.error(error);
+
+        if (error.name === "TagValidationError") {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to create task"
         });
 
     }
@@ -1568,6 +1769,12 @@ module.exports = {
     assignTaskToSprint,
 
     deleteTask,
+
+    restoreTask,
+
+    permanentDeleteTask,
+
+    createProjectTask,
 
     transferTask,
 

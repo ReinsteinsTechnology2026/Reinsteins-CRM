@@ -22,6 +22,10 @@ const {
 
     deleteTask,
 
+    restoreTask,
+
+    permanentDeleteTask,
+
     transferTask,
 
     assignTask,
@@ -128,6 +132,25 @@ router.delete(
     "/delete/:id",
     protect,
     deleteTask
+);
+
+// ==========================================
+// RESTORE / PERMANENT DELETE (Recycle Bin --
+// project-linked tasks only; authorization is checked inside the
+// controller itself via passesProjectPermission(TASK_DELETE), same
+// pattern deleteTask above already uses)
+// ==========================================
+
+router.patch(
+    "/:id/restore",
+    protect,
+    restoreTask
+);
+
+router.delete(
+    "/:id/permanent",
+    protect,
+    permanentDeleteTask
 );
 
 // ==========================================

@@ -899,7 +899,8 @@ const getExecutiveSummary = async (req, res) => {
             `SELECT
                 SUM(CASE WHEN status != 'closed' THEN 1 ELSE 0 END) AS pending,
                 SUM(CASE WHEN status != 'closed' AND due_date IS NOT NULL AND due_date < CURRENT_DATE THEN 1 ELSE 0 END) AS overdue
-             FROM tasks`
+             FROM tasks
+             WHERE deleted_at IS NULL`
         );
 
         const [[pendingLeaveRow]] = await pool.query(
@@ -933,7 +934,7 @@ const getExecutiveSummary = async (req, res) => {
         );
 
         const [taskByStatus] = await pool.query(
-            `SELECT status, COUNT(*) AS count FROM tasks GROUP BY status`
+            `SELECT status, COUNT(*) AS count FROM tasks WHERE deleted_at IS NULL GROUP BY status`
         );
 
         const [recentActivity] = await pool.query(

@@ -12,6 +12,15 @@ const {
 } = require("../controllers/projectController");
 
 const {
+    createProjectTask
+} = require("../controllers/taskManagementController");
+
+const {
+    getRecycleBin,
+    restoreBatchHandler
+} = require("../controllers/recycleBinController");
+
+const {
     getMyPermissions,
     getMembers,
     addMembers,
@@ -89,6 +98,53 @@ router.get(
     requireProjectAccess,
     requireProjectPermission("BOARD_VIEW"),
     getProjectTaskList
+);
+
+// ==========================================
+// CREATE TASK DIRECTLY UNDER A PROJECT (Part 5)
+// A Task no longer has to be created through a User Story -- Epic/
+// Feature/User Story selectors in the create form are restricted to
+// THIS project client-side, and user_story_id (if supplied) is
+// re-validated against this same project server-side
+// (taskService.assertUserStoryBelongsToProject) -- never trusted from
+// the client alone.
+// ==========================================
+
+router.post(
+    "/:id/tasks",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("TASK_CREATE"),
+    createProjectTask
+);
+
+// ==========================================
+// RECYCLE BIN (Epics/Features/User Stories/Tasks/Sprints soft-deleted
+// within this project)
+// ==========================================
+
+router.get(
+    "/:id/recycle-bin",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("BACKLOG_VIEW"),
+    getRecycleBin
+);
+
+// ==========================================
+// RESTORE ALL (a cascade-deleted group)
+// Gated by membership only here -- the actual *_DELETE permission for
+// every type present in the batch is checked inside the controller,
+// since which types are involved isn't known until the batch is
+// looked up (see recycleBinController.restoreBatchHandler).
+// ==========================================
+
+router.post(
+    "/:id/recycle-bin/restore-batch",
+    protect,
+    requireProjectAccess,
+    requireProjectMembership(),
+    restoreBatchHandler
 );
 
 // ==========================================

@@ -3,6 +3,74 @@ const pool = require("../config/db");
 const { setTaskTags, attachTagsToTasks } = require("./tagService");
 
 const { deleteLinksForItem } = require("./workItemLinkService");
+const { generateNextTaskNumber, taskCode } = require("./workItemCodeService");
+
+// ==========================================
+// CROSS-PROJECT PARENT VALIDATION (Task)
+// Same pattern as featureService.assertEpicBelongsToProject /
+// userStoryService.assertFeatureBelongsToProject -- a User Story or
+// Sprint id supplied for a Task is validated against its ACTUAL
+// project_id, read fresh from the database, never trusted from the
+// request body. This closes the one gap identified in the existing
+// hierarchy validation: Task's user_story_id previously had no
+// equivalent assertion at all (userStoryService.createTaskForUserStory
+// sidesteps it by deriving project_id from the story row itself, and
+// the legacy taskController.js never touches user_story_id at all --
+// neither of those paths needed this, but the new Project-level and
+// Sprint-level Task creation entry points below do).
+// ==========================================
+
+const CROSS_PROJECT_ERROR = "CrossProjectParentError";
+
+async function assertUserStoryBelongsToProject(userStoryId, projectId) {
+
+    if (userStoryId === null || userStoryId === undefined || userStoryId === "") {
+        return;
+    }
+
+    const [[story]] = await pool.query(
+        `SELECT project_id FROM user_stories WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+        [userStoryId]
+    );
+
+    if (!story) {
+        const error = new Error("Selected User Story does not exist");
+        error.name = CROSS_PROJECT_ERROR;
+        throw error;
+    }
+
+    if (Number(story.project_id) !== Number(projectId)) {
+        const error = new Error("Selected User Story belongs to a different project");
+        error.name = CROSS_PROJECT_ERROR;
+        throw error;
+    }
+
+}
+
+async function assertSprintBelongsToProject(sprintId, projectId) {
+
+    if (sprintId === null || sprintId === undefined || sprintId === "") {
+        return;
+    }
+
+    const [[sprint]] = await pool.query(
+        `SELECT project_id FROM sprints WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+        [sprintId]
+    );
+
+    if (!sprint) {
+        const error = new Error("Selected Sprint does not exist");
+        error.name = CROSS_PROJECT_ERROR;
+        throw error;
+    }
+
+    if (Number(sprint.project_id) !== Number(projectId)) {
+        const error = new Error("Selected Sprint belongs to a different project");
+        error.name = CROSS_PROJECT_ERROR;
+        throw error;
+    }
+
+}
 
 // ==========================================
 // GET ACTIVE EMPLOYEES
@@ -119,12 +187,12 @@ const getAllTasks = async (user) => {
                 ON us.id = t.user_story_id
             LEFT JOIN sprints sp
                 ON sp.id = t.sprint_id
-            WHERE 1=1
+            WHERE t.deleted_at IS NULL
             ${PROJECT_MEMBERSHIP_FILTER}
             ORDER BY t.id DESC
         `, [user.id]);
 
-        return attachTagsToTasks(tasks);
+        return attachTaskDisplayData(tasks);
 
     }
 
@@ -153,6 +221,7 @@ const getAllTasks = async (user) => {
                 OR
                 t.assigned_by = ?
             )
+            AND t.deleted_at IS NULL
             ${PROJECT_MEMBERSHIP_FILTER}
         ORDER BY t.id DESC
     `, [
@@ -163,7 +232,45 @@ const getAllTasks = async (user) => {
 
     ]);
 
-    return attachTagsToTasks(tasks);
+    return attachTaskDisplayData(tasks);
+
+};
+
+// ==========================================
+// ATTACH TAGS + DISPLAY CODE
+// taskCode() is display-only (see workItemCodeService.js) -- never
+// changes the stored task_number, only what a project-linked task's
+// row exposes as task_code for the frontend to show ("TASK-001").
+// ==========================================
+
+async function attachTaskDisplayData(tasks) {
+
+    await attachTagsToTasks(tasks);
+
+    for (const task of tasks) {
+        task.task_code = taskCode(task);
+    }
+
+    return tasks;
+
+}
+
+// ==========================================
+// GET ONE TASK'S project_id, IGNORING deleted_at
+// Used only by the Recycle Bin restore/permanent-delete controller
+// actions, which must be able to look up a SOFT-DELETED task's
+// project (to check permission) -- getTaskDetailById deliberately
+// excludes soft-deleted rows everywhere else.
+// ==========================================
+
+const getTaskProjectIdRaw = async (id) => {
+
+    const [[row]] = await pool.query(
+        `SELECT id, project_id FROM tasks WHERE id = ? LIMIT 1`,
+        [id]
+    );
+
+    return row || null;
 
 };
 
@@ -193,6 +300,7 @@ const getTaskDetailById = async (id) => {
         LEFT JOIN sprints sp
             ON sp.id = t.sprint_id
         WHERE t.id = ?
+        AND t.deleted_at IS NULL
         LIMIT 1
     `, [id]);
 
@@ -200,7 +308,7 @@ const getTaskDetailById = async (id) => {
         return null;
     }
 
-    await attachTagsToTasks(tasks);
+    await attachTaskDisplayData(tasks);
 
     return tasks[0];
 
@@ -342,6 +450,97 @@ switch ((status || "").toLowerCase()) {
         ]
 
     );
+
+};
+
+// ==========================================
+// CREATE PROJECT-LINKED TASK (direct)
+//
+// Powers two new entry points that didn't exist before:
+//   - Project -> "Create Task" (Part 5 of the spec) -- user_story_id
+//     is OPTIONAL here (a task may belong to a Project without going
+//     through a User Story at all).
+//   - Sprint -> "Create Task" (Part 8) -- sprint_id is forced by the
+//     caller, user_story_id remains optional.
+//
+// Both user_story_id and sprint_id, if supplied, are validated
+// against the SAME project_id server-side (never trusted from the
+// client) -- this is the Task-level equivalent of
+// featureService.assertEpicBelongsToProject /
+// userStoryService.assertFeatureBelongsToProject, closing the one gap
+// identified during investigation (Task's user_story_id previously had
+// no such assertion anywhere).
+//
+// Deliberately separate from the legacy createTask() above (which
+// stays untouched for the non-project "My Tasks" flow) and from
+// userStoryService.createTaskForUserStory (which stays untouched for
+// its existing User Story -> "Create Task" entry point) -- this is a
+// THIRD, new call site, not a replacement for either.
+// ==========================================
+
+const createProjectLinkedTask = async (projectId, data, assignedBy) => {
+
+    const {
+        title,
+        description,
+        assigned_to,
+        priority,
+        due_date,
+        estimated_hours,
+        tags,
+        tagNames,
+        user_story_id,
+        sprint_id
+    } = data;
+
+    await assertUserStoryBelongsToProject(user_story_id, projectId);
+    await assertSprintBelongsToProject(sprint_id, projectId);
+
+    const nextTaskNumber = await generateNextTaskNumber();
+
+    const [result] = await pool.query(`
+        INSERT INTO tasks(
+            task_number,
+            user_id,
+            project_id,
+            user_story_id,
+            sprint_id,
+            assigned_to,
+            assigned_by,
+            task_title,
+            task_description,
+            priority,
+            status,
+            due_date,
+            estimated_hours,
+            tags,
+            progress
+        )
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        RETURNING id
+    `, [
+
+        nextTaskNumber,
+        Number(assignedBy),
+        projectId,
+        user_story_id || null,
+        sprint_id || null,
+        Number(assigned_to),
+        Number(assignedBy),
+        title,
+        description,
+        priority || "Medium",
+        "backlog",
+        due_date || null,
+        estimated_hours || null,
+        tags || null,
+        0
+
+    ]);
+
+    await setTaskTags(result[0].id, tagNames);
+
+    return result[0].id;
 
 };
 
@@ -622,12 +821,15 @@ const deleteTask = async (id) => {
 
 module.exports = {
 
+    CROSS_PROJECT_ERROR,
     getActiveEmployees,
     getTransferTargets,
     getProjectMemberEmployees,
     getAllTasks,
     getTaskDetailById,
+    getTaskProjectIdRaw,
     createTask,
+    createProjectLinkedTask,
     updateTask,
     updateTaskStatus,
     assignTaskToSprint,

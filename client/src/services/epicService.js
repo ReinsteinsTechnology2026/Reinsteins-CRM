@@ -64,3 +64,23 @@ export const deleteEpic = async (id) => {
     return data;
 
 };
+
+// ==========================================
+// RESTORE / PERMANENTLY DELETE (Recycle Bin)
+// ==========================================
+
+export const restoreEpic = async (id) => {
+
+    const { data } = await api.patch(`/epics/${id}/restore`);
+
+    return data;
+
+};
+
+export const permanentDeleteEpic = async (id) => {
+
+    const { data } = await api.delete(`/epics/${id}/permanent`);
+
+    return data;
+
+};

@@ -9,7 +9,9 @@ const {
     getEpic,
     createEpic,
     updateEpic,
-    deleteEpic
+    deleteEpic,
+    restoreEpic,
+    permanentDeleteEpic
 } = require("../controllers/epicController");
 
 const {
@@ -107,6 +109,31 @@ router.delete(
     requireProjectAccess,
     requireProjectPermission("EPIC_DELETE", projectIdFromEpic),
     deleteEpic
+);
+
+// ==========================================
+// RESTORE EPIC (from Recycle Bin)
+// PATCH /api/epics/:id/restore
+// PERMANENTLY DELETE EPIC (from Recycle Bin)
+// DELETE /api/epics/:id/permanent
+// Both reuse EPIC_DELETE -- whoever can delete an Epic can also
+// restore/permanently delete it (see workItemDeletionService.js).
+// ==========================================
+
+router.patch(
+    "/:id/restore",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("EPIC_DELETE", projectIdFromEpic),
+    restoreEpic
+);
+
+router.delete(
+    "/:id/permanent",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("EPIC_DELETE", projectIdFromEpic),
+    permanentDeleteEpic
 );
 
 module.exports = router;

@@ -58,6 +58,7 @@ const getSprintAnalytics = async (sprintId) => {
             SUM(CASE WHEN due_date < CURRENT_DATE AND status != 'closed' THEN 1 ELSE 0 END) AS overdue
         FROM tasks
         WHERE sprint_id = ?
+        AND deleted_at IS NULL
         `,
         [sprintId]
     );
@@ -76,6 +77,7 @@ const getSprintAnalytics = async (sprintId) => {
             COUNT(*) AS count
         FROM tasks
         WHERE sprint_id = ?
+        AND deleted_at IS NULL
         GROUP BY COALESCE(priority, 'Not set')
         `,
         [sprintId]
@@ -96,6 +98,7 @@ const getSprintAnalytics = async (sprintId) => {
         FROM tasks t
         INNER JOIN users u ON u.id = t.assigned_to
         WHERE t.sprint_id = ?
+        AND t.deleted_at IS NULL
         GROUP BY u.id, u.full_name
         ORDER BY total_tasks DESC, u.full_name ASC
         `,
@@ -123,6 +126,7 @@ const getSprintAnalytics = async (sprintId) => {
         INNER JOIN tasks t ON t.id = wl.task_id
         WHERE t.sprint_id = ?
         AND t.assigned_to IS NOT NULL
+        AND t.deleted_at IS NULL
         GROUP BY t.assigned_to
         `,
         [sprintId]

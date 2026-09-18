@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 
 const { deleteLinksForItem } = require("./workItemLinkService");
+const { createWithGeneratedCode } = require("./workItemCodeService");
 
 // ==========================================
 // EPIC SERVICE
@@ -34,6 +35,7 @@ const getEpicsByProject = async (projectId) => {
                 SELECT COUNT(*)
                 FROM features f
                 WHERE f.epic_id = e.id
+                AND f.deleted_at IS NULL
             ) AS feature_count
 
         FROM epics e
@@ -42,6 +44,7 @@ const getEpicsByProject = async (projectId) => {
         LEFT JOIN users creator
             ON creator.id = e.created_by
         WHERE e.project_id = ?
+        AND e.deleted_at IS NULL
         ORDER BY e.id DESC
     `, [projectId]);
 
@@ -73,6 +76,7 @@ const getEpicById = async (id) => {
         LEFT JOIN users creator
             ON creator.id = e.created_by
         WHERE e.id = ?
+        AND e.deleted_at IS NULL
         LIMIT 1
     `, [id]);
 
@@ -96,35 +100,43 @@ const createEpic = async (projectId, data, createdBy) => {
         due_date,
     } = data;
 
-    const [result] = await pool.query(`
-        INSERT INTO epics(
-            project_id,
+    const id = await createWithGeneratedCode("epic", async (epicCode) => {
+
+        const [result] = await pool.query(`
+            INSERT INTO epics(
+                project_id,
+                epic_code,
+                title,
+                description,
+                owner_id,
+                created_by,
+                status,
+                priority,
+                start_date,
+                due_date
+            )
+            VALUES(?,?,?,?,?,?,?,?,?,?)
+            RETURNING id
+        `, [
+
+            projectId,
+            epicCode,
             title,
-            description,
-            owner_id,
-            created_by,
-            status,
-            priority,
-            start_date,
-            due_date
-        )
-        VALUES(?,?,?,?,?,?,?,?,?)
-        RETURNING id
-    `, [
+            description || null,
+            owner_id || null,
+            createdBy,
+            status || "new",
+            priority || "Medium",
+            start_date || null,
+            due_date || null,
 
-        projectId,
-        title,
-        description || null,
-        owner_id || null,
-        createdBy,
-        status || "new",
-        priority || "Medium",
-        start_date || null,
-        due_date || null,
+        ]);
 
-    ]);
+        return result[0].id;
 
-    return result[0].id;
+    });
+
+    return id;
 
 };
 

@@ -1,6 +1,7 @@
 const pool = require("../config/db");
 
 const { deleteLinksForItem } = require("./workItemLinkService");
+const { createWithGeneratedCode } = require("./workItemCodeService");
 
 // ==========================================
 // FEATURE SERVICE
@@ -39,7 +40,7 @@ async function assertEpicBelongsToProject(epicId, projectId) {
     }
 
     const [[epic]] = await pool.query(
-        `SELECT project_id FROM epics WHERE id = ? LIMIT 1`,
+        `SELECT project_id FROM epics WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
         [epicId]
     );
 
@@ -74,6 +75,7 @@ const getFeaturesByProject = async (projectId) => {
                 SELECT COUNT(*)
                 FROM user_stories us
                 WHERE us.feature_id = f.id
+                AND us.deleted_at IS NULL
             ) AS story_count
 
         FROM features f
@@ -84,6 +86,7 @@ const getFeaturesByProject = async (projectId) => {
         LEFT JOIN users creator
             ON creator.id = f.created_by
         WHERE f.project_id = ?
+        AND f.deleted_at IS NULL
         ORDER BY f.id DESC
     `, [projectId]);
 
@@ -118,6 +121,7 @@ const getFeatureById = async (id) => {
         LEFT JOIN users creator
             ON creator.id = f.created_by
         WHERE f.id = ?
+        AND f.deleted_at IS NULL
         LIMIT 1
     `, [id]);
 
@@ -144,37 +148,45 @@ const createFeature = async (projectId, data, createdBy) => {
 
     await assertEpicBelongsToProject(epic_id, projectId);
 
-    const [result] = await pool.query(`
-        INSERT INTO features(
-            project_id,
-            epic_id,
+    const id = await createWithGeneratedCode("feature", async (featureCode) => {
+
+        const [result] = await pool.query(`
+            INSERT INTO features(
+                project_id,
+                epic_id,
+                feature_code,
+                title,
+                description,
+                owner_id,
+                created_by,
+                status,
+                priority,
+                start_date,
+                due_date
+            )
+            VALUES(?,?,?,?,?,?,?,?,?,?,?)
+            RETURNING id
+        `, [
+
+            projectId,
+            epic_id || null,
+            featureCode,
             title,
-            description,
-            owner_id,
-            created_by,
-            status,
-            priority,
-            start_date,
-            due_date
-        )
-        VALUES(?,?,?,?,?,?,?,?,?,?)
-        RETURNING id
-    `, [
+            description || null,
+            owner_id || null,
+            createdBy,
+            status || "new",
+            priority || "Medium",
+            start_date || null,
+            due_date || null,
 
-        projectId,
-        epic_id || null,
-        title,
-        description || null,
-        owner_id || null,
-        createdBy,
-        status || "new",
-        priority || "Medium",
-        start_date || null,
-        due_date || null,
+        ]);
 
-    ]);
+        return result[0].id;
 
-    return result[0].id;
+    });
+
+    return id;
 
 };
 
