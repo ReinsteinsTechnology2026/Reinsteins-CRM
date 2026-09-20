@@ -89,7 +89,15 @@ test.describe.serial("TechOps: full hierarchy, direct task creation, Sprint, Rec
     test("Epic: create with automatic ID, edit, child Feature creation entry point", async () => {
         await page.goto(projectUrl);
 
-        await page.getByRole("button", { name: /Add Epic/i }).click();
+        // Top-level "Add Epic" now lives inside the "Add New Work
+        // Item" menu (menuitem role, not button -- distinct from the
+        // still-unchanged contextual per-row "Add Feature"/"Add User
+        // Story"/"Add Task" buttons used elsewhere in this file).
+        // Scoped to the toolbar: the empty-state Backlog also renders
+        // its own "Add New Work Item" trigger, which would otherwise
+        // make this locator ambiguous on a freshly created project.
+        await page.locator(".pw-backlog-header-actions").getByRole("button", { name: "Add New Work Item" }).click();
+        await page.getByRole("menuitem", { name: /Add Epic/i }).click();
         await page.getByPlaceholder(/Customer Onboarding Overhaul/i).fill("E2E Epic One");
         await page.getByRole("button", { name: "Create Epic" }).click();
 
@@ -194,7 +202,9 @@ test.describe.serial("TechOps: full hierarchy, direct task creation, Sprint, Rec
     test("Direct Task creation from Project (no User Story forced), Epic/Feature/User Story/Assignee selectable", async () => {
         await page.goto(projectUrl);
 
-        await page.getByRole("button", { name: /Add Task/i }).first().click(); // project-level "Add Task" in the Backlog header
+        // Project-level "Add Task" -- via the "Add New Work Item" menu.
+        await page.getByRole("button", { name: "Add New Work Item" }).click();
+        await page.getByRole("menuitem", { name: /Add Task/i }).click();
         await page.getByPlaceholder(/Create Attendance Widget/i).fill("E2E Direct Project Task");
         await page.locator("textarea").first().fill("Created directly from the project, no forced User Story");
 

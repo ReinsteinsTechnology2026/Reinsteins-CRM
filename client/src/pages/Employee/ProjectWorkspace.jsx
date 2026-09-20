@@ -74,6 +74,7 @@ import CreateUserStoryModal from "../Projects/CreateUserStoryModal";
 import CreateStoryTaskModal from "../Projects/CreateStoryTaskModal";
 import CreateLinkedTaskModal from "../Projects/CreateLinkedTaskModal";
 import CreateSprintModal from "../Projects/CreateSprintModal";
+import AddWorkItemMenu from "../Projects/AddWorkItemMenu";
 import ProjectSettings from "./ProjectSettings";
 import TagChips from "../../components/TagChips";
 import TaskFilterBar from "../../components/TaskFilterBar";
@@ -1192,7 +1193,9 @@ function BacklogTab({
             {storyTasks.map((task) => (
               <tr key={task.id} className="pw-task-row" onClick={() => onOpenTask(task.id)}>
                 <td className="pw-task-title-cell">
+                  <span className="pw-item-code">{taskCode(task)}</span>
                   {task.task_title}
+                  <span className="pw-item-type-badge pw-item-type-badge-task">Task</span>
                   {task.taskTags?.length > 0 && (
                     <TagChips tags={task.taskTags} max={3} />
                   )}
@@ -1256,7 +1259,9 @@ function BacklogTab({
                 {orphanTasks.map((task) => (
                   <tr key={task.id} className="pw-task-row" onClick={() => onOpenTask(task.id)}>
                     <td className="pw-task-title-cell">
+                      <span className="pw-item-code">{taskCode(task)}</span>
                       {task.task_title}
+                      <span className="pw-item-type-badge pw-item-type-badge-task">Task</span>
                       {task.taskTags?.length > 0 && (
                         <TagChips tags={task.taskTags} max={3} />
                       )}
@@ -1298,7 +1303,11 @@ function BacklogTab({
         <div className="pw-story-folder-header" onClick={() => toggle(key)}>
           {isOpen ? <FaChevronDown /> : <FaChevronRight />}
           <FaFolder />
-          <span className="pw-story-title">{story.title}</span>
+          <span className="pw-story-title">
+            {story.story_code && <span className="pw-item-code">{story.story_code}</span>}
+            {story.title}
+          </span>
+          <span className="pw-item-type-badge">User Story</span>
           <span className="pw-story-count">
             {storyTasks.length} Task{storyTasks.length === 1 ? "" : "s"}
             {filtersActive && story.task_count !== storyTasks.length ? ` of ${story.task_count}` : ""}
@@ -1356,7 +1365,11 @@ function BacklogTab({
         <div className="pw-story-folder-header" onClick={() => toggle(key)}>
           {isOpen ? <FaChevronDown /> : <FaChevronRight />}
           <FaFolder />
-          <span className="pw-story-title">{feature.title}</span>
+          <span className="pw-story-title">
+            {feature.feature_code && <span className="pw-item-code">{feature.feature_code}</span>}
+            {feature.title}
+          </span>
+          <span className="pw-item-type-badge">Feature</span>
           <span className="pw-story-count">
             {featureStories.length} Stor{featureStories.length === 1 ? "y" : "ies"}
           </span>
@@ -1430,7 +1443,11 @@ function BacklogTab({
         <div className="pw-story-folder-header" onClick={() => toggle(key)}>
           {isOpen ? <FaChevronDown /> : <FaChevronRight />}
           <FaFolder />
-          <span className="pw-story-title">{epic.title}</span>
+          <span className="pw-story-title">
+            {epic.epic_code && <span className="pw-item-code">{epic.epic_code}</span>}
+            {epic.title}
+          </span>
+          <span className="pw-item-type-badge">Epic</span>
           <span className="pw-story-count">
             {epicFeatures.length} Feature{epicFeatures.length === 1 ? "" : "s"}
           </span>
@@ -1506,31 +1523,35 @@ function BacklogTab({
           <p>Epics, Features, and User Stories work like nested folders — expand one to see what's inside.</p>
         </div>
         <div className="pw-backlog-header-actions">
-          {canCreateEpic && (
-            <button type="button" className="exec-new-project-button" onClick={onAddEpic}>
-              <FaPlus /> Add Epic
-            </button>
-          )}
-          {canCreateFeature && (
-            <button type="button" className="exec-new-project-button" onClick={() => onAddFeature(null)}>
-              <FaPlus /> Add Feature
-            </button>
-          )}
-          {canCreateUserStory && (
-            <button type="button" className="exec-new-project-button" onClick={() => onAddStory(null)}>
-              <FaPlus /> Add User Story
-            </button>
-          )}
-          {canCreateTask && (
-            <button type="button" className="exec-new-project-button" onClick={onAddProjectTask}>
-              <FaPlus /> Add Task
-            </button>
-          )}
+          <AddWorkItemMenu
+            onAddEpic={onAddEpic}
+            onAddFeature={() => onAddFeature(null)}
+            onAddUserStory={() => onAddStory(null)}
+            onAddTask={onAddProjectTask}
+            canCreateEpic={canCreateEpic}
+            canCreateFeature={canCreateFeature}
+            canCreateUserStory={canCreateUserStory}
+            canCreateTask={canCreateTask}
+          />
         </div>
       </div>
 
       {isCompletelyEmpty ? (
-        <div className="my-team-empty">No epics, features, or user stories yet. Break this project down to get started.</div>
+        <div className="my-team-empty pw-backlog-empty">
+          <p>No work items yet</p>
+          <p className="pw-backlog-empty-hint">Start by creating an Epic, Feature, User Story, or Task.</p>
+          <AddWorkItemMenu
+            onAddEpic={onAddEpic}
+            onAddFeature={() => onAddFeature(null)}
+            onAddUserStory={() => onAddStory(null)}
+            onAddTask={onAddProjectTask}
+            canCreateEpic={canCreateEpic}
+            canCreateFeature={canCreateFeature}
+            canCreateUserStory={canCreateUserStory}
+            canCreateTask={canCreateTask}
+            className="pw-backlog-empty-menu"
+          />
+        </div>
       ) : !hasVisibleContent ? (
         <div className="my-team-empty">No tasks match these filters.</div>
       ) : (

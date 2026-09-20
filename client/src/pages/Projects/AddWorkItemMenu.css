@@ -1,0 +1,90 @@
+/* ==========================================
+   ADD WORK ITEM MENU
+   Reuses the existing app palette (green accent #16A66A, dark text
+   #17211D, muted text #53615A/#7A8780, border #E2E9E5, subtle
+   background #F7FAF8) -- the same tokens already used throughout
+   ProjectWorkspace.css. No colors from any external reference.
+========================================== */
+
+.awi-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.awi-menu-caret {
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+.awi-menu-caret-open {
+  transform: rotate(180deg);
+}
+
+.awi-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: 280px;
+  max-width: calc(100vw - 32px);
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(23, 33, 29, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.awi-menu-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  cursor: pointer;
+  text-align: left;
+  min-height: 44px;
+}
+
+.awi-menu-item:hover,
+.awi-menu-item:focus-visible {
+  background: #F7FAF8;
+  outline: none;
+}
+
+.awi-menu-item-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-size: 14px;
+  color: #16A66A;
+}
+
+.awi-menu-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.awi-menu-item-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #17211D;
+}
+
+.awi-menu-item-description {
+  font-size: 12px;
+  color: #7A8780;
+  line-height: 1.3;
+}
+
+@media (max-width: 480px) {
+  .awi-menu-panel {
+    width: 260px;
+  }
+}

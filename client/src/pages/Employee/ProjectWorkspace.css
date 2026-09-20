@@ -366,6 +366,58 @@
   }
 }
 
+.pw-backlog-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.pw-backlog-empty p:first-child {
+  font-size: 15px;
+  font-weight: 700;
+  color: #17211D;
+  margin: 0;
+}
+
+.pw-backlog-empty-hint {
+  margin: 0 0 10px !important;
+}
+
+.pw-backlog-empty-menu {
+  justify-content: center;
+}
+
+/* ==========================================
+   WORK ITEM CODE + TYPE BADGE (Backlog folder
+   headers and task rows) -- reuses .pw-story-title/
+   .pw-priority conventions, same palette.
+========================================== */
+
+.pw-item-code {
+  color: #53615A;
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.pw-item-type-badge {
+  display: inline-block;
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  background: rgba(22, 166, 106, 0.12);
+  color: #16A66A;
+}
+
+.pw-item-type-badge-task {
+  background: rgba(122, 135, 128, 0.15);
+  color: #53615A;
+}
+
 /* ==========================================
    PRIORITY / STATUS PILLS (compact, reused
    across Backlog rows and Kanban cards)

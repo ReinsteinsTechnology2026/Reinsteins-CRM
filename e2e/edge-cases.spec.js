@@ -43,7 +43,7 @@ test.describe.serial("Edge cases", () => {
             await page.getByText("E2E Empty State Project").first().click();
             await page.waitForURL(/\/admin\/projects\/\d+/, { timeout: 10000 });
 
-            await expect(page.getByText(/No epics, features, or user stories yet/i)).toBeVisible({ timeout: 10000 });
+            await expect(page.getByText("No work items yet")).toBeVisible({ timeout: 10000 });
             expect(health.getPageErrors(), "empty Backlog state threw a JS exception").toEqual([]);
         });
 
@@ -138,11 +138,16 @@ test.describe.serial("Edge cases", () => {
             await page.getByText("E2E Empty State Project").first().click();
             await page.waitForURL(/\/admin\/projects\/\d+/, { timeout: 10000 });
 
-            await page.getByRole("button", { name: /Add Epic/i }).click();
+            // Scoped -- this project's Backlog is still empty here, so
+            // the empty state also renders its own "Add New Work Item"
+            // trigger alongside the toolbar's.
+            const toolbarTrigger = page.locator(".pw-backlog-header-actions").getByRole("button", { name: "Add New Work Item" });
+            await toolbarTrigger.click();
+            await page.getByRole("menuitem", { name: /Add Epic/i }).click();
             await page.getByPlaceholder(/Customer Onboarding Overhaul/i).fill("Will be abandoned by refresh");
             await page.reload();
 
-            await expect(page.getByRole("button", { name: /Add Epic/i })).toBeVisible({ timeout: 10000 });
+            await expect(toolbarTrigger).toBeVisible({ timeout: 10000 });
             expect(health.getPageErrors(), "refreshing mid-form left the app in a broken state").toEqual([]);
         });
 

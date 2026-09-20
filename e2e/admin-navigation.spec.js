@@ -50,7 +50,11 @@ test.describe("Admin sidebar navigation", () => {
         await page.getByText("E2E Nav Fix Project").first().click();
         await page.waitForURL(/\/admin\/projects\/\d+/, { timeout: 10000 });
 
-        await expect(page.getByRole("button", { name: /Add Epic/i })).toBeVisible({ timeout: 10000 });
+        // Scoped -- an empty (freshly created) project's Backlog also
+        // renders its own "Add New Work Item" trigger in its empty
+        // state, alongside the toolbar's, making an unscoped locator
+        // ambiguous.
+        await expect(page.locator(".pw-backlog-header-actions").getByRole("button", { name: "Add New Work Item" })).toBeVisible({ timeout: 10000 });
         await expect(page.getByRole("button", { name: "Sprints" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Recycle Bin" })).toBeVisible();
     });
