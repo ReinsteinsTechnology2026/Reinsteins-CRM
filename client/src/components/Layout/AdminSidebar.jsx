@@ -392,26 +392,24 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
 
         </div>
 
-        {/* TECHOPS -- organization/project administration (the
-            Phase 2A/2B/2C multi-organization Projects area). Labeled
-            "TechOps" specifically to stay visually and conceptually
-            distinct from "Organization" below, which is the
-            unrelated internal company-structure area (Org Chart /
-            Departments / Designations). Same route, same component,
-            label-only change. */}
+        {/* TECHOPS -- opens Projects directly. Labeled "TechOps" to
+            stay visually and conceptually distinct from
+            "Organization" below, which is the unrelated internal
+            company-structure area (Org Chart / Departments /
+            Designations). */}
 
         <button
           type="button"
           className={`sidebar-item ${
             isActive(
-              `${basePath}/organizations`
+              `${basePath}/projects`
             )
               ? "active"
               : ""
           }`}
           onClick={() =>
             handleNavigate(
-              `${basePath}/organizations`
+              `${basePath}/projects`
             )
           }
         >
@@ -421,14 +419,6 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             TechOps
           </span>
         </button>
-
-        {/* PROJECTS -- deliberately no top-level sidebar entry.
-            Projects now live inside their organization
-            (TechOps -> Organization -> Projects), per the
-            corrected hierarchy. The route itself
-            (/admin/projects), ProjectsList.jsx, and every
-            project API are all untouched and still fully
-            reachable -- only this nav entry point is removed. */}
 
         {/* TASKS */}
 
