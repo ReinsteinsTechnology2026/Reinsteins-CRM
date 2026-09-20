@@ -20,6 +20,22 @@ jobs:
 
           npm ci --omit=dev --ignore-scripts
 
+          # Safe, idempotent, additive-only backfill for the default
+          # "Project Administrators" security group (adds any
+          # PERMISSION_KEYS row that's missing -- e.g. EPIC_CREATE/
+          # FEATURE_CREATE on tenants whose group predates them --
+          # never modifies or removes any existing row, never touches
+          # any other security group, never touches any other tenant's
+          # data). Uses the same server/.env-based config app.js itself
+          # already relies on -- no separate credentials needed here.
+          # `set -e` above means a non-zero exit here stops the script
+          # immediately: the build/restart/health-check steps below
+          # never run, so a failed migration can never be followed by a
+          # restart into a partially-migrated application, and this
+          # step's own output (already printed to the log) is what
+          # shows in the Actions UI as the failure reason.
+          node server/_migrate_backfill_admin_group_permissions.js
+
           cd client
           npm ci
           VITE_API_URL=https://crm.zioventure.com npm run build

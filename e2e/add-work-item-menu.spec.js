@@ -131,6 +131,18 @@ test.describe.serial("Add New Work Item menu", () => {
         await expect(featureFolder.getByText("Feature", { exact: true })).toBeVisible();
     });
 
+    test("all four menu options remain visible once an Epic and Feature already exist", async () => {
+        await page.goto(projectUrl);
+
+        await page.locator(".pw-backlog-header-actions").getByRole("button", { name: "Add New Work Item" }).click();
+        const menu = page.getByRole("menu");
+        await expect(menu.getByRole("menuitem", { name: /Add Epic/i })).toBeVisible();
+        await expect(menu.getByRole("menuitem", { name: /Add Feature/i })).toBeVisible();
+        await expect(menu.getByRole("menuitem", { name: /Add User Story/i })).toBeVisible();
+        await expect(menu.getByRole("menuitem", { name: /Add Task/i })).toBeVisible();
+        await page.keyboard.press("Escape");
+    });
+
     test("contextual 'Add User Story' on the Feature row auto-selects that Feature", async () => {
         await page.goto(projectUrl);
 
@@ -260,5 +272,134 @@ test.describe("Add New Work Item -- viewport fit", () => {
         });
 
     }
+
+});
+
+// ==========================================
+// REGRESSION: LIVE BUG -- "Add Epic"/"Add Feature" missing from the
+// menu for a member whose default "Project Administrators" group
+// predates EPIC_CREATE/FEATURE_CREATE existing as permission keys.
+//
+// Root cause (confirmed by direct reproduction below, not guessed):
+// ensureDefaultProjectAdministratorsGroupId() in projectService.js
+// only ever inserted project_permissions rows for a tenant's default
+// group at the moment that group was FIRST created. Any permission
+// key added to PERMISSION_KEYS afterwards (EPIC_CREATE/FEATURE_CREATE,
+// added once Epics/Features shipped) never got backfilled onto an
+// ALREADY-existing group -- so GET /api/projects/:id/my-permissions
+// genuinely returns EPIC_CREATE: false, FEATURE_CREATE: false for
+// such a tenant, while USER_STORY_CREATE/TASK_CREATE (older keys)
+// still correctly resolve true. AddWorkItemMenu.jsx was never the
+// bug -- it correctly reflects whatever the server says; nothing in
+// it hides an item based on how many Epics/Features currently exist.
+//
+// This test reproduces the exact historical data state (delete the
+// two rows from an already-existing group, simulating a tenant whose
+// group predates those keys), confirms the live symptom via the real
+// UI, then confirms both fixes restore it: (a) the migration script,
+// and (b) the self-healing code path (creating a new project).
+// ==========================================
+
+test.describe("Regression: default admin group missing newer permission keys", () => {
+
+    let regressionFixtures;
+    let regressionPage;
+
+    test.beforeAll(async ({ browser }) => {
+        regressionFixtures = loadFixtures();
+        regressionPage = await browser.newPage();
+    });
+
+    test.afterAll(async () => {
+        await regressionPage.close();
+    });
+
+    async function deleteEpicFeatureCreateRows() {
+        const { getTenantPool } = require("../server/config/tenantConnectionManager");
+        const { buildTenantDbName } = require("../server/utils/tenantDbName");
+        const pool = getTenantPool(buildTenantDbName(regressionFixtures.slug));
+        const [[group]] = await pool.query(
+            `SELECT id FROM project_security_groups WHERE project_id IS NULL AND name = 'Project Administrators' AND is_default = TRUE LIMIT 1`
+        );
+        await pool.query(
+            `DELETE FROM project_permissions WHERE security_group_id = ? AND permission_key IN ('EPIC_CREATE', 'FEATURE_CREATE')`,
+            [group.id]
+        );
+        return group.id;
+    }
+
+    async function countEpicFeatureCreateRows(groupId) {
+        const { getTenantPool } = require("../server/config/tenantConnectionManager");
+        const { buildTenantDbName } = require("../server/utils/tenantDbName");
+        const pool = getTenantPool(buildTenantDbName(regressionFixtures.slug));
+        const [rows] = await pool.query(
+            `SELECT permission_key FROM project_permissions WHERE security_group_id = ? AND permission_key IN ('EPIC_CREATE', 'FEATURE_CREATE')`,
+            [groupId]
+        );
+        return rows.length;
+    }
+
+    test("reproduces the live bug: with the rows missing, the menu really does show only Add User Story/Add Task", async () => {
+        const groupId = await deleteEpicFeatureCreateRows();
+        expect(await countEpicFeatureCreateRows(groupId), "setup: rows should be gone before reproducing").toBe(0);
+
+        await loginAsTenantUser(regressionPage, regressionFixtures.slug, regressionFixtures.admin, "admin");
+        await regressionPage.goto(`/${regressionFixtures.slug}/admin/projects/${regressionFixtures.projectId}`);
+        await regressionPage.locator(".pw-backlog-header-actions").getByRole("button", { name: "Add New Work Item" }).click();
+
+        const menu = regressionPage.getByRole("menu");
+        await expect(menu).toBeVisible();
+        await expect(menu.getByRole("menuitem", { name: /Add Epic/i })).toHaveCount(0);
+        await expect(menu.getByRole("menuitem", { name: /Add Feature/i })).toHaveCount(0);
+        await expect(menu.getByRole("menuitem", { name: /Add User Story/i })).toBeVisible();
+        await expect(menu.getByRole("menuitem", { name: /Add Task/i })).toBeVisible();
+        await regressionPage.keyboard.press("Escape");
+    });
+
+    test("fix: the migration script restores all four options", async () => {
+        // Confirms the migration alone (without any project-creation
+        // side effect) repairs the exact broken state left by the
+        // previous test.
+        // eslint-disable-next-line global-require
+        const { execFileSync } = require("child_process");
+        execFileSync(process.execPath, ["_migrate_backfill_admin_group_permissions.js"], {
+            cwd: require("path").join(__dirname, "..", "server"),
+            env: process.env,
+            stdio: "inherit",
+        });
+
+        await regressionPage.goto(`/${regressionFixtures.slug}/admin/projects/${regressionFixtures.projectId}`);
+        await regressionPage.reload();
+        await regressionPage.locator(".pw-backlog-header-actions").getByRole("button", { name: "Add New Work Item" }).click();
+
+        const menu = regressionPage.getByRole("menu");
+        await expect(menu.getByRole("menuitem", { name: /Add Epic/i })).toBeVisible();
+        await expect(menu.getByRole("menuitem", { name: /Add Feature/i })).toBeVisible();
+        await expect(menu.getByRole("menuitem", { name: /Add User Story/i })).toBeVisible();
+        await expect(menu.getByRole("menuitem", { name: /Add Task/i })).toBeVisible();
+        await regressionPage.keyboard.press("Escape");
+    });
+
+    test("fix: the self-healing code path also restores all four options (no separate migration needed going forward)", async () => {
+        const groupId = await deleteEpicFeatureCreateRows();
+        expect(await countEpicFeatureCreateRows(groupId), "setup: rows should be gone again before this check").toBe(0);
+
+        // Creating a new project calls ensureDefaultProjectAdministratorsGroupId()
+        // again, which (after the fix) backfills any missing key even
+        // though the group already existed -- no migration required.
+        await regressionPage.goto(`/${regressionFixtures.slug}/admin/projects`);
+        await regressionPage.getByRole("button", { name: /New Project/i }).click();
+        await regressionPage.getByPlaceholder(/RS Management Portal/i).fill("E2E Self-Heal Regression Project");
+        await regressionPage.getByRole("button", { name: "Create Project" }).click();
+        await expect(regressionPage.getByText("E2E Self-Heal Regression Project")).toBeVisible({ timeout: 10000 });
+
+        expect(await countEpicFeatureCreateRows(groupId), "self-healing code path did not backfill the missing keys").toBe(2);
+
+        await regressionPage.goto(`/${regressionFixtures.slug}/admin/projects/${regressionFixtures.projectId}`);
+        await regressionPage.locator(".pw-backlog-header-actions").getByRole("button", { name: "Add New Work Item" }).click();
+        const menu = regressionPage.getByRole("menu");
+        await expect(menu.getByRole("menuitem", { name: /Add Epic/i })).toBeVisible();
+        await expect(menu.getByRole("menuitem", { name: /Add Feature/i })).toBeVisible();
+    });
 
 });

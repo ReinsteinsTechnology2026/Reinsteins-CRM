@@ -442,9 +442,15 @@ const createProject = async (data, createdBy, forcedOrganizationId) => {
 // permission check for them then correctly (per the
 // strict no-bypass model in projectPermissionService.js)
 // denied everything. Self-healing here -- create it once,
-// with every permission key granted -- means no separate
-// migration/seed script is needed and existing tenants
-// fix themselves on their very next project creation.
+// with every permission key granted, AND (below) backfill
+// any key added to PERMISSION_KEYS after a tenant's group
+// already existed (e.g. EPIC_CREATE/FEATURE_CREATE, added
+// once Epics/Features shipped) -- so existing tenants fix
+// themselves on their very next project creation. A tenant
+// with an already-broken, currently-existing project still
+// needs the one-off backfill applied without waiting for a
+// new project to be created -- see
+// _migrate_backfill_admin_group_permissions.js.
 // ==========================================
 
 const ensureDefaultProjectAdministratorsGroupId = async () => {
@@ -454,6 +460,31 @@ const ensureDefaultProjectAdministratorsGroupId = async () => {
     );
 
     if (existing) {
+        // The group itself already exists, but PERMISSION_KEYS can grow
+        // over time (e.g. EPIC_CREATE/FEATURE_CREATE were added after
+        // this group already existed on older tenants) -- backfill any
+        // key that's missing its 'allow' row so this group's own
+        // documented "full access to every project" promise actually
+        // holds for every key, not just the ones that existed when the
+        // group was first created. Idempotent: only inserts a row for a
+        // key that has none at all, never touches an existing row.
+        const [existingRows] = await pool.query(
+            `SELECT permission_key FROM project_permissions WHERE security_group_id = ? AND project_id IS NULL`,
+            [existing.id]
+        );
+        const existingKeys = new Set(existingRows.map((row) => row.permission_key));
+
+        for (const permissionKey of PERMISSION_KEYS) {
+            if (existingKeys.has(permissionKey)) continue;
+            await pool.query(
+                `
+                INSERT INTO project_permissions (security_group_id, project_id, permission_key, value)
+                VALUES (?, NULL, ?, 'allow')
+                `,
+                [existing.id, permissionKey]
+            );
+        }
+
         return existing.id;
     }
 
