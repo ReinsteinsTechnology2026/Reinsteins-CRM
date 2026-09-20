@@ -7,20 +7,20 @@ const { SAFE_SOP_EXTENSIONS, isSafeUpload } = require("../utils/fileTypeValidati
 // ==========================================
 // SOP UPLOAD MIDDLEWARE (Phase 17c)
 //
-// tenantUploadAbsoluteDir(category) takes just the category -- it
-// resolves the tenant itself via the AsyncLocalStorage-backed
-// getCurrentCompanySlug(), set by tenantProtect's
-// runWithTenantContext() before this middleware chain ever runs
-// (see tenantAuthMiddleware.js). This is the same proven convention
-// every other tenant-scoped multer config in this codebase already
-// uses (uploadMiddleware.js/chatUploadMiddleware.js/taskUploadMiddleware.js/
-// meetingUploadMiddleware.js/fileUpload.js) -- nothing SOP-specific
-// is needed here.
+// Destination resolved per-request from the authenticated tenant
+// context (req.tenantCompany, set synchronously by tenantAuthMiddleware.js
+// BEFORE multer ever runs) -- never from req.body/req.params, and
+// never via the AsyncLocalStorage-backed getCurrentCompanySlug()
+// inside a multer callback specifically (see tenantUploadPath.js's
+// own "Phase 16B" comment for why that specific combination is
+// unsafe under concurrency). This exactly matches every other
+// tenant-scoped multer config in this codebase
+// (uploadMiddleware.js/chatUploadMiddleware.js/etc.).
 // ==========================================
 
 const storage = multer.diskStorage({
   destination(req, file, callback) {
-    callback(null, tenantUploadAbsoluteDir("sops"));
+    callback(null, tenantUploadAbsoluteDir(req, "sops"));
   },
 
   filename(req, file, callback) {
@@ -49,7 +49,13 @@ const fileFilter = (req, file, callback) => {
   if (isSafeUpload(file, allowedMimeTypes, SAFE_SOP_EXTENSIONS)) {
     callback(null, true);
   } else {
-    callback(new Error("Only PDF, DOC, DOCX, JPG, JPEG, PNG and WEBP files are allowed."));
+    // Without an explicit .status, app.js's global error handler falls
+    // back to 500 for what is actually a 400-worthy input validation
+    // rejection (and hides the real reason behind a generic message
+    // in production).
+    const error = new Error("Only PDF, DOC, DOCX, JPG, JPEG, PNG and WEBP files are allowed.");
+    error.status = 400;
+    callback(error);
   }
 };
 

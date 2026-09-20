@@ -243,9 +243,14 @@ async function apiPost(pathname, body, extraHeaders = {}) {
     // EXTRA -- Reinsteins unaffected
     // ================================================
     console.log("\nEXTRA -- Reinsteins verification");
-    const [[{ tbl }]] = await pool.query(`SELECT COUNT(*) AS tbl FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?`, [process.env.DB_NAME]);
+    // Phase 16A discovery -- see _test_security_hardening.js's comment
+    // at this same check for the full explanation (Postgres
+    // table_schema means schema not database; production shares one
+    // database between tenant and platform tables).
+    const PLATFORM_TABLE_NAMES = ["platform_users", "subscription_plans", "companies", "demo_requests", "payments", "subscription_history", "platform_audit_logs", "platform_notifications", "email_delivery_logs", "email_domains", "mailboxes", "email_aliases", "mailbox_settings"];
+    const [[{ tbl }]] = await pool.query(`SELECT COUNT(*) AS tbl FROM information_schema.tables WHERE table_schema = 'public' AND table_name NOT IN (${PLATFORM_TABLE_NAMES.map(() => "?").join(",")})`, PLATFORM_TABLE_NAMES);
     const [[{ users }]] = await pool.query(`SELECT COUNT(*) AS users FROM users`);
-    check("EXTRA: reinsteins_workhub unchanged (37 tables, 17 users)", tbl === 37 && users === 17, `tables=${tbl} users=${users}`);
+    check("EXTRA: reinsteins_workhub unchanged (37 tables, 17 users)", Number(tbl) === 37 && Number(users) === 17, `tables=${tbl} users=${users}`);
 
     const [[reinsteinsCompany]] = await platformPool.query(`SELECT status, access_type FROM companies WHERE company_slug = 'reinsteins'`);
     check("EXTRA: Reinsteins remains active in the platform DB", reinsteinsCompany?.status === "active", JSON.stringify(reinsteinsCompany));

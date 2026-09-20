@@ -11,6 +11,7 @@ import {
 } from "react-icons/fa";
 
 import api from "../../services/api";
+import AdminEmailSettings from "./AdminEmailSettings";
 
 import "./AdminSettings.css";
 
@@ -573,6 +574,12 @@ return (
               </div>
 
             </section>
+
+            {/* ==================================
+                BUSINESS EMAIL (Phase 16A)
+            ================================== */}
+
+            <AdminEmailSettings />
 
           </div>
 

@@ -347,7 +347,13 @@ async function createCompanyWithAdmin(ownerToken, slug, name) {
     console.log("\nSTEP 16 -- Reinsteins unchanged");
 
     const dbPool = require("./config/db");
-    const [[{ tbl }]] = await dbPool.query(`SELECT COUNT(*) AS tbl FROM information_schema.tables WHERE table_schema = 'public'`);
+    // Phase 16A discovery -- a bare table_schema='public' count also
+    // includes the platform tables in production (DB_NAME and
+    // PLATFORM_DB_NAME are the same database there), so it grows every
+    // time a platform-level table is added even though the Reinsteins
+    // TENANT schema itself hasn't changed. Excluded by name instead.
+    const PLATFORM_TABLE_NAMES = ["platform_users", "subscription_plans", "companies", "demo_requests", "payments", "subscription_history", "platform_audit_logs", "platform_notifications", "email_delivery_logs", "email_domains", "mailboxes", "email_aliases", "mailbox_settings"];
+    const [[{ tbl }]] = await dbPool.query(`SELECT COUNT(*) AS tbl FROM information_schema.tables WHERE table_schema = 'public' AND table_name NOT IN (${PLATFORM_TABLE_NAMES.map(() => "?").join(",")})`, PLATFORM_TABLE_NAMES);
     const [[{ users }]] = await dbPool.query(`SELECT COUNT(*) AS users FROM users`);
     check("16. reinsteins_workhub unchanged (37 tables, 17 users)", Number(tbl) === 37 && Number(users) === 17, `tables=${tbl} users=${users}`);
 

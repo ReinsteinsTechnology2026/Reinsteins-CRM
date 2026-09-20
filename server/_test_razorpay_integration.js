@@ -431,9 +431,12 @@ async function createCompanyWithAdmin(ownerToken, slug, name) {
     check("24. Expired company remains blocked (same check as 23 -- access enforcement unchanged)", expiredLoginAttempt.status === 403);
 
     const dbPool = require("./config/db");
-    const [[{ tbl }]] = await dbPool.query(`SELECT COUNT(*) AS tbl FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?`, [process.env.DB_NAME]);
+    // Phase 16A discovery -- see _test_security_hardening.js's comment
+    // at this same check for the full explanation.
+    const PLATFORM_TABLE_NAMES = ["platform_users", "subscription_plans", "companies", "demo_requests", "payments", "subscription_history", "platform_audit_logs", "platform_notifications", "email_delivery_logs", "email_domains", "mailboxes", "email_aliases", "mailbox_settings"];
+    const [[{ tbl }]] = await dbPool.query(`SELECT COUNT(*) AS tbl FROM information_schema.tables WHERE table_schema = 'public' AND table_name NOT IN (${PLATFORM_TABLE_NAMES.map(() => "?").join(",")})`, PLATFORM_TABLE_NAMES);
     const [[{ users }]] = await dbPool.query(`SELECT COUNT(*) AS users FROM users`);
-    check("25. reinsteins_workhub unchanged (37 tables, 17 users)", tbl === 37 && users === 17, `tables=${tbl} users=${users}`);
+    check("25. reinsteins_workhub unchanged (37 tables, 17 users)", Number(tbl) === 37 && Number(users) === 17, `tables=${tbl} users=${users}`);
     const [[reinsteinsRow]] = await platformPool.query(`SELECT subscription_status, trial_ends_at, subscription_expires_at FROM companies WHERE company_slug = 'reinsteins'`);
     check("25b. Reinsteins subscription remains Complimentary/active with no expiry", reinsteinsRow.subscription_status === "active" && reinsteinsRow.trial_ends_at === null && reinsteinsRow.subscription_expires_at === null);
     const [reinsteinsPayments] = await platformPool.query(`SELECT p.id FROM payments p JOIN companies c ON c.id = p.company_id WHERE c.company_slug = 'reinsteins'`);

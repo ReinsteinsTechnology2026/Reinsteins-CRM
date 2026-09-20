@@ -1,85 +1,64 @@
 import { useEffect, useState } from "react";
-
-import { FaEnvelope, FaInfoCircle } from "react-icons/fa";
-
-import { toast } from "react-toastify";
+import { FaEnvelope, FaInbox } from "react-icons/fa";
 
 import api from "../../services/api";
 
-import "./MyTeam.css";
+import "./EmployeeEmail.css";
 
 // ==========================================
-// MY EMAIL
+// EMPLOYEE EMAIL (Phase 16A foundation)
 //
-// Read-only view of this employee's own auto-generated company
-// email address (see server/utils/employeeEmailGenerator.js) --
-// reuses the existing GET /api/employees/profile/me endpoint
-// (getMyProfile in employeeController.js already selects `email`)
-// rather than adding a second endpoint just to read the same column.
-// Shows an explicit "not assigned yet" state when the company has no
-// verified email domain, matching that the backend never fabricates
-// a fake domain/email for this case.
+// Placeholder only, per Phase 16A Step 19 -- shows the employee's own
+// mailbox status (if their company admin has created one for them);
+// the real inbox/compose/threading UI arrives once mail
+// infrastructure is connected (see the Phase 16A report).
 // ==========================================
 
 function EmployeeEmail() {
-
-  const [email, setEmail] = useState(null);
+  const [mailbox, setMailbox] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
-
-    const load = async () => {
-      try {
-        const response = await api.get("/employees/profile/me");
-        setEmail(response.data.profile?.email || null);
-      } catch (error) {
-        toast.error(error.response?.data?.message || "Unable to load your company email");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-
+    api.get("/email/mailboxes/me")
+      .then((res) => setMailbox(res.data?.mailbox || null))
+      .catch((err) => {
+        if (err.response?.status === 404) {
+          setMessage("You don't have a company mailbox yet. Ask your admin to set one up in Settings.");
+        } else if (err.response?.status === 401) {
+          setMessage("Business email is only available when signed in through your company's own login link.");
+        } else {
+          setMessage("Unable to load your mailbox right now.");
+        }
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   return (
+    <div className="employee-email-page">
+      <div className="employee-email-header">
+        <FaEnvelope />
+        <h1>Email</h1>
+      </div>
 
-    <div className="employee-page-content">
-
-      <section className="my-team-card">
-
-        <div className="my-team-header">
-          <h2>My Email</h2>
-          <p>Your company-assigned business email address.</p>
+      {!loading && mailbox && (
+        <div className="employee-email-card">
+          <FaInbox />
+          <div>
+            <p className="employee-email-address">{mailbox.email_address}</p>
+            <p className="employee-email-status">
+              Status: {mailbox.status} &middot;{" "}
+              {mailbox.provisioning_status === "provisioned"
+                ? "Connected to mail server"
+                : "Mail delivery is not connected yet -- coming in a later update."}
+            </p>
+          </div>
         </div>
+      )}
 
-        {loading ? (
-          <div className="my-team-empty">Loading...</div>
-        ) : !email ? (
-          <div className="my-team-empty">
-            <FaInfoCircle /> Your company has not set up a verified email domain yet, so no company email has been assigned to you.
-          </div>
-        ) : (
-          <div className="reporting-manager-card">
-
-            <div className="reporting-manager-avatar">
-              <FaEnvelope />
-            </div>
-
-            <div className="reporting-manager-info">
-              <h3>{email}</h3>
-            </div>
-
-          </div>
-        )}
-
-      </section>
-
+      {!loading && !mailbox && <p className="employee-email-hint">{message}</p>}
     </div>
-
   );
-
 }
 
 export default EmployeeEmail;

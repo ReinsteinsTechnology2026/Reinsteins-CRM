@@ -28,9 +28,9 @@ const { SAFE_DOCUMENT_EXTENSIONS, isSafeUpload } = require("../utils/fileTypeVal
 const storage = multer.diskStorage({
   destination(req, file, callback) {
     if (file.mimetype.startsWith("image/")) {
-      callback(null, tenantUploadAbsoluteDir("meetings/images"));
+      callback(null, tenantUploadAbsoluteDir(req, "meetings/images"));
     } else {
-      callback(null, tenantUploadAbsoluteDir("meetings/files"));
+      callback(null, tenantUploadAbsoluteDir(req, "meetings/files"));
     }
   },
 

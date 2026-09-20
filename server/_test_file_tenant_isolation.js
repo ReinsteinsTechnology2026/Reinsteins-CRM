@@ -278,7 +278,10 @@ async function uploadFile(pathname, fieldName, token) {
     // ---------- Reinsteins DB unaffected ----------
     console.log("\nEXTRA -- Reinsteins DB verification");
     const dbPool = require("./config/db");
-    const [[{ tblCount }]] = await dbPool.query(`SELECT COUNT(*) AS "tblCount" FROM information_schema.tables WHERE table_schema = 'public'`);
+    // Phase 16A discovery -- see _test_security_hardening.js's comment
+    // at this same check for the full explanation.
+    const PLATFORM_TABLE_NAMES = ["platform_users", "subscription_plans", "companies", "demo_requests", "payments", "subscription_history", "platform_audit_logs", "platform_notifications", "email_delivery_logs", "email_domains", "mailboxes", "email_aliases", "mailbox_settings"];
+    const [[{ tblCount }]] = await dbPool.query(`SELECT COUNT(*) AS "tblCount" FROM information_schema.tables WHERE table_schema = 'public' AND table_name NOT IN (${PLATFORM_TABLE_NAMES.map(() => "?").join(",")})`, PLATFORM_TABLE_NAMES);
     const [[{ userCount }]] = await dbPool.query(`SELECT COUNT(*) AS "userCount" FROM users`);
     check("EXTRA: reinsteins_workhub table/user counts unchanged", Number(tblCount) === 37 && Number(userCount) === 17, `tables=${tblCount} users=${userCount}`);
 

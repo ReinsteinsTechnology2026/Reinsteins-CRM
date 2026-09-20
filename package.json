@@ -33,6 +33,7 @@
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "maildev": "^3.0.0-rc.2",
     "nodemon": "^3.1.14"
   }

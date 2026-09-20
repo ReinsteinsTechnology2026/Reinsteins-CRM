@@ -1,0 +1,57 @@
+.employee-email-page {
+  padding: 32px;
+}
+
+.employee-email-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+  color: #0f172a;
+}
+
+.employee-email-header svg {
+  font-size: 20px;
+  color: #2878D8;
+}
+
+.employee-email-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.employee-email-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  max-width: 480px;
+}
+
+.employee-email-card svg {
+  font-size: 22px;
+  color: #2878D8;
+  margin-top: 2px;
+}
+
+.employee-email-address {
+  margin: 0 0 4px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.employee-email-status {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.employee-email-hint {
+  color: #64748b;
+  font-size: 14px;
+  max-width: 480px;
+}

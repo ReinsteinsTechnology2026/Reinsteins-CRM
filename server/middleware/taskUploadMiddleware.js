@@ -14,7 +14,7 @@ const { SAFE_DOCUMENT_EXTENSIONS, isSafeUpload } = require("../utils/fileTypeVal
 
 const storage = multer.diskStorage({
   destination(req, file, callback) {
-    callback(null, tenantUploadAbsoluteDir("tasks"));
+    callback(null, tenantUploadAbsoluteDir(req, "tasks"));
   },
 
   filename(req, file, callback) {

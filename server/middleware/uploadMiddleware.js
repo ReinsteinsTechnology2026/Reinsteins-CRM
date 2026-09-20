@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
   ) => {
     callback(
       null,
-      tenantUploadAbsoluteDir("profiles")
+      tenantUploadAbsoluteDir(req, "profiles")
     );
   },
 

@@ -55,7 +55,7 @@ const SCHEMA_FILE_PATH = path.join(__dirname, "schemas", "platformSchema.postgre
 const PLATFORM_TABLES = [
     "platform_users", "subscription_plans", "companies", "demo_requests",
     "payments", "subscription_history", "platform_audit_logs", "platform_notifications", "email_delivery_logs",
-    "email_domains", "mailboxes",
+    "email_domains", "mailboxes", "email_aliases", "mailbox_settings",
 ];
 
 const DEFAULT_PLANS = [

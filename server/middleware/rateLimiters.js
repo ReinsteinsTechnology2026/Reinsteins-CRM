@@ -174,6 +174,14 @@ const paymentSensitiveLimiter = createSensitiveLimiter();
 const billingContactLimiter = createSensitiveLimiter();
 const emailActionLimiter = createSensitiveLimiter();
 
+// Phase 16A -- the new TENANT-facing business-email domain/mailbox
+// management surface (Company Admin creating domains/mailboxes,
+// triggering DNS verification). Its own instance, not a reuse of
+// emailActionLimiter (that one is the Platform Owner's SMTP test-
+// connection/retry surface -- a completely different feature and
+// actor, sharing a budget with it would be an unrelated coupling).
+const tenantEmailLimiter = createSensitiveLimiter();
+
 module.exports = {
     authLoginLimiter,
     platformLoginLimiter,
@@ -186,4 +194,5 @@ module.exports = {
     paymentSensitiveLimiter,
     billingContactLimiter,
     emailActionLimiter,
+    tenantEmailLimiter,
 };

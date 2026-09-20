@@ -652,7 +652,18 @@ function ProjectWorkspace() {
     }
   };
 
-  if (loading) {
+  // Only the FIRST load (before `project` has ever been populated)
+  // shows this full-page skeleton. loadAll() re-runs after every
+  // create/edit/delete/restore action throughout TechOps (Epic/
+  // Feature/User Story/Task/Sprint/Recycle Bin) and briefly sets
+  // `loading` true again each time -- without the `!project` guard,
+  // every one of those actions would unmount the entire tabbed
+  // workspace and remount it from scratch once data came back,
+  // discarding local UI-only state (which Backlog folders are
+  // expanded, the active tab's scroll position, etc.) and flashing a
+  // jarring "Loading project..." screen for what should be an
+  // in-place data refresh.
+  if (loading && !project) {
     return (
       <div className="employee-page-content">
         <div className="my-team-card">
@@ -1160,6 +1171,17 @@ function BacklogTab({
   const topLevelFeatures = featuresByEpic.get("none") || [];
   const topLevelStories = storiesByFeature.get("none") || [];
 
+  // Tasks may also exist directly under the Project with no User
+  // Story at all (Project -> "Add Task", no forced parent) -- unlike
+  // Epic/Feature/Story, these were never grouped into ANY existing
+  // section above (tasksByStory only ever collects tasks that DO have
+  // a user_story_id), so without this they would be created
+  // successfully but never appear anywhere in this tab.
+  const orphanTasks = useMemo(
+    () => tasks.filter((task) => !task.user_story_id),
+    [tasks]
+  );
+
   const renderTaskTable = (story, storyTasks) => (
     <>
       {storyTasks.length === 0 ? (
@@ -1210,6 +1232,60 @@ function BacklogTab({
       )}
     </>
   );
+
+  const renderOrphanTasksFolder = () => {
+    const key = "orphan-tasks";
+    const isOpen = filtersActive || Boolean(expanded[key]);
+
+    return (
+      <div className="pw-story-folder" key={key}>
+
+        <div className="pw-story-folder-header" onClick={() => toggle(key)}>
+          {isOpen ? <FaChevronDown /> : <FaChevronRight />}
+          <FaFolder />
+          <span className="pw-story-title">Tasks (No User Story)</span>
+          <span className="pw-story-count">
+            {orphanTasks.length} Task{orphanTasks.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        {isOpen && (
+          <div className="pw-story-tasks">
+            <table className="pw-table">
+              <tbody>
+                {orphanTasks.map((task) => (
+                  <tr key={task.id} className="pw-task-row" onClick={() => onOpenTask(task.id)}>
+                    <td className="pw-task-title-cell">
+                      {task.task_title}
+                      {task.taskTags?.length > 0 && (
+                        <TagChips tags={task.taskTags} max={3} />
+                      )}
+                    </td>
+                    <td><span className={`pw-priority ${task.priority}`}>{task.priority}</span></td>
+                    <td>{task.assigned_to_name || "Unassigned"}</td>
+                    <td><span className={`pw-status ${task.status}`}>{STATUS_LABELS[task.status] || task.status}</span></td>
+                    {canDeleteTask && (
+                      <td onClick={(event) => event.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="pw-icon-button pw-icon-button-danger"
+                          title="Delete Task"
+                          onClick={() => onDeleteTask(task.id, task.task_title)}
+                        >
+                          <FaTrash />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+      </div>
+    );
+  };
 
   const renderStoryFolder = (story) => {
     const key = `story-${story.id}`;
@@ -1417,9 +1493,9 @@ function BacklogTab({
     );
   };
 
-  const isCompletelyEmpty = epics.length === 0 && features.length === 0 && stories.length === 0;
+  const isCompletelyEmpty = epics.length === 0 && features.length === 0 && stories.length === 0 && orphanTasks.length === 0;
   const hasVisibleContent =
-    visibleEpics.length > 0 || topLevelFeatures.length > 0 || topLevelStories.length > 0;
+    visibleEpics.length > 0 || topLevelFeatures.length > 0 || topLevelStories.length > 0 || orphanTasks.length > 0;
 
   return (
     <section className="my-team-card">
@@ -1462,6 +1538,7 @@ function BacklogTab({
           {visibleEpics.map((epic) => renderEpicFolder(epic))}
           {topLevelFeatures.map((feature) => renderFeatureFolder(feature))}
           {topLevelStories.map((story) => renderStoryFolder(story))}
+          {orphanTasks.length > 0 && renderOrphanTasksFolder()}
         </div>
       )}
 

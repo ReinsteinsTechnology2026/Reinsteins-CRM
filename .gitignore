@@ -30,6 +30,15 @@ server/uploads/**
 # Tool-generated artifacts (never source code)
 .playwright-mcp/
 
+# Playwright E2E -- disposable test fixtures/credentials and run
+# artifacts, never committed (e2e/.fixtures.json holds only throwaway
+# test-tenant credentials generated fresh by global-setup.js each run)
+e2e/.fixtures.json
+e2e-report/
+test-results/
+playwright-report/
+blob-report/
+
 # Editor / OS
 .vscode/*
 !.vscode/extensions.json

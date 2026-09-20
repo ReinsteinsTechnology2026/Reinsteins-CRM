@@ -5,7 +5,7 @@ const { tenantUploadAbsoluteDir } = require("../utils/tenantUploadPath");
 
 const storage = multer.diskStorage({
   destination(req, file, cb) {
-    cb(null, tenantUploadAbsoluteDir("files"));
+    cb(null, tenantUploadAbsoluteDir(req, "files"));
   },
 
   filename(req, file, cb) {

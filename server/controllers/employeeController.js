@@ -385,26 +385,7 @@ const createEmployee = async (req, res) => {
     // Reinsteins login path (which predates the multi-tenant company
     // model), so that path simply gets no auto-generated email,
     // preserving its existing behavior untouched.
-    //
-    // This lookup is explicitly OPTIONAL -- getVerifiedCompanyDomain
-    // already returns null (not a throw) for the normal "no verified
-    // domain yet" case, but it can still throw for an infrastructure
-    // reason (e.g. the platform-level email_domains table not having
-    // been migrated onto this environment yet). Auto-generated email
-    // must never be a precondition for creating an employee (they can
-    // always log in with their Employee ID instead), so any failure
-    // here is swallowed and treated the same as "no domain" rather
-    // than aborting the whole request.
-    let companyDomain = null;
-
-    try {
-      companyDomain = await getVerifiedCompanyDomain(req.tenantCompany?.id);
-    } catch (domainLookupError) {
-      console.error(
-        "Company email domain lookup failed -- continuing without an auto-generated email:",
-        domainLookupError
-      );
-    }
+    const companyDomain = await getVerifiedCompanyDomain(req.tenantCompany?.id);
 
     // ======================================
     // VALIDATE MENTOR (interns only — a simple

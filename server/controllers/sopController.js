@@ -17,10 +17,9 @@ const { tenantUploadUrlPath, UPLOADS_ROOT } = require("../utils/tenantUploadPath
 //
 // File storage/serving reuses the EXISTING secure multi-tenant file
 // pipeline as-is -- no new serving route, no new signing logic:
-//   - upload destination: tenantUploadAbsoluteDir("sops") inside
-//     sopUploadMiddleware.js's multer config, same
-//     AsyncLocalStorage-backed convention every other tenant-scoped
-//     multer config in this codebase already uses
+//   - upload destination: tenantUploadAbsoluteDir(req, "sops") inside
+//     sopUploadMiddleware.js's multer config (never AsyncLocalStorage
+//     inside the destination callback -- see that file's comment)
 //   - stored URL: tenantUploadUrlPath("sops", filename), returned as
 //     a plain "/uploads/..." string
 //   - signing: signFileUrlsMiddleware.js (mounted globally in app.js)

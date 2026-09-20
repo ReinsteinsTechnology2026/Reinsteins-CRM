@@ -9,6 +9,7 @@ const paymentService = require("../services/paymentService");
 const platformAuditService = require("../services/platformAuditService");
 const subscriptionHistoryService = require("../services/subscriptionHistoryService");
 const emailDeliveryService = require("../services/emailDeliveryService");
+const emailDomainService = require("../services/emailDomainService");
 const { getTenantPoolForCompany } = require("../config/tenantConnectionManager");
 const { isValidSlug, buildTenantDbName } = require("../utils/tenantDbName");
 const { __LEGACY_COMPANY_SLUG: LEGACY_COMPANY_SLUG } = require("../config/db");
@@ -714,6 +715,11 @@ const getCompanyDetails = async (req, res) => {
 
         const employeeCounts = await getEmployeeCountForCompany(company);
 
+        // Phase 16A Step 14 -- counts only, never a domain name or
+        // mailbox address (see emailDomainService.getEmailSummaryForCompany's
+        // header comment for why).
+        const emailSummary = await emailDomainService.getEmailSummaryForCompany(companyId);
+
         const safeCompany = toSafeCompany(company);
         safeCompany.subscription.planName = plan ? plan.name : null;
         safeCompany.subscription.planEmployeeLimit = plan ? plan.employee_limit : null;
@@ -730,6 +736,7 @@ const getCompanyDetails = async (req, res) => {
                 adminName,
                 adminEmail,
                 newUsersThisMonth,
+                email: emailSummary,
             },
         });
     } catch (error) {

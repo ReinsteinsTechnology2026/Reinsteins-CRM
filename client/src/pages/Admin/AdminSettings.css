@@ -368,3 +368,155 @@
     align-items: flex-start;
   }
 }
+/* ==========================================
+   BUSINESS EMAIL (Phase 16A foundation)
+========================================== */
+
+.admin-settings-card h3 {
+  margin: 20px 0 10px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.admin-settings-hint {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.admin-settings-error {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.admin-email-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-email-inline-form input,
+.admin-email-inline-form select {
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  min-width: 160px;
+}
+
+.admin-email-inline-form button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #2878D8;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-email-inline-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.admin-email-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-email-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.admin-email-list li > span:first-child {
+  font-weight: 600;
+  color: #0f172a;
+  flex: 1;
+  min-width: 160px;
+}
+
+.admin-email-list button {
+  padding: 6px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.admin-email-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.admin-email-status-verified,
+.admin-email-status-active {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.admin-email-status-pending {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.admin-email-status-failed,
+.admin-email-status-disabled,
+.admin-email-status-suspended {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.admin-email-dns-box {
+  flex-basis: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.admin-email-dns-box table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.admin-email-dns-box td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: top;
+}
+
+.admin-email-dns-value {
+  font-family: monospace;
+  word-break: break-all;
+  color: #334155;
+}

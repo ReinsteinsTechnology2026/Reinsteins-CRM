@@ -305,6 +305,9 @@ const getPaymentStats = async () => {
     // real paid_at timestamp (not created_at, so a payment recorded
     // as pending today and marked paid next month counts toward the
     // month it was actually paid).
+    // Phase 16A discovery -- MySQL's DATE_FORMAT(paid_at, '%Y-%m') has
+    // no PostgreSQL equivalent function of that name; TO_CHAR(...,
+    // 'YYYY-MM') is the direct Postgres replacement, same output shape.
     const [monthlyRows] = await platformPool.query(
         `SELECT TO_CHAR(paid_at, 'YYYY-MM') AS month, COALESCE(SUM(amount), 0) AS total
          FROM payments WHERE payment_status = 'paid' AND paid_at IS NOT NULL
