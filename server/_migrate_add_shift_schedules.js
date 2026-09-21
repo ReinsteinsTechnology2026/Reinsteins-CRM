@@ -1,4 +1,11 @@
-require("dotenv").config();
+// Explicit, cwd-independent path -- same fix as
+// _migrate_backfill_admin_group_permissions.js/_migrate_backfill_system_administrator.js
+// (see their header comments for why this is needed for an
+// unattended deploy-pipeline run): dotenv's no-argument default
+// resolves ".env" relative to process.cwd(), which is only "server/"
+// when something has `cd`'d into this directory first -- this script
+// is invoked as `node server/_migrate_....js` from the repo root.
+require("dotenv").config({ path: require("path").join(__dirname, ".env") });
 
 const platformPool = require("./config/platformDb");
 const { getTenantPool, closeAllTenantPools } = require("./config/tenantConnectionManager");

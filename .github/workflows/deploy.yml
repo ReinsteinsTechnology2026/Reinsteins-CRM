@@ -48,6 +48,17 @@ jobs:
           # restart steps run.
           node server/_migrate_backfill_system_administrator.js
 
+          # Safe, idempotent, additive-only creation of the
+          # shift_schedules/shift_schedule_history tables on any
+          # tenant that predates this feature (every newly provisioned
+          # tenant already gets them from tenantSchema.postgresql.sql).
+          # Checks information_schema first and only ever creates --
+          # never drops, truncates, or modifies an existing table or
+          # row. Same `set -e` reasoning as the steps above: a
+          # non-zero exit here stops the deploy before the build/
+          # restart steps run.
+          node server/_migrate_add_shift_schedules.js
+
           cd client
           npm ci
           VITE_API_URL=https://crm.zioventure.com npm run build
