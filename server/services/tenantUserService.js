@@ -113,7 +113,11 @@ async function countUsersByRole(tenantPool) {
 //
 // role='admin' and system_access='super_admin' are hardcoded, not
 // client-controlled -- matching the real values already used by
-// every actual admin account in this system.
+// every actual admin account in this system. is_system_administrator
+// is ALSO hardcoded TRUE here -- this is the tenant's one and only
+// System Administrator, the highest tenant authority (see
+// services/projectPermissionService.js), and this is the sole,
+// permanent write path for that flag; no route ever sets it.
 async function createFirstAdmin(tenantPool, { name, email, phone, passwordHash }) {
 
     const cleanedEmail = email.trim().toLowerCase();
@@ -133,8 +137,8 @@ async function createFirstAdmin(tenantPool, { name, email, phone, passwordHash }
 
             const [result] = await tenantPool.query(
                 `INSERT INTO users
-                    (employee_id, full_name, email, phone, password, role, system_access, status)
-                 VALUES (?, ?, ?, ?, ?, 'admin', 'super_admin', 'active')
+                    (employee_id, full_name, email, phone, password, role, system_access, status, is_system_administrator)
+                 VALUES (?, ?, ?, ?, ?, 'admin', 'super_admin', 'active', TRUE)
                  RETURNING id`,
                 [employeeId, name.trim(), cleanedEmail, phone || null, passwordHash]
             );
@@ -148,6 +152,7 @@ async function createFirstAdmin(tenantPool, { name, email, phone, passwordHash }
                 role: "admin",
                 systemAccess: "super_admin",
                 status: "active",
+                isSystemAdministrator: true,
             };
 
         } catch (insertError) {

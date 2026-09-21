@@ -92,12 +92,12 @@ async function passesProjectPermission(req, task, permissionKey) {
     // fresh here rather than widening the widely-shared requireAccess
     // middleware just for this one project-specific check.
     const [[row]] = await pool.query(
-        `SELECT project_access_level FROM users WHERE id = ? LIMIT 1`,
+        `SELECT project_access_level, is_system_administrator FROM users WHERE id = ? LIMIT 1`,
         [req.user.id]
     );
 
     return hasProjectPermission(
-        { id: req.user.id, accessLevel: row?.project_access_level },
+        { id: req.user.id, accessLevel: row?.project_access_level, isSystemAdministrator: row?.is_system_administrator === true },
         task.project_id,
         permissionKey
     );
@@ -1395,12 +1395,12 @@ const assignTask = async (req, res) => {
         // system_access, or designation. No bypass exists here.
 
         const [[callerRow]] = await pool.query(
-            `SELECT project_access_level FROM users WHERE id = ? LIMIT 1`,
+            `SELECT project_access_level, is_system_administrator FROM users WHERE id = ? LIMIT 1`,
             [req.user.id]
         );
 
         const callerAllowed = await hasProjectPermission(
-            { id: req.user.id, accessLevel: callerRow?.project_access_level },
+            { id: req.user.id, accessLevel: callerRow?.project_access_level, isSystemAdministrator: callerRow?.is_system_administrator === true },
             task.project_id,
             "TASK_ASSIGN"
         );

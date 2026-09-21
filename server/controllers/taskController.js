@@ -29,12 +29,12 @@ async function passesProjectPermission(userId, task, permissionKey) {
     }
 
     const [[row]] = await pool.query(
-        `SELECT project_access_level FROM users WHERE id = ? LIMIT 1`,
+        `SELECT project_access_level, is_system_administrator FROM users WHERE id = ? LIMIT 1`,
         [userId]
     );
 
     return hasProjectPermission(
-        { id: userId, accessLevel: row?.project_access_level },
+        { id: userId, accessLevel: row?.project_access_level, isSystemAdministrator: row?.is_system_administrator === true },
         task.project_id,
         permissionKey
     );

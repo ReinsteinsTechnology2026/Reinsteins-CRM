@@ -47,12 +47,12 @@ const canViewItem = async (req, type, item) => {
     if (item.project_id) {
 
         const [[row]] = await pool.query(
-            `SELECT project_access_level FROM users WHERE id = ? LIMIT 1`,
+            `SELECT project_access_level, is_system_administrator FROM users WHERE id = ? LIMIT 1`,
             [req.user.id]
         );
 
         return hasProjectPermission(
-            { id: req.user.id, accessLevel: row?.project_access_level },
+            { id: req.user.id, accessLevel: row?.project_access_level, isSystemAdministrator: row?.is_system_administrator === true },
             item.project_id,
             VIEW_PERMISSION_BY_TYPE[type]
         );
@@ -77,12 +77,12 @@ const canViewItem = async (req, type, item) => {
 const canManageInProject = async (req, projectId) => {
 
     const [[row]] = await pool.query(
-        `SELECT project_access_level FROM users WHERE id = ? LIMIT 1`,
+        `SELECT project_access_level, is_system_administrator FROM users WHERE id = ? LIMIT 1`,
         [req.user.id]
     );
 
     return hasProjectPermission(
-        { id: req.user.id, accessLevel: row?.project_access_level },
+        { id: req.user.id, accessLevel: row?.project_access_level, isSystemAdministrator: row?.is_system_administrator === true },
         projectId,
         "WORK_ITEM_LINK_MANAGE"
     );

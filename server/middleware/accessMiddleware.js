@@ -241,7 +241,7 @@ async function requireProjectAccess(req, res, next) {
 async function loadUserForCheck(req) {
 
     const [rows] = await pool.query(
-        `SELECT role, system_access, project_access_level, employment_status FROM users WHERE id = ? LIMIT 1`,
+        `SELECT role, system_access, project_access_level, employment_status, is_system_administrator FROM users WHERE id = ? LIMIT 1`,
         [req.user.id]
     );
 
@@ -254,6 +254,7 @@ async function loadUserForCheck(req) {
         role: rows[0].role,
         systemAccess: rows[0].system_access,
         accessLevel: rows[0].project_access_level,
+        isSystemAdministrator: rows[0].is_system_administrator === true,
     };
 
 }
@@ -302,7 +303,7 @@ function requireProjectMembership(resolveProjectId = defaultProjectIdResolver) {
                     });
                 }
 
-                req.userAccess = { role: user.role, systemAccess: user.systemAccess, accessLevel: user.accessLevel };
+                req.userAccess = { role: user.role, systemAccess: user.systemAccess, accessLevel: user.accessLevel, isSystemAdministrator: user.isSystemAdministrator };
                 req.resolvedProjectId = projectId;
 
                 return next();
@@ -366,7 +367,7 @@ function requireProjectPermission(permissionKey, resolveProjectId = defaultProje
                     });
                 }
 
-                req.userAccess = { role: user.role, systemAccess: user.systemAccess, accessLevel: user.accessLevel };
+                req.userAccess = { role: user.role, systemAccess: user.systemAccess, accessLevel: user.accessLevel, isSystemAdministrator: user.isSystemAdministrator };
                 req.resolvedProjectId = projectId;
 
                 return next();
@@ -451,7 +452,7 @@ function requireProjectMembershipOrOrgAdmin(resolveProjectId = defaultProjectIdR
                     });
                 }
 
-                req.userAccess = { role: user.role, systemAccess: user.systemAccess, accessLevel: user.accessLevel };
+                req.userAccess = { role: user.role, systemAccess: user.systemAccess, accessLevel: user.accessLevel, isSystemAdministrator: user.isSystemAdministrator };
                 req.resolvedProjectId = projectId;
 
                 return next();
@@ -515,7 +516,7 @@ function requireProjectPermissionOrOrgAdmin(permissionKey, resolveProjectId = de
                     });
                 }
 
-                req.userAccess = { role: user.role, systemAccess: user.systemAccess, accessLevel: user.accessLevel };
+                req.userAccess = { role: user.role, systemAccess: user.systemAccess, accessLevel: user.accessLevel, isSystemAdministrator: user.isSystemAdministrator };
                 req.resolvedProjectId = projectId;
 
                 return next();

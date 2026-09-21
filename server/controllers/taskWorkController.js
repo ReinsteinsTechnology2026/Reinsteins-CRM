@@ -75,12 +75,12 @@ async function passesProjectGate(req, taskId, permissionKey) {
     }
 
     const [[userRow]] = await pool.query(
-        `SELECT project_access_level FROM users WHERE id = ? LIMIT 1`,
+        `SELECT project_access_level, is_system_administrator FROM users WHERE id = ? LIMIT 1`,
         [req.user.id]
     );
 
     const permissionOk = await hasProjectPermission(
-        { id: req.user.id, accessLevel: userRow?.project_access_level },
+        { id: req.user.id, accessLevel: userRow?.project_access_level, isSystemAdministrator: userRow?.is_system_administrator === true },
         task.project_id,
         permissionKey
     );

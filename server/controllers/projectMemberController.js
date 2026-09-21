@@ -45,7 +45,7 @@ const getMyPermissions = async (req, res) => {
     try {
 
         const result = await getEffectivePermissions(
-            { id: req.user.id, accessLevel: req.userAccess?.accessLevel },
+            { id: req.user.id, accessLevel: req.userAccess?.accessLevel, isSystemAdministrator: req.userAccess?.isSystemAdministrator },
             req.params.id
         );
 

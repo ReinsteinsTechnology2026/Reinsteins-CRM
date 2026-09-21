@@ -11,14 +11,20 @@ const pool = require("../config/db");
 //   hasProjectPermission(user, projectId, key)
 //   getEffectivePermissions(user, projectId)
 //
-// Final access flow (STRICT — no exceptions):
+// Final access flow (STRICT — exactly one exception):
 //
+//   System Administrator (users.is_system_administrator
+//   = TRUE — the tenant's single highest authority,
+//   enforced unique per tenant by a DB partial unique
+//   index) — bypasses everything below unconditionally.
+//         |
 //   Module Access (projectAccessService.js /
 //   requireProjectAccess — unchanged, separate
 //   concern: "can this user use Projects at all")
 //         |
 //   Project Membership (project_members — the ONLY
-//   gate for "can this user see/act on THIS project")
+//   gate for "can this user see/act on THIS project",
+//   for every non-System-Administrator user)
 //         |
 //   Access Level ceiling (users.project_access_level
 //   — an org-level entitlement that CAPS what a
@@ -37,9 +43,15 @@ const pool = require("../config/db");
 // settings, module access) — they do NOT grant
 // automatic membership or permission on any specific
 // project. A user must have an explicit project_members
-// row to see or act on a project, full stop. This was
+// row to see or act on a project, full stop, UNLESS they
+// are the tenant's flagged System Administrator. This was
 // the exact defect reported and is intentionally never
-// reintroduced here.
+// reintroduced as a role/system_access check — the one
+// exception here is identity-based (a single, uniquely-
+// constrained boolean, set only at provisioning time, with
+// no API to grant it), never satisfiable by any
+// role/system_access value including system_access=
+// 'super_admin'.
 // ==========================================
 
 const PERMISSION_KEYS = [
@@ -172,9 +184,19 @@ async function getProjectMembership(userId, projectId) {
 
 }
 
-// user = { id, accessLevel } — role/systemAccess are accepted if
-// present but never consulted; only membership decides this.
+// user = { id, accessLevel, isSystemAdministrator } — role/systemAccess
+// are accepted if present but never consulted; only membership decides
+// this, with exactly one identity-based exception below.
 async function canUserAccessProject(user, projectId) {
+
+    // The tenant's single System Administrator (users.is_system_administrator
+    // = TRUE, enforced unique per tenant) bypasses project_members
+    // entirely -- highest tenant authority, access to every project.
+    // Keyed ONLY on this explicit flag, never role or system_access,
+    // so no role/tier can ever satisfy it (see the file header above).
+    if (user.isSystemAdministrator === true) {
+        return true;
+    }
 
     const membership = await getProjectMembership(user.id, projectId);
 
@@ -228,6 +250,11 @@ async function isEligibleProjectAssignee(userId, projectId) {
 
 async function hasProjectPermission(user, projectId, permissionKey) {
 
+    // System Administrator bypass -- see canUserAccessProject above.
+    if (user.isSystemAdministrator === true) {
+        return true;
+    }
+
     const membership = await getProjectMembership(user.id, projectId);
 
     if (!membership) {
@@ -264,6 +291,15 @@ async function hasProjectPermission(user, projectId, permissionKey) {
 // ==========================================
 
 async function getEffectivePermissions(user, projectId) {
+
+    // System Administrator bypass -- see canUserAccessProject above.
+    // Every permission key granted without consulting project_members,
+    // project_permissions, or ACCESS_LEVEL_CEILINGS at all.
+    if (user.isSystemAdministrator === true) {
+        const all = {};
+        for (const key of PERMISSION_KEYS) all[key] = true;
+        return { isMember: true, groupName: "System Administrator", permissions: all };
+    }
 
     const membership = await getProjectMembership(user.id, projectId);
 

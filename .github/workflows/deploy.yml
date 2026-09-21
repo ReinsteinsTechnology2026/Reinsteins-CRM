@@ -36,6 +36,18 @@ jobs:
           # shows in the Actions UI as the failure reason.
           node server/_migrate_backfill_admin_group_permissions.js
 
+          # Safe, idempotent backfill for the tenant-wide System
+          # Administrator flag (users.is_system_administrator). Adds
+          # the column + its partial unique index on any tenant that
+          # doesn't have them yet, then flags exactly one account per
+          # tenant -- Reinsteins by explicit account name (never
+          # guessed), every other tenant left untouched with a logged
+          # decision needed. Never overwrites an existing flagged
+          # account. Same `set -e` reasoning as the step above: a
+          # non-zero exit here stops the deploy before the build/
+          # restart steps run.
+          node server/_migrate_backfill_system_administrator.js
+
           cd client
           npm ci
           VITE_API_URL=https://crm.zioventure.com npm run build

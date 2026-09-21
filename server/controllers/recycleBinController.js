@@ -83,10 +83,10 @@ const restoreBatchHandler = async (req, res) => {
         }
 
         const [[row]] = await pool.query(
-            `SELECT project_access_level FROM users WHERE id = ? LIMIT 1`,
+            `SELECT project_access_level, is_system_administrator FROM users WHERE id = ? LIMIT 1`,
             [req.user.id]
         );
-        const user = { id: req.user.id, accessLevel: row?.project_access_level };
+        const user = { id: req.user.id, accessLevel: row?.project_access_level, isSystemAdministrator: row?.is_system_administrator === true };
 
         const requiredChecks = [];
         if (membership.epicIds.length > 0) requiredChecks.push(["EPIC_DELETE", "Epic"]);

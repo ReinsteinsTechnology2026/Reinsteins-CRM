@@ -28,12 +28,12 @@ const canAccessTask = async (req, task) => {
     if (task.project_id) {
 
         const [[row]] = await pool.query(
-            `SELECT project_access_level FROM users WHERE id = ? LIMIT 1`,
+            `SELECT project_access_level, is_system_administrator FROM users WHERE id = ? LIMIT 1`,
             [req.user.id]
         );
 
         return hasProjectPermission(
-            { id: req.user.id, accessLevel: row?.project_access_level },
+            { id: req.user.id, accessLevel: row?.project_access_level, isSystemAdministrator: row?.is_system_administrator === true },
             task.project_id,
             "TASK_VIEW"
         );
@@ -83,12 +83,12 @@ const passesActivityProjectGate = async (req, activityId) => {
     }
 
     const [[userRow]] = await pool.query(
-        `SELECT project_access_level FROM users WHERE id = ? LIMIT 1`,
+        `SELECT project_access_level, is_system_administrator FROM users WHERE id = ? LIMIT 1`,
         [req.user.id]
     );
 
     return hasProjectPermission(
-        { id: req.user.id, accessLevel: userRow?.project_access_level },
+        { id: req.user.id, accessLevel: userRow?.project_access_level, isSystemAdministrator: userRow?.is_system_administrator === true },
         row.project_id,
         "TASK_VIEW"
     );
