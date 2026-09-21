@@ -23,6 +23,7 @@ const {
 const {
     getMyPermissions,
     getMembers,
+    getEligibleMembers,
     addMembers,
     changeMemberGroup,
     removeMember,
@@ -235,6 +236,17 @@ router.post(
     requireProjectAccess,
     requireProjectPermission("PROJECT_MANAGE_MEMBERS"),
     addMembers
+);
+
+// Candidate pool for the "Add Member" search -- same
+// PROJECT_MANAGE_MEMBERS guard as adding, since only
+// someone who can manage members needs this list.
+router.get(
+    "/:id/eligible-members",
+    protect,
+    requireProjectAccess,
+    requireProjectPermission("PROJECT_MANAGE_MEMBERS"),
+    getEligibleMembers
 );
 
 router.patch(

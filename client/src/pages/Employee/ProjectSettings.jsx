@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 
 import {
   getProjectMembers,
+  getEligibleProjectMembers,
   addProjectMembers,
   changeProjectMemberGroup,
   removeProjectMember,
@@ -14,8 +15,6 @@ import {
   updateProjectPermission,
   getProjectActivityLog,
 } from "../../services/projectMemberService";
-
-import { getTransferTargets } from "../../services/taskManagementService";
 
 import "./ProjectSettings.css";
 
@@ -258,10 +257,10 @@ function AddMemberModal({ projectId, groups, existingMemberIds, onClose, onAdded
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    getTransferTargets()
+    getEligibleProjectMembers(projectId)
       .then((res) => setCandidates(res.employees || []))
       .catch(() => {});
-  }, []);
+  }, [projectId]);
 
   const filtered = candidates.filter(
     (user) =>

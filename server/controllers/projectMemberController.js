@@ -112,6 +112,46 @@ const getMembers = async (req, res) => {
 };
 
 // ==========================================
+// GET ELIGIBLE MEMBER CANDIDATES
+// All active tenant users who can legitimately be added
+// to a project -- deliberately NOT restricted by role,
+// unlike task-management's getTransferTargets() (a
+// different feature with its own narrower employee-only
+// eligibility rule for legacy task reassignment that must
+// stay untouched). Includes admin-role accounts -- e.g. a
+// tenant's default System Administrator -- so they can
+// actually be found and added through this modal.
+// ==========================================
+
+const getEligibleMembers = async (req, res) => {
+
+    try {
+
+        const [candidates] = await pool.query(
+            `
+            SELECT id, employee_id, full_name, role, email
+            FROM users
+            WHERE employment_status = 'active'
+            ORDER BY full_name
+            `
+        );
+
+        return res.json({ success: true, employees: candidates });
+
+    } catch (error) {
+
+        console.error("Get Eligible Project Members Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to load eligible members",
+        });
+
+    }
+
+};
+
+// ==========================================
 // ADD MEMBER(S)
 // Accepts either a single userId or an array of
 // userIds, plus a securityGroupId. Skips (rather
@@ -600,6 +640,7 @@ const getProjectActivity = async (req, res) => {
 module.exports = {
     getMyPermissions,
     getMembers,
+    getEligibleMembers,
     addMembers,
     changeMemberGroup,
     removeMember,

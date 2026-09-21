@@ -14,6 +14,11 @@ export const getProjectMembers = async (projectId) => {
     return data;
 };
 
+export const getEligibleProjectMembers = async (projectId) => {
+    const { data } = await api.get(`/projects/${projectId}/eligible-members`);
+    return data;
+};
+
 export const addProjectMembers = async (projectId, userIds, securityGroupId) => {
     const { data } = await api.post(`/projects/${projectId}/members`, { userIds, securityGroupId });
     return data;
