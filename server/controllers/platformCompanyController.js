@@ -725,8 +725,19 @@ const getCompanyDetails = async (req, res) => {
 
         // Phase 16A Step 14 -- counts only, never a domain name or
         // mailbox address (see emailDomainService.getEmailSummaryForCompany's
-        // header comment for why).
-        const emailSummary = await emailDomainService.getEmailSummaryForCompany(companyId);
+        // header comment for why). Best-effort, same convention as
+        // firstAdminCreated/adminName/adminEmail above -- the email
+        // subsystem is optional and must never take down the whole
+        // Company Details page (e.g. if its platform tables aren't
+        // provisioned on this environment yet). Never re-thrown; the
+        // real error is still logged server-side, never exposed to
+        // the client.
+        let emailSummary = { emailEnabled: false, domainCount: 0, verifiedDomainCount: 0, mailboxCount: 0 };
+        try {
+            emailSummary = await emailDomainService.getEmailSummaryForCompany(companyId);
+        } catch (emailSummaryError) {
+            console.error("[platform] getEmailSummaryForCompany failed (non-fatal):", emailSummaryError);
+        }
 
         const safeCompany = toSafeCompany(company);
         safeCompany.subscription.planName = plan ? plan.name : null;

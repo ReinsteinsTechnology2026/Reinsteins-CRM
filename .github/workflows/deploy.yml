@@ -67,6 +67,17 @@ jobs:
           # restart steps run.
           node server/_migrate_add_company_logo.js
 
+          # Safe, idempotent, additive-only creation of
+          # email_domains/mailboxes/email_aliases/mailbox_settings on
+          # the platform database, copied verbatim from
+          # platformSchema.postgresql.sql -- only CREATE TABLE IF NOT
+          # EXISTS / CREATE INDEX IF NOT EXISTS / pg_constraint-guarded
+          # ALTER TABLE statements, never drops or modifies an existing
+          # table or row. Same `set -e` reasoning as the steps above: a
+          # non-zero exit here stops the deploy before the build/
+          # restart steps run.
+          node server/_migrate_add_email_platform_tables.js
+
           cd client
           npm ci
           VITE_API_URL=https://crm.zioventure.com npm run build
