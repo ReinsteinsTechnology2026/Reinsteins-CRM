@@ -16,7 +16,7 @@ const COMPANY_COLUMNS = `
     plan_id, subscription_status, trial_ends_at, subscription_started_at,
     subscription_expires_at, grace_period_ends_at,
     billing_contact_name, billing_contact_email, billing_contact_phone,
-    tenant_db_name, created_at, updated_at
+    tenant_db_name, logo_url, created_at, updated_at
 `;
 
 const getCompanyBySlug = async (slug) => {
@@ -239,6 +239,39 @@ const updateCompanyAccessType = async (id, accessType) => {
 };
 
 // ==========================================
+// COMPANY BRANDING (logo)
+//
+// logoFilename is the server-generated filename only (never a
+// client-supplied path) -- see middleware/companyLogoUploadMiddleware.js,
+// which is the only place that produces one. Guarded exactly like
+// updateCompanyAccessType: only a provisioned company (active or
+// suspended) can have its logo set/cleared, and this only ever
+// touches the logo_url column on this one row.
+// ==========================================
+
+const updateCompanyLogo = async (id, logoFilename) => {
+    const [result] = await platformPool.query(
+        `UPDATE companies SET logo_url = ? WHERE id = ? AND status IN ('active', 'suspended')`,
+        [logoFilename, id]
+    );
+    if (result.affectedRows === 0) {
+        return null;
+    }
+    return await getCompanyById(id);
+};
+
+const removeCompanyLogo = async (id) => {
+    const [result] = await platformPool.query(
+        `UPDATE companies SET logo_url = NULL WHERE id = ? AND status IN ('active', 'suspended')`,
+        [id]
+    );
+    if (result.affectedRows === 0) {
+        return null;
+    }
+    return await getCompanyById(id);
+};
+
+// ==========================================
 // COMPANY STATUS CHECK FOUNDATION
 // Pure, reusable helpers -- not enforced anywhere yet. A future
 // phase's tenant-resolution middleware calls these instead of
@@ -425,6 +458,8 @@ module.exports = {
     suspendCompany,
     reactivateCompany,
     updateCompanyAccessType,
+    updateCompanyLogo,
+    removeCompanyLogo,
     updateCompanySubscription,
     setGracePeriodEndsAt,
     updateBillingContact,

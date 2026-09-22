@@ -1,4 +1,6 @@
 const bcrypt = require("bcrypt");
+const fs = require("fs");
+const path = require("path");
 
 const platformCompanyService = require("../services/platformCompanyService");
 const subscriptionPlanService = require("../services/subscriptionPlanService");
@@ -13,6 +15,7 @@ const emailDomainService = require("../services/emailDomainService");
 const { getTenantPoolForCompany } = require("../config/tenantConnectionManager");
 const { isValidSlug, buildTenantDbName } = require("../utils/tenantDbName");
 const { __LEGACY_COMPANY_SLUG: LEGACY_COMPANY_SLUG } = require("../config/db");
+const { UPLOADS_ROOT } = require("../utils/tenantUploadPath");
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_ADMIN_PASSWORD_LENGTH = 8;
@@ -361,6 +364,11 @@ const toSafeCompany = (row) => ({
     status: row.status,
     accessType: row.access_type,
     tenantDbName: row.tenant_db_name,
+    // Presence flag only -- never the raw stored filename. The
+    // frontend fetches the actual image from the same public
+    // GET /api/tenant-auth/:companySlug/logo endpoint a tenant login
+    // page uses, keyed by this company's own already-known slug.
+    hasLogo: Boolean(row.logo_url),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     billingContact: {
@@ -826,6 +834,146 @@ const updateAccessType = async (req, res) => {
 };
 
 // ==========================================
+// COMPANY BRANDING (logo)
+//
+// resolveCompanyForLogoUpload runs BEFORE the upload multer
+// middleware, exactly mirroring how tenantProtect attaches
+// req.tenantCompany before multer runs for every other upload
+// category in this codebase (see utils/tenantUploadPath.js's own
+// header comment) -- so companyLogoUploadMiddleware.js's destination
+// callback can read req.targetCompany.companySlug synchronously,
+// with no async DB lookup inside multer's own callback, and so an
+// unknown/non-provisioned company id is rejected with a normal JSON
+// 404 before any file bytes are even accepted.
+// ==========================================
+
+const resolveCompanyForLogoUpload = async (req, res, next) => {
+    try {
+        const companyId = Number(req.params.id);
+        if (!Number.isInteger(companyId) || companyId <= 0) {
+            return res.status(400).json({ success: false, message: "Invalid company id." });
+        }
+
+        const company = await platformCompanyService.getCompanyById(companyId);
+
+        if (!company || !["active", "suspended"].includes(company.status) || !company.tenant_db_name) {
+            return res.status(404).json({
+                success: false,
+                message: "Company not found or not yet provisioned.",
+            });
+        }
+
+        req.targetCompany = { id: company.id, companySlug: company.company_slug };
+        return next();
+
+    } catch (error) {
+        console.error("[platform] resolveCompanyForLogoUpload failed:", error);
+        return res.status(500).json({ success: false, message: "Unable to resolve company for logo upload." });
+    }
+};
+
+// Best-effort delete of a previous logo file -- never fails the
+// request if the file is already gone or can't be removed. Same
+// containment check as employeeController.js's profile-photo
+// replacement (defense in depth: never unlink anything outside the
+// uploads root, regardless of what the stored filename contains).
+function deleteOldLogoFileIfAny(companySlug, oldFilename) {
+    if (!oldFilename) return;
+
+    const oldPath = path.join(UPLOADS_ROOT, `tenant_${companySlug}`, "branding", oldFilename);
+    const isInsideUploads = oldPath === UPLOADS_ROOT || oldPath.startsWith(UPLOADS_ROOT + path.sep);
+
+    if (isInsideUploads && fs.existsSync(oldPath)) {
+        try {
+            fs.unlinkSync(oldPath);
+        } catch (deleteError) {
+            console.error("[platform] unable to delete old company logo file:", deleteError.message);
+        }
+    }
+}
+
+// POST /api/platform/companies/:id/logo -- mounted behind
+// platformProtect + resolveCompanyForLogoUpload + uploadCompanyLogo
+// (multer, "logo" field). req.file.filename is the server-generated
+// name multer already wrote to disk under this company's own
+// isolated branding directory; only that filename (never a client
+// path) is stored.
+const setCompanyLogo = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: "No logo file was uploaded." });
+        }
+
+        const previousCompany = await platformCompanyService.getCompanyById(req.targetCompany.id);
+
+        const updated = await platformCompanyService.updateCompanyLogo(req.targetCompany.id, req.file.filename);
+
+        if (!updated) {
+            // Company state changed between resolveCompanyForLogoUpload
+            // and here (e.g. deleted concurrently) -- clean up the file
+            // multer already wrote, since nothing will ever reference it.
+            deleteOldLogoFileIfAny(req.targetCompany.companySlug, req.file.filename);
+            return res.status(409).json({ success: false, message: "Company could not be updated (it may no longer exist)." });
+        }
+
+        deleteOldLogoFileIfAny(req.targetCompany.companySlug, previousCompany?.logo_url);
+
+        await platformAuditService.logAction({
+            platformUserId: req.platformUser.id,
+            actionType: "company_logo_updated",
+            targetType: "company",
+            targetId: updated.id,
+            companyId: updated.id,
+            metadata: { companyName: updated.company_name },
+        }).catch((auditError) => console.error("[platform] audit log failed (company logo):", auditError.message));
+
+        return res.status(200).json({ success: true, company: toSafeCompany(updated) });
+
+    } catch (error) {
+        console.error("[platform] setCompanyLogo failed:", error);
+        return res.status(500).json({ success: false, message: "Failed to upload company logo." });
+    }
+};
+
+// DELETE /api/platform/companies/:id/logo
+const removeCompanyLogo = async (req, res) => {
+    try {
+        const companyId = Number(req.params.id);
+        if (!Number.isInteger(companyId) || companyId <= 0) {
+            return res.status(400).json({ success: false, message: "Invalid company id." });
+        }
+
+        const previousCompany = await platformCompanyService.getCompanyById(companyId);
+
+        const updated = await platformCompanyService.removeCompanyLogo(companyId);
+
+        if (!updated) {
+            return res.status(409).json({
+                success: false,
+                message: "Logo could not be removed (company may not exist or is still pending provisioning).",
+            });
+        }
+
+        deleteOldLogoFileIfAny(updated.company_slug, previousCompany?.logo_url);
+
+        await platformAuditService.logAction({
+            platformUserId: req.platformUser.id,
+            actionType: "company_logo_removed",
+            targetType: "company",
+            targetId: updated.id,
+            companyId: updated.id,
+            metadata: { companyName: updated.company_name },
+        }).catch((auditError) => console.error("[platform] audit log failed (company logo removal):", auditError.message));
+
+        return res.status(200).json({ success: true, company: toSafeCompany(updated) });
+
+    } catch (error) {
+        console.error("[platform] removeCompanyLogo failed:", error);
+        return res.status(500).json({ success: false, message: "Failed to remove company logo." });
+    }
+};
+
+// ==========================================
 // COMPANY SUBSCRIPTION MANAGEMENT (Phase 8)
 //
 // PATCH /api/platform/companies/:id/subscription -- assigns/changes a
@@ -1213,6 +1361,9 @@ module.exports = {
     getCompanyDetails,
     updateStatus,
     updateAccessType,
+    resolveCompanyForLogoUpload,
+    setCompanyLogo,
+    removeCompanyLogo,
     updateSubscription,
     updateBillingContact,
     removeBillingContact,

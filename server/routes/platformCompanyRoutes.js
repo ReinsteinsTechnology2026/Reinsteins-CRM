@@ -10,6 +10,9 @@ const {
     getCompanyDetails,
     updateStatus,
     updateAccessType,
+    resolveCompanyForLogoUpload,
+    setCompanyLogo,
+    removeCompanyLogo,
     updateSubscription,
     updateBillingContact,
     removeBillingContact,
@@ -17,6 +20,7 @@ const {
 } = require("../controllers/platformCompanyController");
 const { platformProtect } = require("../middleware/platformAuthMiddleware");
 const { billingContactLimiter } = require("../middleware/rateLimiters");
+const { uploadCompanyLogo } = require("../middleware/companyLogoUploadMiddleware");
 
 // ==========================================
 // PLATFORM COMPANY ROUTES (Phase 2D / 2E / 4)
@@ -43,6 +47,20 @@ router.post("/:companyId/admin", platformProtect, createFirstAdmin);
 router.get("/:id", platformProtect, getCompanyDetails);
 router.patch("/:id/status", platformProtect, updateStatus);
 router.patch("/:id/access-type", platformProtect, updateAccessType);
+
+// Company branding (logo) -- Platform Owner only, for this phase.
+// resolveCompanyForLogoUpload runs before multer so the upload
+// destination is already resolved from a server-verified company
+// slug (never a client-supplied path) by the time any file bytes are
+// accepted -- see companyLogoUploadMiddleware.js's own header comment.
+router.post(
+    "/:id/logo",
+    platformProtect,
+    resolveCompanyForLogoUpload,
+    uploadCompanyLogo.single("logo"),
+    setCompanyLogo
+);
+router.delete("/:id/logo", platformProtect, removeCompanyLogo);
 
 // Phase 8 -- company subscription/plan management. Metadata-only;
 // never touches tenant_db_name or any tenant database.

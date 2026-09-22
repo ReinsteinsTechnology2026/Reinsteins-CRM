@@ -4,6 +4,7 @@ import { FaArrowLeft, FaPauseCircle, FaPlayCircle, FaUserPlus, FaTrash, FaPlus }
 import { toast } from "react-toastify";
 
 import platformApi from "../../services/platformApi";
+import { API_ORIGIN } from "../../config";
 import { formatMoney } from "../../utils/formatMoney";
 import { computeSubscriptionBadge } from "../../utils/subscriptionStatusBadge";
 import CreateAdminModal from "./CreateAdminModal";
@@ -81,6 +82,9 @@ function PlatformCompanyDetails() {
   const [billingEmail, setBillingEmail] = useState("");
   const [billingPhone, setBillingPhone] = useState("");
   const [billingSaving, setBillingSaving] = useState(false);
+
+  const [logoSaving, setLogoSaving] = useState(false);
+  const [logoCacheBust, setLogoCacheBust] = useState(0);
 
   const loadCompany = async () => {
     try {
@@ -213,6 +217,44 @@ function PlatformCompanyDetails() {
     }
   };
 
+  const handleLogoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = ""; // allow re-selecting the same file next time
+    if (!file) return;
+
+    try {
+      setLogoSaving(true);
+      const uploadData = new FormData();
+      uploadData.append("logo", file);
+
+      const response = await platformApi.post(`/companies/${id}/logo`, uploadData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setCompany((current) => ({ ...current, ...response.data.company }));
+      setLogoCacheBust((current) => current + 1);
+      toast.success("Company logo updated.");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to upload company logo.");
+    } finally {
+      setLogoSaving(false);
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    try {
+      setLogoSaving(true);
+      const response = await platformApi.delete(`/companies/${id}/logo`);
+      setCompany((current) => ({ ...current, ...response.data.company }));
+      setLogoCacheBust((current) => current + 1);
+      toast.success("Company logo removed.");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to remove company logo.");
+    } finally {
+      setLogoSaving(false);
+    }
+  };
+
   if (loading) {
     return <div className="platform-page"><div className="platform-empty-state">Loading company...</div></div>;
   }
@@ -291,6 +333,63 @@ function PlatformCompanyDetails() {
           <div className="platform-result-row"><span>Tenant Database</span><span>{company.tenantDbName || "Not yet provisioned"}</span></div>
           <div className="platform-result-row"><span>Created</span><span>{formatDate(company.createdAt)}</span></div>
           <div className="platform-result-row"><span>Last Updated</span><span>{formatDate(company.updatedAt)}</span></div>
+        </div>
+      </div>
+
+      <div className="platform-card" style={{ padding: 24, marginBottom: 20 }}>
+        <h2 style={{ fontSize: 15, marginTop: 0, marginBottom: 14 }}>Branding</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <div
+            style={{
+              width: 90, height: 90, borderRadius: 12, background: "#111816",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              overflow: "hidden", flexShrink: 0,
+            }}
+          >
+            {company.hasLogo ? (
+              <img
+                src={`${API_ORIGIN}/api/tenant-auth/${company.companySlug}/logo?preview=${logoCacheBust}`}
+                alt={`${company.companyName} logo`}
+                width={90}
+                height={90}
+                style={{ objectFit: "contain" }}
+              />
+            ) : (
+              <span style={{ color: "#16A66A", fontSize: 28, fontWeight: 800 }}>Zi</span>
+            )}
+          </div>
+          <div>
+            <p style={{ margin: "0 0 10px", color: "var(--text-secondary, #53615A)", fontSize: 13.5 }}>
+              {company.hasLogo
+                ? "This company's login page shows its own logo."
+                : "No logo uploaded yet -- this company's login page shows the default ZioVenture fallback mark."}
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <label className="platform-btn platform-btn-secondary" style={{ cursor: logoSaving ? "not-allowed" : "pointer", opacity: logoSaving ? 0.6 : 1 }}>
+                {company.hasLogo ? "Replace Logo" : "Upload Logo"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleLogoUpload}
+                  disabled={logoSaving}
+                  style={{ display: "none" }}
+                />
+              </label>
+              {company.hasLogo && (
+                <button
+                  type="button"
+                  className="platform-btn platform-btn-danger"
+                  onClick={handleLogoRemove}
+                  disabled={logoSaving}
+                >
+                  Remove Logo
+                </button>
+              )}
+            </div>
+            <p style={{ margin: "10px 0 0", color: "var(--text-secondary, #53615A)", fontSize: 12 }}>
+              JPG, PNG, or WEBP. Max 2 MB.
+            </p>
+          </div>
         </div>
       </div>
 

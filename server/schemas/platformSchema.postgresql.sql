@@ -146,6 +146,14 @@ ALTER TABLE "companies" ADD COLUMN IF NOT EXISTS "billing_contact_name" varchar(
 ALTER TABLE "companies" ADD COLUMN IF NOT EXISTS "billing_contact_email" varchar(255) DEFAULT NULL;
 ALTER TABLE "companies" ADD COLUMN IF NOT EXISTS "billing_contact_phone" varchar(30) DEFAULT NULL;
 
+-- ---------- Company branding: per-tenant login-page logo. Stores
+-- only the server-generated filename (e.g. "a1b2c3d4.png"), never a
+-- client-supplied or absolute filesystem path -- the physical file
+-- lives at uploads/tenant_<slug>/branding/<this value> (see
+-- utils/tenantUploadPath.js), resolved server-side only. NULL means
+-- "no logo uploaded yet", the existing "Zi" fallback mark case. ----------
+ALTER TABLE "companies" ADD COLUMN IF NOT EXISTS "logo_url" varchar(255) DEFAULT NULL;
+
 -- ---------- Phase 11: plan pricing (nullable -- NULL means "no
 -- price set yet", not zero; every pre-existing plan keeps working
 -- unchanged) ----------

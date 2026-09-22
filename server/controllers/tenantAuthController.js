@@ -1,9 +1,12 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const fs = require("fs");
+const path = require("path");
 
 const platformCompanyService = require("../services/platformCompanyService");
 const { getTenantPoolForCompany } = require("../config/tenantConnectionManager");
 const { isValidSlug } = require("../utils/tenantDbName");
+const { UPLOADS_ROOT } = require("../utils/tenantUploadPath");
 
 // ==========================================
 // TENANT-AWARE AUTH CONTROLLER (Phase 2F)
@@ -188,12 +191,24 @@ const login = async (req, res) => {
 // endpoint never confirms/denies "does this company exist but isn't
 // active yet" to an unauthenticated caller.
 //
-// logoUrl is always null today -- no logo storage exists yet (no
-// schema change made this phase, per the explicit "do not
-// over-engineer branding" instruction). The field is returned now so
-// the frontend branding component already has the right shape to
-// consume once a future phase adds real logo storage.
+// logoUrl points at the public, unauthenticated GET
+// /:companySlug/logo endpoint below (never a raw filesystem path or
+// the stored filename itself) when the company has uploaded one, or
+// null otherwise -- the frontend already renders the existing "Zi"
+// fallback mark for null exactly as before, unchanged by this phase.
+// The ?v= query param is a cache-busting version derived from the
+// company row's own updated_at, so a Platform Owner replacing a logo
+// (see platformCompanyController.js's setCompanyLogo) is reflected
+// immediately even though the underlying URL is otherwise stable and
+// cached aggressively (see getCompanyLogo below).
 // ==========================================
+
+const buildCompanyLogoUrl = (req, company) => {
+    if (!company.logo_url) return null;
+    const origin = `${req.protocol}://${req.get("host")}`;
+    const version = new Date(company.updated_at).getTime();
+    return `${origin}/api/tenant-auth/${company.company_slug}/logo?v=${version}`;
+};
 
 const getCompanyInfo = async (req, res) => {
 
@@ -217,7 +232,7 @@ const getCompanyInfo = async (req, res) => {
             company: {
                 name: company.company_name,
                 slug: company.company_slug,
-                logoUrl: null,
+                logoUrl: buildCompanyLogoUrl(req, company),
             },
         });
 
@@ -228,9 +243,97 @@ const getCompanyInfo = async (req, res) => {
 
 };
 
+// Content-Type derived from the file's own validated extension only
+// (never a client-supplied or stored mimetype) -- same reasoning as
+// fileTypeValidation.js's header comment on why extension/mimetype
+// must never be trusted independently of each other. logo_url can
+// only ever end in one of these (see companyLogoUploadMiddleware.js),
+// so an unrecognized extension here means the stored value is
+// corrupt, not a request the client can influence.
+const LOGO_CONTENT_TYPES = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+};
+
+// ==========================================
+// GET /api/tenant-auth/:companySlug/logo -- public, unauthenticated
+// by design (same reasoning as getCompanyInfo above: needed on the
+// pre-login page). Deliberately NOT the existing authenticated
+// /uploads/*splat route (that one requires a signed, per-user token
+// minted only for an already-logged-in caller, unusable before login)
+// -- this is a narrow, separate, read-only exception that can only
+// ever serve exactly the one file this company's own companies.logo_url
+// row currently names, in this company's own isolated branding
+// directory. No path/filename is ever accepted from the client --
+// companySlug is the only input, and it only ever selects WHICH
+// company's single configured logo to serve, never a location within
+// it.
+// ==========================================
+
+const getCompanyLogo = async (req, res) => {
+
+    try {
+
+        const companySlugRaw = req.params.companySlug;
+
+        if (typeof companySlugRaw !== "string" || !isValidSlug(companySlugRaw.trim().toLowerCase())) {
+            return res.status(404).json({ success: false, message: "Logo not found." });
+        }
+
+        const companySlug = companySlugRaw.trim().toLowerCase();
+        const company = await platformCompanyService.getActiveCompanyBySlug(companySlug);
+
+        if (!company || !company.logo_url) {
+            return res.status(404).json({ success: false, message: "Logo not found." });
+        }
+
+        const extension = path.extname(company.logo_url).toLowerCase();
+        const contentType = LOGO_CONTENT_TYPES[extension];
+
+        if (!contentType) {
+            // Stored value doesn't match any extension this system ever
+            // writes -- treat exactly like "no logo" rather than
+            // attempting to serve/guess an unsafe content type.
+            return res.status(404).json({ success: false, message: "Logo not found." });
+        }
+
+        // Path-traversal defense, independent of the DB lookup above --
+        // same containment pattern as the existing /uploads/*splat
+        // route and employeeController.js's profile-photo replacement.
+        const resolvedPath = path.resolve(UPLOADS_ROOT, `tenant_${company.company_slug}`, "branding", company.logo_url);
+        const expectedDir = path.resolve(UPLOADS_ROOT, `tenant_${company.company_slug}`, "branding");
+
+        if (resolvedPath !== expectedDir && !resolvedPath.startsWith(expectedDir + path.sep)) {
+            return res.status(404).json({ success: false, message: "Logo not found." });
+        }
+
+        if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isFile()) {
+            return res.status(404).json({ success: false, message: "Logo not found." });
+        }
+
+        // Long-lived, immutable cache -- safe because the URL itself
+        // never changes for a given upload, and the ?v= query param
+        // getCompanyInfo's buildCompanyLogoUrl appends changes whenever
+        // the company row updates, busting any cached copy from before
+        // a logo replacement.
+        res.set("Content-Type", contentType);
+        res.set("Cache-Control", "public, max-age=31536000, immutable");
+
+        return res.sendFile(resolvedPath);
+
+    } catch (error) {
+        console.error("[tenant-auth] getCompanyLogo failed:", error);
+        return res.status(500).json({ success: false, message: "Unable to load company logo." });
+    }
+
+};
+
 module.exports = {
     login,
     getCompanyInfo,
+    getCompanyLogo,
     TENANT_JWT_ISSUER,
     TENANT_JWT_AUDIENCE,
 };

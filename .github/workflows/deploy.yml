@@ -59,6 +59,14 @@ jobs:
           # restart steps run.
           node server/_migrate_add_shift_schedules.js
 
+          # Safe, idempotent, additive-only addition of
+          # companies.logo_url on the platform database (metadata-only
+          # column, no default computation, never touches any existing
+          # row's data). Same `set -e` reasoning as the steps above: a
+          # non-zero exit here stops the deploy before the build/
+          # restart steps run.
+          node server/_migrate_add_company_logo.js
+
           cd client
           npm ci
           VITE_API_URL=https://crm.zioventure.com npm run build

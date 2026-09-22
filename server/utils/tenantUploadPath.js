@@ -107,8 +107,31 @@ function tenantUploadUrlPath(category, filename) {
     return `/uploads/${tenantUploadSubdir(category)}/${filename}`;
 }
 
+// ==========================================
+// EXPLICIT-SLUG VARIANT -- for uploads driven by a Platform Owner
+// session (platformProtect), which has no req.tenantCompany/tenant
+// AsyncLocalStorage context at all (that only exists for a
+// tenant-authenticated request). Company branding uploads are the
+// first such case: the Platform Owner uploads a logo FOR a specific
+// company, resolved server-side from the company ID in the URL
+// (looked up against the platform DB, never trusted from the
+// client) -- see platformCompanyController.js's resolveCompanyForLogoUpload,
+// which attaches the already-validated slug synchronously before
+// multer runs, exactly mirroring how tenantProtect attaches
+// req.tenantCompany before multer runs for every other upload
+// category in this file.
+// ==========================================
+function tenantUploadAbsoluteDirForSlug(companySlug, category) {
+    const dir = path.join(UPLOADS_ROOT, `tenant_${companySlug}`, ...category.split("/"));
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+    return dir;
+}
+
 module.exports = {
     UPLOADS_ROOT,
     tenantUploadAbsoluteDir,
+    tenantUploadAbsoluteDirForSlug,
     tenantUploadUrlPath,
 };

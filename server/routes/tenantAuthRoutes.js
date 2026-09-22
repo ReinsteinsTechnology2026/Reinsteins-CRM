@@ -2,7 +2,7 @@ const express = require("express");
 
 const router = express.Router();
 
-const { login, getCompanyInfo } = require("../controllers/tenantAuthController");
+const { login, getCompanyInfo, getCompanyLogo } = require("../controllers/tenantAuthController");
 const { tenantProtect } = require("../middleware/tenantAuthMiddleware");
 const { tenantLoginLimiter } = require("../middleware/rateLimiters");
 
@@ -20,6 +20,11 @@ router.post("/:companySlug/login", tenantLoginLimiter, login);
 // getCompanyInfo's own comment for exactly what it does and doesn't
 // expose.
 router.get("/:companySlug/info", getCompanyInfo);
+
+// Public, unauthenticated by design -- see getCompanyLogo's own
+// comment for exactly what it does and doesn't expose. Needed before
+// login, same reasoning as /:companySlug/info above.
+router.get("/:companySlug/logo", getCompanyLogo);
 
 // Minimal authenticated smoke-test route -- lets this phase's own
 // verification (and later phases) confirm tenantProtect resolves
