@@ -2,7 +2,12 @@ const multer = require("multer");
 const crypto = require("crypto");
 const path = require("path");
 
-const { tenantUploadAbsoluteDirForSlug } = require("../utils/tenantUploadPath");
+// Accessed via the module object (tenantUploadPath.tenantUploadAbsoluteDirForSlug),
+// not destructured -- lets _test_company_logo_upload_error_handling.js
+// substitute a throwing implementation for one call without needing a
+// real directory-permission failure to exercise the try/catch below.
+// Same function, same behavior, purely a reference-access style choice.
+const tenantUploadPath = require("../utils/tenantUploadPath");
 const { SAFE_IMAGE_EXTENSIONS, isSafeUpload } = require("../utils/fileTypeValidation");
 
 // ==========================================
@@ -25,10 +30,31 @@ const { SAFE_IMAGE_EXTENSIONS, isSafeUpload } = require("../utils/fileTypeValida
 // own header comment on why mimetype alone is spoofable).
 // ==========================================
 
+// Explicit try/catch, not left to throw synchronously -- unlike
+// uploadMiddleware.js's equivalent (profiles/, an already-existing
+// directory since Phase 1), this is the first-ever write into
+// tenant_<slug>/branding/, so its mkdirSync(..., {recursive: true})
+// genuinely can fail (permissions, a non-directory already at that
+// path, etc.) in a way that's never been exercised in production
+// before. A thrown error here would otherwise escape multer's own
+// handling inconsistently; calling back with the error instead routes
+// it through the SAME next(err) path multer already uses for
+// fileFilter/size rejections, so the route-level error handler in
+// platformCompanyController.js sees it uniformly. Path resolution/
+// isolation itself (tenantUploadAbsoluteDirForSlug) is completely
+// unchanged. Exported (not an inline closure) so this exact logic is
+// independently testable without needing a real multipart request.
+function resolveLogoDestination(req, file, callback) {
+    try {
+        const dir = tenantUploadPath.tenantUploadAbsoluteDirForSlug(req.targetCompany.companySlug, "branding");
+        callback(null, dir);
+    } catch (destinationError) {
+        callback(destinationError);
+    }
+}
+
 const storage = multer.diskStorage({
-    destination: (req, file, callback) => {
-        callback(null, tenantUploadAbsoluteDirForSlug(req.targetCompany.companySlug, "branding"));
-    },
+    destination: resolveLogoDestination,
 
     // Deterministic, server-generated filename only -- file.originalname
     // is NEVER used beyond validating its extension in fileFilter below,
@@ -61,4 +87,5 @@ const uploadCompanyLogo = multer({
 
 module.exports = {
     uploadCompanyLogo,
+    resolveLogoDestination,
 };

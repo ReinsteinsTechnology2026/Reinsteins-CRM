@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const fs = require("fs");
 const path = require("path");
+const multer = require("multer");
 
 const platformCompanyService = require("../services/platformCompanyService");
 const subscriptionPlanService = require("../services/subscriptionPlanService");
@@ -941,9 +942,62 @@ const setCompanyLogo = async (req, res) => {
         return res.status(200).json({ success: true, company: toSafeCompany(updated) });
 
     } catch (error) {
-        console.error("[platform] setCompanyLogo failed:", error);
+        console.error(
+            `[platform] setCompanyLogo failed: code=${error.code || "n/a"} message=${error.message}`,
+            error
+        );
         return res.status(500).json({ success: false, message: "Failed to upload company logo." });
     }
+};
+
+// ==========================================
+// LOGO UPLOAD ERROR HANDLER
+//
+// 4-arg Express error-handling middleware, mounted in
+// platformCompanyRoutes.js immediately after uploadCompanyLogo AND
+// setCompanyLogo. Express only ever invokes this when something
+// upstream called next(err) instead of next() -- multer's own
+// fileFilter/file-size rejections, or (as of this change)
+// companyLogoUploadMiddleware.js's destination callback now doing the
+// same for a directory-creation failure instead of throwing
+// synchronously. setCompanyLogo itself never calls next(), so on the
+// ordinary success/handled-failure paths this is never reached.
+//
+// Logs enough to distinguish the real cause server-side (filesystem
+// errno code, multer's own error code, or a generic message) without
+// ever sending any of that -- path, code, or stack -- to the browser.
+// The client-facing response is deliberately identical to
+// setCompanyLogo's own generic failure message, so this diagnostic
+// improvement changes nothing about client-visible behavior.
+// ==========================================
+
+// eslint-disable-next-line no-unused-vars
+const handleLogoUploadError = (error, req, res, next) => {
+
+    const isMulterError = error instanceof multer.MulterError;
+    const fsErrorCodes = new Set(["EACCES", "ENOENT", "ENOTDIR", "EPERM", "EROFS", "EEXIST"]);
+
+    let category = "other";
+    if (isMulterError) {
+        category = `multer:${error.code}`;
+    } else if (fsErrorCodes.has(error.code)) {
+        category = `filesystem:${error.code}`;
+    } else if (error.message && error.message.includes("images are allowed")) {
+        category = "file-type-rejected";
+    }
+
+    console.error(
+        `[platform] company logo upload error -- category=${category} code=${error.code || "n/a"} message=${error.message}`,
+        error
+    );
+
+    // Same status/message setCompanyLogo's own catch already returns,
+    // and the same status the centralized global error handler
+    // (app.js) would already have defaulted to for an error with no
+    // explicit .status (both MulterError and a plain fileFilter Error
+    // lack one) -- this handler changes what gets LOGGED, not what
+    // the client receives.
+    return res.status(500).json({ success: false, message: "Failed to upload company logo." });
 };
 
 // DELETE /api/platform/companies/:id/logo
@@ -1374,6 +1428,7 @@ module.exports = {
     updateAccessType,
     resolveCompanyForLogoUpload,
     setCompanyLogo,
+    handleLogoUploadError,
     removeCompanyLogo,
     updateSubscription,
     updateBillingContact,

@@ -12,6 +12,7 @@ const {
     updateAccessType,
     resolveCompanyForLogoUpload,
     setCompanyLogo,
+    handleLogoUploadError,
     removeCompanyLogo,
     updateSubscription,
     updateBillingContact,
@@ -53,12 +54,19 @@ router.patch("/:id/access-type", platformProtect, updateAccessType);
 // destination is already resolved from a server-verified company
 // slug (never a client-supplied path) by the time any file bytes are
 // accepted -- see companyLogoUploadMiddleware.js's own header comment.
+// handleLogoUploadError is a 4-arg (err, req, res, next) error handler
+// -- Express only invokes it if uploadCompanyLogo called next(err)
+// (a fileFilter/file-size rejection, or now a destination-directory
+// failure -- see companyLogoUploadMiddleware.js); it never runs on
+// the ordinary success path, since setCompanyLogo always sends its
+// own response and never calls next().
 router.post(
     "/:id/logo",
     platformProtect,
     resolveCompanyForLogoUpload,
     uploadCompanyLogo.single("logo"),
-    setCompanyLogo
+    setCompanyLogo,
+    handleLogoUploadError
 );
 router.delete("/:id/logo", platformProtect, removeCompanyLogo);
 
