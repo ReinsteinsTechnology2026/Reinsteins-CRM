@@ -1,4 +1,5 @@
 const {
+    CROSS_PROJECT_ERROR,
     getEpicsByProject,
     getEpicById,
     createEpic: createEpicService,
@@ -106,6 +107,13 @@ const createEpic = async (req, res) => {
 
     } catch (error) {
 
+        if (error.name === CROSS_PROJECT_ERROR) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+
         console.error(error);
 
         return res.status(500).json({
@@ -143,7 +151,7 @@ const updateEpic = async (req, res) => {
             });
         }
 
-        await updateEpicService(req.params.id, req.body);
+        await updateEpicService(req.params.id, req.body, existing.project_id, req.user.id);
 
         return res.json({
             success: true,
@@ -151,6 +159,13 @@ const updateEpic = async (req, res) => {
         });
 
     } catch (error) {
+
+        if (error.name === CROSS_PROJECT_ERROR) {
+            return res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
 
         console.error(error);
 

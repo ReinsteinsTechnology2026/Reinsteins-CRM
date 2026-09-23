@@ -3,6 +3,7 @@ const pool = require("../config/db");
 const { setTaskTags } = require("./tagService");
 const { deleteLinksForItem } = require("./workItemLinkService");
 const { createWithGeneratedCode, generateNextTaskNumber } = require("./workItemCodeService");
+const { isEligibleProjectAssignee } = require("./projectPermissionService");
 
 // ==========================================
 // CROSS-PROJECT PARENT VALIDATION
@@ -42,6 +43,29 @@ async function assertFeatureBelongsToProject(featureId, projectId) {
 }
 
 // ==========================================
+// ASSIGNMENT ELIGIBILITY (for the STORY's own assigned_to -- separate
+// from the Task-level assigned_to already handled by
+// createTaskForUserStory below). Same rule/reasoning as
+// epicService.js/featureService.js's assertEligibleAssignee.
+// ==========================================
+
+async function assertEligibleAssignee(assignedTo, projectId) {
+
+    if (assignedTo === null || assignedTo === undefined || assignedTo === "") {
+        return;
+    }
+
+    const eligible = await isEligibleProjectAssignee(Number(assignedTo), projectId);
+
+    if (!eligible) {
+        const error = new Error("Selected user must be an active member of this project");
+        error.name = CROSS_PROJECT_ERROR;
+        throw error;
+    }
+
+}
+
+// ==========================================
 // GET USER STORIES FOR A PROJECT (with rollup stats)
 // ==========================================
 
@@ -53,6 +77,8 @@ const getUserStoriesByProject = async (projectId) => {
             feature.title AS feature_title,
             owner.full_name AS owner_name,
             creator.full_name AS created_by_name,
+            assignee.full_name AS assigned_to_name,
+            assigner.full_name AS assigned_by_name,
             sp.name AS sprint_name,
 
             (
@@ -76,6 +102,10 @@ const getUserStoriesByProject = async (projectId) => {
             ON owner.id = us.owner_id
         LEFT JOIN users creator
             ON creator.id = us.created_by
+        LEFT JOIN users assignee
+            ON assignee.id = us.assigned_to
+        LEFT JOIN users assigner
+            ON assigner.id = us.assigned_by
         LEFT JOIN sprints sp
             ON sp.id = us.sprint_id
         WHERE us.project_id = ?
@@ -105,6 +135,8 @@ const getUserStoryById = async (id) => {
             p.name AS project_name,
             owner.full_name AS owner_name,
             creator.full_name AS created_by_name,
+            assignee.full_name AS assigned_to_name,
+            assigner.full_name AS assigned_by_name,
             sp.name AS sprint_name
         FROM user_stories us
         INNER JOIN projects p
@@ -113,6 +145,10 @@ const getUserStoryById = async (id) => {
             ON owner.id = us.owner_id
         LEFT JOIN users creator
             ON creator.id = us.created_by
+        LEFT JOIN users assignee
+            ON assignee.id = us.assigned_to
+        LEFT JOIN users assigner
+            ON assigner.id = us.assigned_by
         LEFT JOIN sprints sp
             ON sp.id = us.sprint_id
         WHERE us.id = ?
@@ -212,12 +248,16 @@ const createUserStory = async (projectId, data, createdBy) => {
         due_date,
         tags,
         feature_id,
-        sprint_id
+        sprint_id,
+        assigned_to
 
     } = data;
 
     await assertFeatureBelongsToProject(feature_id, projectId);
     await assertSprintBelongsToProject(sprint_id, projectId);
+    await assertEligibleAssignee(assigned_to, projectId);
+
+    const assignedBy = assigned_to ? createdBy : null;
 
     const id = await createWithGeneratedCode("user_story", async (storyCode) => {
 
@@ -235,9 +275,11 @@ const createUserStory = async (projectId, data, createdBy) => {
                 priority,
                 start_date,
                 due_date,
-                tags
+                tags,
+                assigned_to,
+                assigned_by
             )
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             RETURNING id
         `, [
 
@@ -253,7 +295,9 @@ const createUserStory = async (projectId, data, createdBy) => {
             priority || "Medium",
             start_date || null,
             due_date || null,
-            tags || null
+            tags || null,
+            assigned_to || null,
+            assignedBy
 
         ]);
 
@@ -287,7 +331,7 @@ const assignUserStoryToSprint = async (id, sprintId) => {
 // UPDATE USER STORY
 // ==========================================
 
-const updateUserStory = async (id, data, projectId) => {
+const updateUserStory = async (id, data, projectId, updatedBy) => {
 
     const {
 
@@ -299,11 +343,18 @@ const updateUserStory = async (id, data, projectId) => {
         start_date,
         due_date,
         tags,
-        feature_id
+        feature_id,
+        assigned_to
 
     } = data;
 
     await assertFeatureBelongsToProject(feature_id, projectId);
+    await assertEligibleAssignee(assigned_to, projectId);
+
+    // Same reassignment semantics as epicService.updateEpic /
+    // featureService.updateFeature -- Assigned By becomes whoever
+    // performs THIS change.
+    const assignedBy = assigned_to ? updatedBy : null;
 
     await pool.query(`
         UPDATE user_stories
@@ -316,7 +367,9 @@ const updateUserStory = async (id, data, projectId) => {
             start_date=?,
             due_date=?,
             tags=?,
-            feature_id=?
+            feature_id=?,
+            assigned_to=?,
+            assigned_by=?
         WHERE id=?
     `, [
 
@@ -329,6 +382,8 @@ const updateUserStory = async (id, data, projectId) => {
         due_date || null,
         tags || null,
         feature_id || null,
+        assigned_to || null,
+        assignedBy,
         id
 
     ]);
@@ -440,6 +495,7 @@ const deleteUserStory = async (id) => {
 module.exports = {
 
     CROSS_PROJECT_ERROR,
+    assertEligibleAssignee,
     getUserStoriesByProject,
     getUserStoryById,
     createUserStory,

@@ -107,6 +107,8 @@ CREATE TABLE "epics" (
   "title" varchar(255) NOT NULL,
   "description" text,
   "owner_id" integer DEFAULT NULL,
+  "assigned_to" integer DEFAULT NULL,
+  "assigned_by" integer DEFAULT NULL,
   "created_by" integer NOT NULL,
   "priority" varchar NOT NULL DEFAULT 'Medium' CHECK ("priority" IN ('Low', 'Medium', 'High', 'Critical')),
   "status" varchar NOT NULL DEFAULT 'new' CHECK ("status" IN ('new', 'active', 'on_hold', 'completed', 'cancelled')),
@@ -129,6 +131,8 @@ CREATE TABLE "features" (
   "title" varchar(255) NOT NULL,
   "description" text,
   "owner_id" integer DEFAULT NULL,
+  "assigned_to" integer DEFAULT NULL,
+  "assigned_by" integer DEFAULT NULL,
   "created_by" integer NOT NULL,
   "priority" varchar NOT NULL DEFAULT 'Medium' CHECK ("priority" IN ('Low', 'Medium', 'High', 'Critical')),
   "status" varchar NOT NULL DEFAULT 'new' CHECK ("status" IN ('new', 'active', 'on_hold', 'completed', 'cancelled')),
@@ -563,6 +567,8 @@ CREATE TABLE "user_stories" (
   "title" varchar(255) NOT NULL,
   "description" text,
   "owner_id" integer DEFAULT NULL,
+  "assigned_to" integer DEFAULT NULL,
+  "assigned_by" integer DEFAULT NULL,
   "created_by" integer NOT NULL,
   "priority" varchar NOT NULL DEFAULT 'Medium' CHECK ("priority" IN ('Low', 'Medium', 'High', 'Critical')),
   "status" varchar NOT NULL DEFAULT 'new' CHECK ("status" IN ('new', 'active', 'on_hold', 'completed', 'cancelled')),
@@ -658,9 +664,13 @@ ALTER TABLE "departments" ADD CONSTRAINT "fk_departments_organization" FOREIGN K
 ALTER TABLE "designations" ADD CONSTRAINT "fk_designations_department" FOREIGN KEY ("department_id") REFERENCES "departments" ("id") ON DELETE SET NULL;
 ALTER TABLE "designations" ADD CONSTRAINT "fk_designations_organization" FOREIGN KEY ("organization_id") REFERENCES "organizations" ("id") ON DELETE SET NULL;
 ALTER TABLE "employment_history" ADD CONSTRAINT "fk_employment_history_user" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
+ALTER TABLE "epics" ADD CONSTRAINT "fk_epics_assigned_by" FOREIGN KEY ("assigned_by") REFERENCES "users" ("id");
+ALTER TABLE "epics" ADD CONSTRAINT "fk_epics_assigned_to" FOREIGN KEY ("assigned_to") REFERENCES "users" ("id");
 ALTER TABLE "epics" ADD CONSTRAINT "fk_epics_created_by" FOREIGN KEY ("created_by") REFERENCES "users" ("id");
 ALTER TABLE "epics" ADD CONSTRAINT "fk_epics_owner" FOREIGN KEY ("owner_id") REFERENCES "users" ("id");
 ALTER TABLE "epics" ADD CONSTRAINT "fk_epics_project" FOREIGN KEY ("project_id") REFERENCES "projects" ("id") ON DELETE CASCADE;
+ALTER TABLE "features" ADD CONSTRAINT "fk_features_assigned_by" FOREIGN KEY ("assigned_by") REFERENCES "users" ("id");
+ALTER TABLE "features" ADD CONSTRAINT "fk_features_assigned_to" FOREIGN KEY ("assigned_to") REFERENCES "users" ("id");
 ALTER TABLE "features" ADD CONSTRAINT "fk_features_created_by" FOREIGN KEY ("created_by") REFERENCES "users" ("id");
 ALTER TABLE "features" ADD CONSTRAINT "fk_features_epic" FOREIGN KEY ("epic_id") REFERENCES "epics" ("id") ON DELETE SET NULL;
 ALTER TABLE "features" ADD CONSTRAINT "fk_features_owner" FOREIGN KEY ("owner_id") REFERENCES "users" ("id");
@@ -730,6 +740,8 @@ ALTER TABLE "tasks" ADD CONSTRAINT "fk_tasks_project" FOREIGN KEY ("project_id")
 ALTER TABLE "tasks" ADD CONSTRAINT "fk_tasks_sprint" FOREIGN KEY ("sprint_id") REFERENCES "sprints" ("id") ON DELETE SET NULL;
 ALTER TABLE "tasks" ADD CONSTRAINT "fk_tasks_user" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE;
 ALTER TABLE "tasks" ADD CONSTRAINT "fk_tasks_user_story" FOREIGN KEY ("user_story_id") REFERENCES "user_stories" ("id") ON DELETE SET NULL;
+ALTER TABLE "user_stories" ADD CONSTRAINT "fk_user_stories_assigned_by" FOREIGN KEY ("assigned_by") REFERENCES "users" ("id");
+ALTER TABLE "user_stories" ADD CONSTRAINT "fk_user_stories_assigned_to" FOREIGN KEY ("assigned_to") REFERENCES "users" ("id");
 ALTER TABLE "user_stories" ADD CONSTRAINT "fk_user_stories_created_by" FOREIGN KEY ("created_by") REFERENCES "users" ("id");
 ALTER TABLE "user_stories" ADD CONSTRAINT "fk_user_stories_feature" FOREIGN KEY ("feature_id") REFERENCES "features" ("id") ON DELETE SET NULL;
 ALTER TABLE "user_stories" ADD CONSTRAINT "fk_user_stories_owner" FOREIGN KEY ("owner_id") REFERENCES "users" ("id");
@@ -770,10 +782,14 @@ CREATE INDEX "fk_employment_history_user" ON "employment_history" ("user_id");
 CREATE INDEX "fk_epics_project" ON "epics" ("project_id");
 CREATE INDEX "fk_epics_owner" ON "epics" ("owner_id");
 CREATE INDEX "fk_epics_created_by" ON "epics" ("created_by");
+CREATE INDEX "fk_epics_assigned_to" ON "epics" ("assigned_to");
+CREATE INDEX "fk_epics_assigned_by" ON "epics" ("assigned_by");
 CREATE INDEX "fk_features_project" ON "features" ("project_id");
 CREATE INDEX "fk_features_epic" ON "features" ("epic_id");
 CREATE INDEX "fk_features_owner" ON "features" ("owner_id");
 CREATE INDEX "fk_features_created_by" ON "features" ("created_by");
+CREATE INDEX "fk_features_assigned_to" ON "features" ("assigned_to");
+CREATE INDEX "fk_features_assigned_by" ON "features" ("assigned_by");
 CREATE INDEX "fk_leave_user" ON "leave_requests" ("user_id");
 CREATE INDEX "fk_leave_final_decided_by" ON "leave_requests" ("final_decided_by");
 CREATE INDEX "idx_leave_manager_status" ON "leave_requests" ("manager_id","status");
@@ -842,6 +858,8 @@ CREATE INDEX "fk_user_stories_project" ON "user_stories" ("project_id");
 CREATE INDEX "fk_user_stories_owner" ON "user_stories" ("owner_id");
 CREATE INDEX "fk_user_stories_created_by" ON "user_stories" ("created_by");
 CREATE INDEX "fk_user_stories_feature" ON "user_stories" ("feature_id");
+CREATE INDEX "fk_user_stories_assigned_to" ON "user_stories" ("assigned_to");
+CREATE INDEX "fk_user_stories_assigned_by" ON "user_stories" ("assigned_by");
 
 -- Recycle Bin (soft delete) lookups + new Sprint<->User Story link
 CREATE INDEX "idx_epics_deleted_at" ON "epics" ("deleted_at");

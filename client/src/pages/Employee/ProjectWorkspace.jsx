@@ -1312,6 +1312,9 @@ function BacklogTab({
             {storyTasks.length} Task{storyTasks.length === 1 ? "" : "s"}
             {filtersActive && story.task_count !== storyTasks.length ? ` of ${story.task_count}` : ""}
           </span>
+          <span className="pw-story-count">
+            Assigned to: {story.assigned_to_name || "Unassigned"}
+          </span>
           {(canEditUserStory || canDeleteUserStory) && (
             <div className="pw-row-actions">
               {canEditUserStory && (
@@ -1372,6 +1375,9 @@ function BacklogTab({
           <span className="pw-item-type-badge">Feature</span>
           <span className="pw-story-count">
             {featureStories.length} Stor{featureStories.length === 1 ? "y" : "ies"}
+          </span>
+          <span className="pw-story-count">
+            Assigned to: {feature.assigned_to_name || "Unassigned"}
           </span>
           <div className="pw-row-actions">
             {canEditFeature && (
@@ -1450,6 +1456,9 @@ function BacklogTab({
           <span className="pw-item-type-badge">Epic</span>
           <span className="pw-story-count">
             {epicFeatures.length} Feature{epicFeatures.length === 1 ? "" : "s"}
+          </span>
+          <span className="pw-story-count">
+            Assigned to: {epic.assigned_to_name || "Unassigned"}
           </span>
           <div className="pw-row-actions">
             {canEditEpic && (
@@ -2026,7 +2035,7 @@ function SprintsTab({
                                 {story.story_code ? `${story.story_code} — ` : ""}{story.title}
                               </td>
                               <td><span className={`pw-priority ${story.priority}`}>{story.priority}</span></td>
-                              <td>{story.owner_name || "Unassigned"}</td>
+                              <td>{story.assigned_to_name || "Unassigned"}</td>
                               <td>{story.task_count} task{story.task_count === 1 ? "" : "s"}</td>
                               {canAssignTaskToSprint && !isCompleted && (
                                 <td onClick={(event) => event.stopPropagation()}>

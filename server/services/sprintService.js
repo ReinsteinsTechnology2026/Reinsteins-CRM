@@ -145,10 +145,16 @@ const getSprintById = async (id) => {
     const [userStories] = await pool.query(`
         SELECT
             us.*,
-            owner.full_name AS owner_name
+            owner.full_name AS owner_name,
+            assignee.full_name AS assigned_to_name,
+            assigner.full_name AS assigned_by_name
         FROM user_stories us
         LEFT JOIN users owner
             ON owner.id = us.owner_id
+        LEFT JOIN users assignee
+            ON assignee.id = us.assigned_to
+        LEFT JOIN users assigner
+            ON assigner.id = us.assigned_by
         WHERE us.sprint_id = ?
         AND us.deleted_at IS NULL
         ORDER BY us.id DESC

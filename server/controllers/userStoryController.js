@@ -160,7 +160,7 @@ const updateUserStory = async (req, res) => {
             });
         }
 
-        await updateUserStoryService(req.params.id, req.body, existing.project_id);
+        await updateUserStoryService(req.params.id, req.body, existing.project_id, req.user.id);
 
         return res.json({
             success: true,

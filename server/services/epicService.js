@@ -2,6 +2,36 @@ const pool = require("../config/db");
 
 const { deleteLinksForItem } = require("./workItemLinkService");
 const { createWithGeneratedCode } = require("./workItemCodeService");
+const { isEligibleProjectAssignee } = require("./projectPermissionService");
+
+// ==========================================
+// ASSIGNMENT ELIGIBILITY
+// Reuses the SAME rule Task assignment already enforces (isEligibleProjectAssignee
+// -- active employment_status + explicit project_members row, already
+// including the System Administrator bypass via canUserAccessProject
+// underneath it). null/undefined assigned_to is always valid (no
+// assignee yet). Thrown error name matches featureService.js's
+// CROSS_PROJECT_ERROR convention so the controller can map it to 400
+// the same way.
+// ==========================================
+
+const CROSS_PROJECT_ERROR = "CrossProjectParentError";
+
+async function assertEligibleAssignee(assignedTo, projectId) {
+
+    if (assignedTo === null || assignedTo === undefined || assignedTo === "") {
+        return;
+    }
+
+    const eligible = await isEligibleProjectAssignee(Number(assignedTo), projectId);
+
+    if (!eligible) {
+        const error = new Error("Selected user must be an active member of this project");
+        error.name = CROSS_PROJECT_ERROR;
+        throw error;
+    }
+
+}
 
 // ==========================================
 // EPIC SERVICE
@@ -30,6 +60,8 @@ const getEpicsByProject = async (projectId) => {
             e.*,
             owner.full_name AS owner_name,
             creator.full_name AS created_by_name,
+            assignee.full_name AS assigned_to_name,
+            assigner.full_name AS assigned_by_name,
 
             (
                 SELECT COUNT(*)
@@ -43,6 +75,10 @@ const getEpicsByProject = async (projectId) => {
             ON owner.id = e.owner_id
         LEFT JOIN users creator
             ON creator.id = e.created_by
+        LEFT JOIN users assignee
+            ON assignee.id = e.assigned_to
+        LEFT JOIN users assigner
+            ON assigner.id = e.assigned_by
         WHERE e.project_id = ?
         AND e.deleted_at IS NULL
         ORDER BY e.id DESC
@@ -67,7 +103,9 @@ const getEpicById = async (id) => {
             e.*,
             p.name AS project_name,
             owner.full_name AS owner_name,
-            creator.full_name AS created_by_name
+            creator.full_name AS created_by_name,
+            assignee.full_name AS assigned_to_name,
+            assigner.full_name AS assigned_by_name
         FROM epics e
         INNER JOIN projects p
             ON p.id = e.project_id
@@ -75,6 +113,10 @@ const getEpicById = async (id) => {
             ON owner.id = e.owner_id
         LEFT JOIN users creator
             ON creator.id = e.created_by
+        LEFT JOIN users assignee
+            ON assignee.id = e.assigned_to
+        LEFT JOIN users assigner
+            ON assigner.id = e.assigned_by
         WHERE e.id = ?
         AND e.deleted_at IS NULL
         LIMIT 1
@@ -98,7 +140,15 @@ const createEpic = async (projectId, data, createdBy) => {
         priority,
         start_date,
         due_date,
+        assigned_to,
     } = data;
+
+    await assertEligibleAssignee(assigned_to, projectId);
+
+    // Assigned By is always the authenticated creator -- never a
+    // client-supplied value (createdBy comes from req.user.id in the
+    // controller, the same trusted source used for created_by).
+    const assignedBy = assigned_to ? createdBy : null;
 
     const id = await createWithGeneratedCode("epic", async (epicCode) => {
 
@@ -113,9 +163,11 @@ const createEpic = async (projectId, data, createdBy) => {
                 status,
                 priority,
                 start_date,
-                due_date
+                due_date,
+                assigned_to,
+                assigned_by
             )
-            VALUES(?,?,?,?,?,?,?,?,?,?)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
             RETURNING id
         `, [
 
@@ -129,6 +181,8 @@ const createEpic = async (projectId, data, createdBy) => {
             priority || "Medium",
             start_date || null,
             due_date || null,
+            assigned_to || null,
+            assignedBy,
 
         ]);
 
@@ -144,7 +198,7 @@ const createEpic = async (projectId, data, createdBy) => {
 // UPDATE EPIC
 // ==========================================
 
-const updateEpic = async (id, data) => {
+const updateEpic = async (id, data, projectId, updatedBy) => {
 
     const {
         title,
@@ -154,7 +208,18 @@ const updateEpic = async (id, data) => {
         priority,
         start_date,
         due_date,
+        assigned_to,
     } = data;
+
+    await assertEligibleAssignee(assigned_to, projectId);
+
+    // Per decision: on reassignment, Assigned By becomes whoever is
+    // performing THIS change (updatedBy = req.user.id from the
+    // controller) -- not preserved as the original creator. Only set
+    // when assigned_to is actually present in the payload, so a
+    // partial update that omits assigned_to doesn't clobber an
+    // existing assignment's assigned_by with a stray value.
+    const assignedBy = assigned_to ? updatedBy : null;
 
     await pool.query(`
         UPDATE epics
@@ -165,7 +230,9 @@ const updateEpic = async (id, data) => {
             status=?,
             priority=?,
             start_date=?,
-            due_date=?
+            due_date=?,
+            assigned_to=?,
+            assigned_by=?
         WHERE id=?
     `, [
 
@@ -176,6 +243,8 @@ const updateEpic = async (id, data) => {
         priority,
         start_date || null,
         due_date || null,
+        assigned_to || null,
+        assignedBy,
         id,
 
     ]);
@@ -210,5 +279,7 @@ module.exports = {
     createEpic,
     updateEpic,
     deleteEpic,
+    CROSS_PROJECT_ERROR,
+    assertEligibleAssignee,
 
 };

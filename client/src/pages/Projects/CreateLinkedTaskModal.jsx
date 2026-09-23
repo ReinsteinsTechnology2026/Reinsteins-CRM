@@ -26,6 +26,14 @@ import "./ProjectModal.css";
 // (taskService.assertUserStoryBelongsToProject).
 // ==========================================
 
+function getCurrentUser() {
+    try {
+        return JSON.parse(sessionStorage.getItem("user"));
+    } catch {
+        return null;
+    }
+}
+
 function CreateLinkedTaskModal({
 
     mode, // "project" | "sprint"
@@ -36,6 +44,8 @@ function CreateLinkedTaskModal({
     onCreated
 
 }) {
+
+    const currentUser = getCurrentUser();
 
     const [employees, setEmployees] = useState([]);
 
@@ -214,6 +224,16 @@ function CreateLinkedTaskModal({
                     )}
 
                     <div className="wi-form-grid">
+
+                        <div className="wi-form-group">
+                            <label>Assigned By</label>
+                            <input
+                                type="text"
+                                value={currentUser?.name || currentUser?.fullName || ""}
+                                disabled
+                                readOnly
+                            />
+                        </div>
 
                         <div className="wi-form-group">
                             <label>Assign To *</label>

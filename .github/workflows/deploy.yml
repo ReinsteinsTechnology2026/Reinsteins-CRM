@@ -78,6 +78,24 @@ jobs:
           # restart steps run.
           node server/_migrate_add_email_platform_tables.js
 
+          # Safe, idempotent, additive-only addition of
+          # assigned_to/assigned_by (+ their FKs/indexes) to epics/
+          # features/user_stories on any tenant that predates this
+          # feature (every newly provisioned tenant already gets them
+          # from tenantSchema.postgresql.sql). Tasks are untouched --
+          # they already have these columns from an earlier phase.
+          # Checks information_schema/pg_constraint first and only
+          # ever adds -- never drops, truncates, or modifies an
+          # existing table or row. Must run before the client
+          # build/restart below: the updated Epic/Feature/User Story
+          # SELECT queries reference these columns unconditionally, so
+          # a not-yet-migrated tenant would otherwise fail every
+          # Epic/Feature/User Story fetch as soon as the new code goes
+          # live. Same `set -e` reasoning as the steps above: a
+          # non-zero exit here stops the deploy before the build/
+          # restart steps run.
+          node server/_migrate_add_workitem_assignment.js
+
           cd client
           npm ci
           VITE_API_URL=https://crm.zioventure.com npm run build

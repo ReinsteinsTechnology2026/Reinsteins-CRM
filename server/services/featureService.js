@@ -2,6 +2,7 @@ const pool = require("../config/db");
 
 const { deleteLinksForItem } = require("./workItemLinkService");
 const { createWithGeneratedCode } = require("./workItemCodeService");
+const { isEligibleProjectAssignee } = require("./projectPermissionService");
 
 // ==========================================
 // FEATURE SERVICE
@@ -59,6 +60,31 @@ async function assertEpicBelongsToProject(epicId, projectId) {
 }
 
 // ==========================================
+// ASSIGNMENT ELIGIBILITY
+// Same rule/reasoning as epicService.js's assertEligibleAssignee --
+// reuses isEligibleProjectAssignee as-is (System Administrator bypass
+// included via canUserAccessProject underneath, no new
+// stakeholder-specific exclusion). null/undefined assigned_to is
+// always valid.
+// ==========================================
+
+async function assertEligibleAssignee(assignedTo, projectId) {
+
+    if (assignedTo === null || assignedTo === undefined || assignedTo === "") {
+        return;
+    }
+
+    const eligible = await isEligibleProjectAssignee(Number(assignedTo), projectId);
+
+    if (!eligible) {
+        const error = new Error("Selected user must be an active member of this project");
+        error.name = CROSS_PROJECT_ERROR;
+        throw error;
+    }
+
+}
+
+// ==========================================
 // GET FEATURES FOR A PROJECT (with rollup stats)
 // ==========================================
 
@@ -70,6 +96,8 @@ const getFeaturesByProject = async (projectId) => {
             epic.title AS epic_title,
             owner.full_name AS owner_name,
             creator.full_name AS created_by_name,
+            assignee.full_name AS assigned_to_name,
+            assigner.full_name AS assigned_by_name,
 
             (
                 SELECT COUNT(*)
@@ -85,6 +113,10 @@ const getFeaturesByProject = async (projectId) => {
             ON owner.id = f.owner_id
         LEFT JOIN users creator
             ON creator.id = f.created_by
+        LEFT JOIN users assignee
+            ON assignee.id = f.assigned_to
+        LEFT JOIN users assigner
+            ON assigner.id = f.assigned_by
         WHERE f.project_id = ?
         AND f.deleted_at IS NULL
         ORDER BY f.id DESC
@@ -110,7 +142,9 @@ const getFeatureById = async (id) => {
             p.name AS project_name,
             epic.title AS epic_title,
             owner.full_name AS owner_name,
-            creator.full_name AS created_by_name
+            creator.full_name AS created_by_name,
+            assignee.full_name AS assigned_to_name,
+            assigner.full_name AS assigned_by_name
         FROM features f
         INNER JOIN projects p
             ON p.id = f.project_id
@@ -120,6 +154,10 @@ const getFeatureById = async (id) => {
             ON owner.id = f.owner_id
         LEFT JOIN users creator
             ON creator.id = f.created_by
+        LEFT JOIN users assignee
+            ON assignee.id = f.assigned_to
+        LEFT JOIN users assigner
+            ON assigner.id = f.assigned_by
         WHERE f.id = ?
         AND f.deleted_at IS NULL
         LIMIT 1
@@ -144,9 +182,13 @@ const createFeature = async (projectId, data, createdBy) => {
         start_date,
         due_date,
         epic_id,
+        assigned_to,
     } = data;
 
     await assertEpicBelongsToProject(epic_id, projectId);
+    await assertEligibleAssignee(assigned_to, projectId);
+
+    const assignedBy = assigned_to ? createdBy : null;
 
     const id = await createWithGeneratedCode("feature", async (featureCode) => {
 
@@ -162,9 +204,11 @@ const createFeature = async (projectId, data, createdBy) => {
                 status,
                 priority,
                 start_date,
-                due_date
+                due_date,
+                assigned_to,
+                assigned_by
             )
-            VALUES(?,?,?,?,?,?,?,?,?,?,?)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
             RETURNING id
         `, [
 
@@ -179,6 +223,8 @@ const createFeature = async (projectId, data, createdBy) => {
             priority || "Medium",
             start_date || null,
             due_date || null,
+            assigned_to || null,
+            assignedBy,
 
         ]);
 
@@ -198,7 +244,7 @@ const createFeature = async (projectId, data, createdBy) => {
 // validated above) and the feature's own fields.
 // ==========================================
 
-const updateFeature = async (id, data, projectId) => {
+const updateFeature = async (id, data, projectId, updatedBy) => {
 
     const {
         title,
@@ -209,9 +255,15 @@ const updateFeature = async (id, data, projectId) => {
         start_date,
         due_date,
         epic_id,
+        assigned_to,
     } = data;
 
     await assertEpicBelongsToProject(epic_id, projectId);
+    await assertEligibleAssignee(assigned_to, projectId);
+
+    // Same reassignment semantics as epicService.updateEpic -- Assigned
+    // By becomes whoever performs THIS change.
+    const assignedBy = assigned_to ? updatedBy : null;
 
     await pool.query(`
         UPDATE features
@@ -223,7 +275,9 @@ const updateFeature = async (id, data, projectId) => {
             priority=?,
             start_date=?,
             due_date=?,
-            epic_id=?
+            epic_id=?,
+            assigned_to=?,
+            assigned_by=?
         WHERE id=?
     `, [
 
@@ -235,6 +289,8 @@ const updateFeature = async (id, data, projectId) => {
         start_date || null,
         due_date || null,
         epic_id || null,
+        assigned_to || null,
+        assignedBy,
         id,
 
     ]);
@@ -263,6 +319,7 @@ module.exports = {
 
     CROSS_PROJECT_ERROR,
     assertEpicBelongsToProject,
+    assertEligibleAssignee,
     getFeaturesByProject,
     getFeatureById,
     createFeature,

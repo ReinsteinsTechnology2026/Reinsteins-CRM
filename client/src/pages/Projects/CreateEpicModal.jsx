@@ -18,7 +18,29 @@ import "./ProjectModal.css";
 // pattern as CreateUserStoryModal.jsx -- no new UX
 // invented. No tags field (Epics don't support tags
 // in this version, per the approved scope).
+//
+// Assigned To replaces the old Owner selector as the
+// operational assignment field (owner_id is kept in
+// the DB/backend untouched for backward compatibility
+// but is no longer surfaced here). Assigned By is
+// always read-only and server-derived -- this form
+// only ever displays who it WILL become (the current
+// user), it never submits a value for it.
+//
+// This same modal, in edit mode (epic prop present),
+// is also how an Epic's Assigned To is changed --
+// there is no separate reassignment modal, per the
+// approved design (EPIC_EDIT already gates access to
+// this form).
 // ==========================================
+
+function getCurrentUser() {
+    try {
+        return JSON.parse(sessionStorage.getItem("user"));
+    } catch {
+        return null;
+    }
+}
 
 function CreateEpicModal({
 
@@ -36,6 +58,8 @@ function CreateEpicModal({
 
     const isEditing = Boolean(epic);
 
+    const currentUser = getCurrentUser();
+
     const [employees, setEmployees] = useState([]);
 
     const [loading, setLoading] = useState(false);
@@ -44,7 +68,7 @@ function CreateEpicModal({
 
         title: epic?.title || "",
         description: epic?.description || "",
-        owner_id: epic?.owner_id || "",
+        assigned_to: epic?.assigned_to || "",
         status: epic?.status || "new",
         priority: epic?.priority || "Medium",
         start_date: epic?.start_date
@@ -59,14 +83,14 @@ function CreateEpicModal({
     useEffect(() => {
 
         loadEmployees();
-
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId]);
 
     async function loadEmployees() {
 
         try {
 
-            const response = await getEmployees();
+            const response = await getEmployees(projectId);
 
             setEmployees(response.employees || []);
 
@@ -191,13 +215,23 @@ function CreateEpicModal({
                     <div className="wi-form-grid">
 
                         <div className="wi-form-group">
-                            <label>Owner</label>
+                            <label>Assigned By</label>
+                            <input
+                                type="text"
+                                value={currentUser?.name || currentUser?.fullName || ""}
+                                disabled
+                                readOnly
+                            />
+                        </div>
+
+                        <div className="wi-form-group">
+                            <label>Assigned To</label>
                             <select
-                                name="owner_id"
-                                value={formData.owner_id}
+                                name="assigned_to"
+                                value={formData.assigned_to}
                                 onChange={handleChange}
                             >
-                                <option value="">Select Owner</option>
+                                <option value="">Unassigned</option>
                                 {employees.map((employee) => (
                                     <option key={employee.id} value={employee.id}>
                                         {employee.full_name}

@@ -160,7 +160,7 @@ const updateFeature = async (req, res) => {
             });
         }
 
-        await updateFeatureService(req.params.id, req.body, existing.project_id);
+        await updateFeatureService(req.params.id, req.body, existing.project_id, req.user.id);
 
         return res.json({
             success: true,

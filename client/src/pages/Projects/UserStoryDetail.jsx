@@ -149,8 +149,13 @@ function UserStoryDetail() {
                     </div>
 
                     <div>
-                        <label>Owner</label>
-                        <span>{story.owner_name || "Unassigned"}</span>
+                        <label>Assigned To</label>
+                        <span>{story.assigned_to_name || "Unassigned"}</span>
+                    </div>
+
+                    <div>
+                        <label>Assigned By</label>
+                        <span>{story.assigned_by_name || "—"}</span>
                     </div>
 
                     <div>

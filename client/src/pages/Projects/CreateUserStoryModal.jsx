@@ -17,6 +17,20 @@ import "./ProjectModal.css";
 // that Sprint (Sprint -> "Create User Story") instead of the plain
 // Project-level create -- Sprint is auto-selected, never chosen by the
 // user. Editing an existing story never passes this.
+//
+// Assigned To replaces the old Owner selector -- see
+// CreateEpicModal.jsx's header comment for the full reasoning
+// (owner_id kept in DB/backend untouched, just no longer surfaced
+// here). Same edit-mode-doubles-as-reassignment-form pattern
+// (USER_STORY_EDIT gates it).
+function getCurrentUser() {
+    try {
+        return JSON.parse(sessionStorage.getItem("user"));
+    } catch {
+        return null;
+    }
+}
+
 function CreateUserStoryModal({
 
     projectId,
@@ -39,6 +53,8 @@ function CreateUserStoryModal({
 
     const isEditing = Boolean(story);
 
+    const currentUser = getCurrentUser();
+
     const [employees, setEmployees] = useState([]);
 
     const [loading, setLoading] = useState(false);
@@ -47,7 +63,7 @@ function CreateUserStoryModal({
 
         title: story?.title || "",
         description: story?.description || "",
-        owner_id: story?.owner_id || "",
+        assigned_to: story?.assigned_to || "",
         status: story?.status || "new",
         priority: story?.priority || "Medium",
         start_date: story?.start_date
@@ -66,14 +82,14 @@ function CreateUserStoryModal({
     useEffect(() => {
 
         loadEmployees();
-
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [projectId]);
 
     async function loadEmployees() {
 
         try {
 
-            const response = await getEmployees();
+            const response = await getEmployees(projectId);
 
             setEmployees(response.employees || []);
 
@@ -227,13 +243,23 @@ function CreateUserStoryModal({
                     <div className="wi-form-grid">
 
                         <div className="wi-form-group">
-                            <label>Owner</label>
+                            <label>Assigned By</label>
+                            <input
+                                type="text"
+                                value={currentUser?.name || currentUser?.fullName || ""}
+                                disabled
+                                readOnly
+                            />
+                        </div>
+
+                        <div className="wi-form-group">
+                            <label>Assigned To</label>
                             <select
-                                name="owner_id"
-                                value={formData.owner_id}
+                                name="assigned_to"
+                                value={formData.assigned_to}
                                 onChange={handleChange}
                             >
-                                <option value="">Select Owner</option>
+                                <option value="">Unassigned</option>
                                 {employees.map((employee) => (
                                     <option key={employee.id} value={employee.id}>
                                         {employee.full_name}
