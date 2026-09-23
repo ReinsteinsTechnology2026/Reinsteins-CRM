@@ -197,6 +197,11 @@ function ProjectWorkspace() {
   const [epics, setEpics] = useState([]);
   const [features, setFeatures] = useState([]);
   const [stories, setStories] = useState([]);
+  // Distinguishes "this project genuinely has zero User Stories" from
+  // "the User Stories request failed" -- both previously collapsed
+  // into the same empty `stories` array with no visible signal,
+  // which was indistinguishable in the UI (see loadAll() below).
+  const [storiesLoadFailed, setStoriesLoadFailed] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [sprints, setSprints] = useState([]);
   const [myPermissions, setMyPermissions] = useState(null);
@@ -309,6 +314,22 @@ function ProjectWorkspace() {
       setTasks(tasksRes.status === "fulfilled" ? (tasksRes.value.tasks || []) : []);
       setSprints(sprintsRes.status === "fulfilled" ? (sprintsRes.value.sprints || []) : []);
       setMyPermissions(permissionsRes.value.permissions || null);
+
+      // User Stories failing to load must never be silently
+      // indistinguishable from "this project has none" -- it stays
+      // non-blocking (the rest of the page, including the Add Task
+      // modal's User Story selector, remains fully usable with
+      // whatever it has), never fabricates story data, and never
+      // escalates to the page's own access-denied/error state (that
+      // stays reserved for the two REQUIRED calls above).
+      setStoriesLoadFailed(storiesRes.status === "rejected");
+      if (storiesRes.status === "rejected") {
+        console.error("Failed to load User Stories:", storiesRes.reason);
+        toast.error(
+          storiesRes.reason?.response?.data?.message ||
+          "Unable to load User Stories. The User Story field may be incomplete until this is resolved."
+        );
+      }
     } catch (error) {
       console.error(error);
       const status = error.response?.status;
@@ -975,6 +996,7 @@ function ProjectWorkspace() {
           projectId={id}
           sprintId={createLinkedTask.sprintId}
           userStories={stories}
+          userStoriesLoadFailed={storiesLoadFailed}
           onClose={() => setCreateLinkedTask(null)}
           onCreated={() => {
             setCreateLinkedTask(null);

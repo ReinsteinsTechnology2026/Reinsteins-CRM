@@ -40,6 +40,7 @@ function CreateLinkedTaskModal({
     projectId,
     sprintId,
     userStories,
+    userStoriesLoadFailed,
     onClose,
     onCreated
 
@@ -205,7 +206,14 @@ function CreateLinkedTaskModal({
                         />
                     </div>
 
-                    {mode === "project" && userStories?.length > 0 && (
+                    {/* Always rendered in "project" mode, even when userStories
+                        is empty -- previously this block was also gated on
+                        userStories?.length > 0, which hid the selector
+                        entirely whenever the project had no stories yet (or
+                        the story list failed to load), making it look like
+                        standalone-task creation had lost this field. "No
+                        User Story" is always a valid, selectable option. */}
+                    {mode === "project" && (
                         <div className="wi-form-group">
                             <label>User Story (optional)</label>
                             <select
@@ -214,12 +222,17 @@ function CreateLinkedTaskModal({
                                 onChange={handleChange}
                             >
                                 <option value="">No User Story</option>
-                                {userStories.map((story) => (
+                                {(userStories || []).map((story) => (
                                     <option key={story.id} value={story.id}>
                                         {story.story_code ? `${story.story_code} — ` : ""}{story.title}
                                     </option>
                                 ))}
                             </select>
+                            {userStoriesLoadFailed && (
+                                <small style={{ display: "block", marginTop: 4, color: "#b45309" }}>
+                                    User Stories could not be loaded right now — you can still create a standalone task ("No User Story").
+                                </small>
+                            )}
                         </div>
                     )}
 
