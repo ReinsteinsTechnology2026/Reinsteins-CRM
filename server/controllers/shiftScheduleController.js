@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const { getDirectReportRows } = require("../services/organizationService");
 
 // ==========================================
 // SHIFT SCHEDULE (Phase 17b)
@@ -121,6 +122,45 @@ function isAdminTier(req) {
     return req.userAccess?.role === "admin" || ["admin", "super_admin"].includes(req.userAccess?.systemAccess);
 }
 
+// ==========================================
+// READ-SIDE VISIBILITY SCOPE
+//
+// Distinct from isAdminTier's WRITE-side "is this row mine, or am I
+// using the explicit admin override" check above -- this determines
+// which OTHER people's shifts a caller may even see in the first
+// place:
+//   - Admin/Super Admin (same boundary as isAdminTier): every
+//     employee, company-wide.
+//   - system_access = 'manager': self + DIRECT reports only (one
+//     level -- organizationController.js's own "My Team" endpoint
+//     uses this exact same getDirectReportRows helper for the same
+//     reason: a manager's own team, not their whole downward
+//     reporting chain, which is what organizationService's
+//     getAssignableScope uses for a DIFFERENT feature, task
+//     assignment).
+//   - everyone else (plain Employee, and every other system_access
+//     tier not explicitly listed above): "self" -- interpreted as
+//     "own shift only" by the default (no ?userId=) list view below,
+//     but as "organization-wide search/view allowed" by the search
+//     endpoint, matching the corrected requirements' explicit split
+//     between an Employee's default view and their search/view-a-
+//     person capability, and this codebase's existing unrestricted
+//     organizationController.searchOrgUsers precedent.
+// ==========================================
+
+async function getShiftVisibilityScope(req) {
+    if (isAdminTier(req)) {
+        return { type: "all" };
+    }
+
+    if (req.userAccess?.systemAccess === "manager") {
+        const reports = await getDirectReportRows(req.user.id);
+        return { type: "team", ids: [Number(req.user.id), ...reports.map((r) => Number(r.id))] };
+    }
+
+    return { type: "self" };
+}
+
 async function recordShiftHistory({ shiftScheduleId, userId, action, oldValue, updatedByUserId }) {
     // Snapshot fetched fresh here (rather than passed in from the
     // caller) so the history row always reflects exactly what is in
@@ -144,14 +184,27 @@ async function recordShiftHistory({ shiftScheduleId, userId, action, oldValue, u
 }
 
 // ==========================================
-// GET /api/shifts?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
-// Any authenticated tenant user. Defaults to the current week
-// (Monday-Sunday) when no range is given.
+// GET /api/shifts?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD&userId=&departmentId=
+//
+// Visibility (see getShiftVisibilityScope above):
+//   - Admin/Super Admin: everyone, company-wide.
+//   - Manager: self + direct reports only. An explicit ?userId=
+//     outside that set is rejected (403), never silently emptied --
+//     this is what stops a Manager from pulling another team's data
+//     by guessing/manipulating the parameter.
+//   - Everyone else: self only by default; an explicit ?userId= for a
+//     SPECIFIC other employee is still honored (organization-wide "view
+//     a particular person's shift" per the requirement), since that is
+//     a deliberate, different capability from the default board.
+//
+// ?departmentId= is an Admin/Super Admin-only filter (department_id
+// already exists on users -- no new column needed); anyone else
+// supplying it is rejected rather than silently ignored.
 // ==========================================
 
 const getShifts = async (req, res) => {
     try {
-        let { startDate, endDate } = req.query;
+        let { startDate, endDate, userId, departmentId } = req.query;
 
         if (!startDate || !endDate) {
             const today = new Date();
@@ -183,6 +236,60 @@ const getShifts = async (req, res) => {
             });
         }
 
+        const scope = await getShiftVisibilityScope(req);
+        const clauses = [];
+        const params = [startDate, endDate];
+
+        if (userId !== undefined && userId !== null && userId !== "") {
+
+            if (!Number.isFinite(Number(userId))) {
+                return res.status(400).json({ success: false, message: "Invalid employee id." });
+            }
+
+            const targetId = Number(userId);
+
+            if (scope.type === "team" && !scope.ids.includes(targetId)) {
+                // Deliberately the SAME generic message regardless of
+                // whether targetId belongs to another team or doesn't
+                // exist at all -- never lets a Manager distinguish "not
+                // on your team" from "no such employee" by probing ids.
+                return res.status(403).json({
+                    success: false,
+                    message: "You do not have permission to view this employee's schedule.",
+                });
+            }
+
+            clauses.push("s.user_id = ?");
+            params.push(targetId);
+
+        } else if (scope.type === "team") {
+            clauses.push(`s.user_id IN (${scope.ids.map(() => "?").join(",")})`);
+            params.push(...scope.ids);
+        } else if (scope.type === "self") {
+            clauses.push("s.user_id = ?");
+            params.push(req.user.id);
+        }
+        // scope.type === "all" -> no additional clause; full company.
+
+        if (departmentId !== undefined && departmentId !== null && departmentId !== "") {
+
+            if (!Number.isFinite(Number(departmentId))) {
+                return res.status(400).json({ success: false, message: "Invalid department id." });
+            }
+
+            if (scope.type !== "all") {
+                return res.status(403).json({
+                    success: false,
+                    message: "Only Admin/Super Admin can filter by department.",
+                });
+            }
+
+            clauses.push("u.department_id = ?");
+            params.push(Number(departmentId));
+        }
+
+        const scopeSql = clauses.length > 0 ? ` AND ${clauses.join(" AND ")}` : "";
+
         const [shifts] = await pool.query(
             `
             SELECT
@@ -191,6 +298,8 @@ const getShifts = async (req, res) => {
                 u.full_name,
                 u.employee_id,
                 u.designation,
+                u.department_id,
+                d.name AS department_name,
                 TO_CHAR(s.shift_date, 'YYYY-MM-DD') AS shift_date,
                 s.status,
                 s.start_time,
@@ -202,10 +311,11 @@ const getShifts = async (req, res) => {
                 s.updated_at
             FROM shift_schedules s
             JOIN users u ON u.id = s.user_id
-            WHERE s.shift_date >= ? AND s.shift_date <= ?
+            LEFT JOIN departments d ON d.id = u.department_id
+            WHERE s.shift_date >= ? AND s.shift_date <= ?${scopeSql}
             ORDER BY u.full_name ASC, s.shift_date ASC
             `,
-            [startDate, endDate]
+            params
         );
 
         return res.status(200).json({
@@ -221,6 +331,117 @@ const getShifts = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Unable to load shift schedule",
+        });
+    }
+};
+
+// ==========================================
+// GET /api/shifts/search?q=&date=YYYY-MM-DD
+//
+// Employee/name lookup plus that person's shift for the given date
+// (defaults to today). Scoped like getShifts' visibility model,
+// EXCEPT the plain-Employee-tier ("self") case is organization-wide
+// here, not self-only -- matching the requirement's explicit "Employee
+// can search for another person's shift" and this codebase's existing
+// unrestricted organizationController.searchOrgUsers precedent. Only
+// Manager tier is actually restricted (to their own team, same as the
+// list view). Only the safe, already-public-within-Shift-Management
+// field set is selected -- no email/phone/salary/password or any
+// other sensitive column.
+// ==========================================
+
+const MAX_SEARCH_RESULTS = 20;
+
+const searchShiftEmployees = async (req, res) => {
+    try {
+        const q = String(req.query.q || "").trim();
+        let { date } = req.query;
+
+        if (!q) {
+            return res.status(400).json({ success: false, message: "A search term is required." });
+        }
+
+        if (!date) {
+            date = new Date().toISOString().slice(0, 10);
+        } else if (!DATE_PATTERN.test(date)) {
+            return res.status(400).json({ success: false, message: "Invalid date. Use YYYY-MM-DD." });
+        }
+
+        const scope = await getShiftVisibilityScope(req);
+
+        const clauses = ["(u.full_name ILIKE ? OR u.employee_id ILIKE ?)", "u.employment_status = 'active'"];
+        const likeTerm = `%${q}%`;
+        const params = [likeTerm, likeTerm];
+
+        if (scope.type === "team") {
+            clauses.push(`u.id IN (${scope.ids.map(() => "?").join(",")})`);
+            params.push(...scope.ids);
+        }
+        // scope.type === "self" or "all": organization-wide search, no
+        // further restriction (see header comment above).
+
+        params.push(MAX_SEARCH_RESULTS);
+
+        const [employees] = await pool.query(
+            `
+            SELECT
+                u.id,
+                u.full_name,
+                u.employee_id,
+                u.designation,
+                u.department_id,
+                d.name AS department_name
+            FROM users u
+            LEFT JOIN departments d ON d.id = u.department_id
+            WHERE ${clauses.join(" AND ")}
+            ORDER BY u.full_name ASC
+            LIMIT ?
+            `,
+            params
+        );
+
+        if (employees.length === 0) {
+            return res.status(200).json({ success: true, date, results: [] });
+        }
+
+        const employeeIds = employees.map((e) => e.id);
+
+        const [shiftRows] = await pool.query(
+            `
+            SELECT user_id, status, start_time, end_time, notes
+            FROM shift_schedules
+            WHERE shift_date = ?
+            AND user_id IN (${employeeIds.map(() => "?").join(",")})
+            `,
+            [date, ...employeeIds]
+        );
+
+        const shiftByUser = new Map(shiftRows.map((s) => [s.user_id, s]));
+
+        const results = employees.map((employee) => {
+            const shift = shiftByUser.get(employee.id);
+            return {
+                userId: employee.id,
+                fullName: employee.full_name,
+                employeeId: employee.employee_id,
+                designation: employee.designation,
+                departmentName: employee.department_name,
+                shiftDate: date,
+                status: shift?.status || null,
+                startTime: shift?.start_time || null,
+                endTime: shift?.end_time || null,
+                notes: shift?.notes || null,
+            };
+        });
+
+        return res.status(200).json({ success: true, date, results });
+
+    } catch (error) {
+        console.error("Search Shift Employees Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to search employees",
         });
     }
 };
@@ -617,6 +838,7 @@ const bulkSaveShifts = async (req, res) => {
 
 module.exports = {
     getShifts,
+    searchShiftEmployees,
     createShift,
     updateShift,
     deleteShift,

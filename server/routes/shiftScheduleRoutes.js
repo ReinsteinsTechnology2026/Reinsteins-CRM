@@ -2,6 +2,7 @@ const express = require("express");
 
 const {
     getShifts,
+    searchShiftEmployees,
     createShift,
     updateShift,
     deleteShift,
@@ -14,10 +15,21 @@ const { requireActiveUser } = require("../middleware/accessMiddleware");
 const router = express.Router();
 
 // ==========================================
-// SHIFT SCHEDULE ROUTES (Phase 17b, corrected ownership model)
+// SHIFT SCHEDULE ROUTES (Phase 17b, corrected ownership model;
+// role/team visibility scoping added on top -- see
+// shiftScheduleController.js's getShiftVisibilityScope)
 //
-// VIEW: every authenticated tenant user (protect only) -- the
-// company-wide availability board is visible to everyone.
+// VIEW (list + search): every active tenant user (requireActiveUser,
+// so req.userAccess is always populated -- previously this route ran
+// behind `protect` only, which is why the visibility scoping now
+// living in the controller could not be enforced here before). WHAT
+// each tier sees is decided entirely inside the controller, never
+// here: Admin/Super Admin see everyone; Manager sees self + their
+// direct reports only; everyone else sees only their own shift by
+// default, but MAY still look up one specific other employee (list
+// with ?userId=, or via /search) -- never a client-supplied
+// role/team/company id, always derived from the authenticated
+// req.user/req.userAccess.
 //
 // WRITE (create/update/delete/bulk): every active tenant user may
 // call these routes (requireActiveUser = requireAccess(...every
@@ -30,10 +42,14 @@ const router = express.Router();
 // Admin/Super Admin using the explicit override" -- can only be made
 // once the target row's owner is known, so it lives inside the
 // controller (see shiftScheduleController.js's isAdminTier/isOwner
-// checks), not here at the route layer.
+// checks), not here at the route layer. Unchanged by this update --
+// a Manager's new visibility into their team's shifts does NOT grant
+// any new write/edit capability over those rows.
 // ==========================================
 
-router.get("/", protect, getShifts);
+router.get("/", protect, requireActiveUser, getShifts);
+
+router.get("/search", protect, requireActiveUser, searchShiftEmployees);
 
 router.post("/", protect, requireActiveUser, createShift);
 

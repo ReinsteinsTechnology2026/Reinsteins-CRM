@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaCalendarWeek, FaChevronLeft, FaChevronRight, FaTimes, FaTrash } from "react-icons/fa";
+import { FaCalendarWeek, FaChevronLeft, FaChevronRight, FaTimes, FaTrash, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 
-import { getShifts, createShift, updateShift, deleteShift } from "../../services/shiftScheduleService";
+import { getShifts, createShift, updateShift, deleteShift, searchShiftEmployees } from "../../services/shiftScheduleService";
 import EmployeeNameplate from "../../components/EmployeeNameplate";
+import TimeInput12h from "../../components/TimeInput12h";
+import { formatTime12h, formatTimeRange12h, calculateShiftDuration } from "../../utils/timeFormat";
 
 import "./EmployeeShiftSchedule.css";
 
@@ -11,7 +13,10 @@ import "./EmployeeShiftSchedule.css";
 // DATE HELPERS
 // (No shared date-utility file exists in this codebase -- every
 // other page with a date range, e.g. EmployeeAttendance.jsx, keeps
-// its own small local helpers, so this follows the same convention.)
+// its own small local helpers, so this follows the same convention.
+// Time formatting, however, now lives in the shared
+// utils/timeFormat.js -- see that file's header comment for why this
+// one specific helper is centralized rather than duplicated.)
 // ==========================================
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -41,21 +46,12 @@ function formatRangeLabel(monday) {
     return `${monday.toLocaleDateString("en-IN", opts)} - ${sunday.toLocaleDateString("en-IN", opts)}`;
 }
 
-function formatTimeLabel(time) {
-    if (!time) return "";
-    const [h, m] = time.split(":");
-    const hour = Number(h);
-    const suffix = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-    return m === "00" ? `${displayHour}${suffix}` : `${displayHour}:${m}${suffix}`;
-}
-
 function shiftCellLabel(entry) {
     if (!entry) return "—";
     if (entry.status === "off") return "OFF";
     if (entry.status === "leave") return "LEAVE";
     if (entry.start_time && entry.end_time) {
-        return `${formatTimeLabel(entry.start_time)}-${formatTimeLabel(entry.end_time)}`;
+        return formatTimeRange12h(entry.start_time, entry.end_time);
     }
     return "—";
 }
@@ -66,6 +62,20 @@ function getCurrentUser() {
     } catch {
         return null;
     }
+}
+
+// Display-only role bucket -- purely for which header text/description
+// to show. The backend independently re-enforces the real visibility
+// scope on every request regardless of what this returns (see
+// shiftScheduleController.js's getShiftVisibilityScope), same pattern
+// this codebase already uses elsewhere for client-side role display
+// (e.g. SopLibrary.jsx's isAdminTier).
+function isAdminTier(user) {
+    return user?.role === "admin" || ["admin", "super_admin"].includes(user?.systemAccess);
+}
+
+function isManagerTier(user) {
+    return user?.systemAccess === "manager";
 }
 
 const EMPTY_FORM = {
@@ -88,6 +98,11 @@ function EmployeeShiftSchedule() {
 
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState(EMPTY_FORM);
+
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchDate, setSearchDate] = useState(() => toIsoDate(new Date()));
+    const [searchResults, setSearchResults] = useState(null);
+    const [searching, setSearching] = useState(false);
 
     const weekDates = useMemo(
         () => Array.from({ length: 7 }, (_, i) => toIsoDate(addDays(weekStart, i))),
@@ -240,14 +255,111 @@ function EmployeeShiftSchedule() {
         }
     };
 
+    // ==========================================
+    // EMPLOYEE SEARCH
+    // Backend enforces the same visibility scope as the board above
+    // (Manager -> team only; everyone else -> organization-wide) --
+    // this is never a frontend-only filter.
+    // ==========================================
+
+    const handleSearch = async (event) => {
+        event.preventDefault();
+
+        if (!searchQuery.trim()) {
+            setSearchResults(null);
+            return;
+        }
+
+        try {
+            setSearching(true);
+            const data = await searchShiftEmployees(searchQuery.trim(), searchDate);
+            setSearchResults(Array.isArray(data.results) ? data.results : []);
+        } catch (err) {
+            console.error("Search shift employees error:", err);
+            toast.error(err.response?.data?.message || "Unable to search employees");
+            setSearchResults([]);
+        } finally {
+            setSearching(false);
+        }
+    };
+
     return (
         <div className="employee-page-content">
 
             <section className="shift-schedule-header">
                 <div>
                     <h2>Shift Schedule</h2>
-                    <p>Company Schedule -- everyone's shifts are visible here. Your own row (highlighted) is yours to manage.</p>
+                    <p>
+                        {isAdminTier(currentUser)
+                            ? "Company Schedule -- every employee's shift is shown below. Your own row (highlighted) is yours to manage."
+                            : isManagerTier(currentUser)
+                                ? "My Team Schedule -- you and your direct reports. Your own row (highlighted) is yours to manage."
+                                : "My Schedule -- your own shift. Use search below to look up a colleague's shift."}
+                    </p>
                 </div>
+            </section>
+
+            <section className="shift-search-panel">
+                <h3><FaSearch /> Search Employee Shift</h3>
+                <form className="shift-search-input-row" onSubmit={handleSearch}>
+                    <input
+                        type="text"
+                        className="shift-search-input"
+                        placeholder="Search by name or employee ID..."
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                    />
+                    <input
+                        type="date"
+                        className="shift-search-date-input"
+                        value={searchDate}
+                        onChange={(event) => setSearchDate(event.target.value)}
+                    />
+                    <button type="submit" className="shift-week-nav-button" disabled={searching}>
+                        {searching ? "Searching..." : "Search"}
+                    </button>
+                </form>
+
+                {searchResults !== null && (
+                    searchResults.length === 0 ? (
+                        <div className="shift-search-empty">No matching employees found.</div>
+                    ) : (
+                        <div className="shift-search-results">
+                            <table className="shift-table">
+                                <thead>
+                                    <tr>
+                                        <th>Employee</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                        <th>Start</th>
+                                        <th>End</th>
+                                        <th>Duration</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {searchResults.map((result) => (
+                                        <tr key={result.userId}>
+                                            <td>
+                                                <EmployeeNameplate name={result.fullName} designation={result.departmentName ? `${result.designation || ""} · ${result.departmentName}` : result.designation} size="sm" />
+                                            </td>
+                                            <td>{new Date(`${result.shiftDate}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
+                                            <td>
+                                                {result.status ? (
+                                                    <span className={`shift-status-badge ${result.status}`}>{result.status}</span>
+                                                ) : (
+                                                    <span className="shift-status-badge off">no entry</span>
+                                                )}
+                                            </td>
+                                            <td>{formatTime12h(result.startTime) || "—"}</td>
+                                            <td>{formatTime12h(result.endTime) || "—"}</td>
+                                            <td>{calculateShiftDuration(result.startTime, result.endTime) || "—"}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )
+                )}
             </section>
 
             <section className="shift-schedule-week-nav">
@@ -399,11 +511,21 @@ function EmployeeShiftSchedule() {
                                 <div className="shift-form-time-row">
                                     <div className="employee-form-group">
                                         <label>Start Time</label>
-                                        <input type="time" name="startTime" value={formData.startTime} onChange={handleFieldChange} required />
+                                        <TimeInput12h
+                                            value={formData.startTime}
+                                            onChange={(value) => setFormData((prev) => ({ ...prev, startTime: value }))}
+                                            label="Start Time"
+                                            required
+                                        />
                                     </div>
                                     <div className="employee-form-group">
                                         <label>End Time</label>
-                                        <input type="time" name="endTime" value={formData.endTime} onChange={handleFieldChange} required />
+                                        <TimeInput12h
+                                            value={formData.endTime}
+                                            onChange={(value) => setFormData((prev) => ({ ...prev, endTime: value }))}
+                                            label="End Time"
+                                            required
+                                        />
                                     </div>
                                 </div>
                             )}

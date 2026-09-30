@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaCalendarWeek, FaChevronLeft, FaChevronRight, FaTrash, FaTimes, FaUserShield, FaCopy } from "react-icons/fa";
+import { FaCalendarWeek, FaChevronLeft, FaChevronRight, FaTrash, FaTimes, FaUserShield, FaCopy, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 import api from "../../services/api";
@@ -9,8 +9,11 @@ import {
     updateShift,
     deleteShift,
     bulkSaveShifts,
+    searchShiftEmployees,
 } from "../../services/shiftScheduleService";
 import EmployeeNameplate from "../../components/EmployeeNameplate";
+import TimeInput12h from "../../components/TimeInput12h";
+import { formatTime12h, formatTimeRange12h, calculateShiftDuration } from "../../utils/timeFormat";
 
 import "./AdminShiftManagement.css";
 
@@ -45,21 +48,12 @@ function formatRangeLabel(monday) {
     return `${monday.toLocaleDateString("en-IN", opts)} - ${sunday.toLocaleDateString("en-IN", opts)}`;
 }
 
-function formatTimeLabel(time) {
-    if (!time) return "";
-    const [h, m] = time.split(":");
-    const hour = Number(h);
-    const suffix = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 === 0 ? 12 : hour % 12;
-    return m === "00" ? `${displayHour}${suffix}` : `${displayHour}:${m}${suffix}`;
-}
-
 function shiftCellLabel(entry) {
     if (!entry) return "—";
     if (entry.status === "off") return "OFF";
     if (entry.status === "leave") return "LEAVE";
     if (entry.start_time && entry.end_time) {
-        return `${formatTimeLabel(entry.start_time)}-${formatTimeLabel(entry.end_time)}`;
+        return formatTimeRange12h(entry.start_time, entry.end_time);
     }
     return "—";
 }
@@ -98,6 +92,11 @@ function AdminShiftManagement() {
 
     const [showOverrideForm, setShowOverrideForm] = useState(false);
     const [overrideForm, setOverrideForm] = useState(EMPTY_OVERRIDE_FORM);
+
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchDate, setSearchDate] = useState(() => toIsoDate(new Date()));
+    const [searchResults, setSearchResults] = useState(null);
+    const [searching, setSearching] = useState(false);
 
     const weekDates = useMemo(
         () => Array.from({ length: 7 }, (_, i) => toIsoDate(addDays(weekStart, i))),
@@ -361,6 +360,31 @@ function AdminShiftManagement() {
         }
     };
 
+    // ==========================================
+    // EMPLOYEE SEARCH (organization-wide -- Admin/Super Admin)
+    // ==========================================
+
+    const handleSearch = async (event) => {
+        event.preventDefault();
+
+        if (!searchQuery.trim()) {
+            setSearchResults(null);
+            return;
+        }
+
+        try {
+            setSearching(true);
+            const data = await searchShiftEmployees(searchQuery.trim(), searchDate);
+            setSearchResults(Array.isArray(data.results) ? data.results : []);
+        } catch (err) {
+            console.error("Search shift employees error:", err);
+            toast.error(err.response?.data?.message || "Unable to search employees");
+            setSearchResults([]);
+        } finally {
+            setSearching(false);
+        }
+    };
+
     const handleCopyPreviousWeekAllEmployees = async () => {
         try {
             setCopying(true);
@@ -405,6 +429,69 @@ function AdminShiftManagement() {
                     <h2>Shift Management</h2>
                     <p>Company Schedule -- everyone's shifts are visible. Your own row (highlighted) is self-service, like any employee.</p>
                 </div>
+            </section>
+
+            <section className="shift-search-panel">
+                <h3><FaSearch /> Search Employee (organization-wide)</h3>
+                <form className="shift-search-input-row" onSubmit={handleSearch}>
+                    <input
+                        type="text"
+                        className="shift-search-input"
+                        placeholder="Search by name or employee ID..."
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                    />
+                    <input
+                        type="date"
+                        className="shift-search-date-input"
+                        value={searchDate}
+                        onChange={(event) => setSearchDate(event.target.value)}
+                    />
+                    <button type="submit" className="shift-week-nav-button" disabled={searching}>
+                        {searching ? "Searching..." : "Search"}
+                    </button>
+                </form>
+
+                {searchResults !== null && (
+                    searchResults.length === 0 ? (
+                        <div className="shift-search-empty">No matching employees found.</div>
+                    ) : (
+                        <div className="shift-search-results">
+                            <table className="shift-table">
+                                <thead>
+                                    <tr>
+                                        <th>Employee</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                        <th>Start</th>
+                                        <th>End</th>
+                                        <th>Duration</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {searchResults.map((result) => (
+                                        <tr key={result.userId}>
+                                            <td>
+                                                <EmployeeNameplate name={result.fullName} designation={result.departmentName ? `${result.designation || ""} · ${result.departmentName}` : result.designation} size="sm" />
+                                            </td>
+                                            <td>{new Date(`${result.shiftDate}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
+                                            <td>
+                                                {result.status ? (
+                                                    <span className={`shift-status-badge ${result.status}`}>{result.status}</span>
+                                                ) : (
+                                                    <span className="shift-status-badge off">no entry</span>
+                                                )}
+                                            </td>
+                                            <td>{formatTime12h(result.startTime) || "—"}</td>
+                                            <td>{formatTime12h(result.endTime) || "—"}</td>
+                                            <td>{calculateShiftDuration(result.startTime, result.endTime) || "—"}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )
+                )}
             </section>
 
             <section className="shift-schedule-week-nav">
@@ -535,11 +622,21 @@ function AdminShiftManagement() {
                                 <div className="shift-form-time-row">
                                     <div className="employee-form-group">
                                         <label>Start Time</label>
-                                        <input type="time" name="startTime" value={selfForm.startTime} onChange={handleSelfFieldChange} required />
+                                        <TimeInput12h
+                                            value={selfForm.startTime}
+                                            onChange={(value) => setSelfForm((prev) => ({ ...prev, startTime: value }))}
+                                            label="Start Time"
+                                            required
+                                        />
                                     </div>
                                     <div className="employee-form-group">
                                         <label>End Time</label>
-                                        <input type="time" name="endTime" value={selfForm.endTime} onChange={handleSelfFieldChange} required />
+                                        <TimeInput12h
+                                            value={selfForm.endTime}
+                                            onChange={(value) => setSelfForm((prev) => ({ ...prev, endTime: value }))}
+                                            label="End Time"
+                                            required
+                                        />
                                     </div>
                                 </div>
                             )}
@@ -613,11 +710,21 @@ function AdminShiftManagement() {
                                 <div className="shift-form-time-row">
                                     <div className="employee-form-group">
                                         <label>Start Time</label>
-                                        <input type="time" name="startTime" value={overrideForm.startTime} onChange={handleOverrideFieldChange} required />
+                                        <TimeInput12h
+                                            value={overrideForm.startTime}
+                                            onChange={(value) => setOverrideForm((prev) => ({ ...prev, startTime: value }))}
+                                            label="Start Time"
+                                            required
+                                        />
                                     </div>
                                     <div className="employee-form-group">
                                         <label>End Time</label>
-                                        <input type="time" name="endTime" value={overrideForm.endTime} onChange={handleOverrideFieldChange} required />
+                                        <TimeInput12h
+                                            value={overrideForm.endTime}
+                                            onChange={(value) => setOverrideForm((prev) => ({ ...prev, endTime: value }))}
+                                            label="End Time"
+                                            required
+                                        />
                                     </div>
                                 </div>
                             )}

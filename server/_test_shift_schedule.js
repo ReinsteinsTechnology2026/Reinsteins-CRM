@@ -187,9 +187,19 @@ async function apiGet(pathname, token) {
     check("SETUP: Employee B (hrUserId) creates their own Tuesday shift -> 201", employeeBOwnShift.status === 201, JSON.stringify(employeeBOwnShift.body));
     const employeeBShiftId = employeeBOwnShift.body?.id;
 
-    const employeeAViewsB = await apiGet(`/api/shifts?startDate=${tue}&endDate=${tue}`, tokenEmp);
-    const seesEmployeeB = (employeeAViewsB.body?.shifts || []).some((s) => s.user_id === hrUserId);
-    check("D. Employee A can VIEW Employee B's schedule -> 200, entry visible", employeeAViewsB.status === 200 && seesEmployeeB, JSON.stringify(employeeAViewsB.body?.shifts));
+    // Corrected visibility model: Employee A's DEFAULT list view (no
+    // ?userId=) is now self-only -- Employee B's entry must NOT appear
+    // there. Viewing a SPECIFIC other person is still allowed, but only
+    // via the explicit ?userId= parameter (or /search below) -- never
+    // the default board. This replaces the old "everyone sees
+    // everyone's schedule by default" assertion.
+    const employeeAViewsDefault = await apiGet(`/api/shifts?startDate=${tue}&endDate=${tue}`, tokenEmp);
+    const seesEmployeeBByDefault = (employeeAViewsDefault.body?.shifts || []).some((s) => s.user_id === hrUserId);
+    check("D. Employee A's DEFAULT list view does NOT include Employee B (self-only by default)", employeeAViewsDefault.status === 200 && !seesEmployeeBByDefault, JSON.stringify(employeeAViewsDefault.body?.shifts));
+
+    const employeeAViewsBExplicitly = await apiGet(`/api/shifts?startDate=${tue}&endDate=${tue}&userId=${hrUserId}`, tokenEmp);
+    const seesEmployeeBExplicitly = (employeeAViewsBExplicitly.body?.shifts || []).some((s) => s.user_id === hrUserId);
+    check("D2. Employee A CAN still view Employee B's schedule via explicit ?userId= (organization-wide 'view a particular person')", employeeAViewsBExplicitly.status === 200 && seesEmployeeBExplicitly, JSON.stringify(employeeAViewsBExplicitly.body?.shifts));
 
     const employeeATriesCreateForB = await apiPost("/api/shifts", { userId: hrUserId, shiftDate: wed, status: "working", startTime: "09:00", endTime: "18:00" }, tokenEmp);
     check("E. Employee A CANNOT create a schedule for Employee B -> 403", employeeATriesCreateForB.status === 403, JSON.stringify(employeeATriesCreateForB.body));
@@ -327,6 +337,102 @@ async function apiGet(pathname, token) {
 
     const teamLeadCanView = await apiGet(`/api/shifts?startDate=${mon}&endDate=${wed}`, tokenTeamLead);
     check("14d. system_access='team_lead' can still VIEW -> 200", teamLeadCanView.status === 200, JSON.stringify(teamLeadCanView.body));
+
+    // ---------- 15. MANAGER TIER -- self + direct reports only ----------
+    console.log("\nTEST 15 -- Manager sees self + direct reports only, never another team, and cannot bypass via ?userId=");
+
+    const managerUserId = await seedEmployee("SE007", "Manager Person", "manager", "Engineering Manager");
+    const reportOneUserId = await seedEmployee("SE008", "Report One", "employee", "Engineer I");
+    const reportTwoUserId = await seedEmployee("SE009", "Report Two", "employee", "Engineer II");
+    const outsiderUserId = await seedEmployee("SE010", "Outsider Person", "employee", "Designer");
+
+    await poolA.query(`UPDATE users SET reporting_manager_id = ? WHERE id IN (?, ?)`, [managerUserId, reportOneUserId, reportTwoUserId]);
+
+    const tokenManager = await loginAs("SE007");
+    const tokenReportOne = await loginAs("SE008");
+    const tokenOutsider = await loginAs("SE010");
+    check("15 SETUP: manager + team fixtures created and logged in", !!(tokenManager && tokenReportOne && tokenOutsider));
+
+    // Give each fixture a shift on `mon` so the visibility checks below
+    // have something concrete to look for.
+    await apiPost("/api/shifts", { shiftDate: mon, status: "working", startTime: "09:00", endTime: "17:00" }, tokenManager);
+    await apiPost("/api/shifts", { shiftDate: mon, status: "working", startTime: "09:00", endTime: "17:00" }, tokenReportOne);
+    await apiPost("/api/shifts", { userId: reportTwoUserId, shiftDate: mon, status: "working", startTime: "09:00", endTime: "17:00" }, tokenAdminA);
+    await apiPost("/api/shifts", { shiftDate: mon, status: "working", startTime: "09:00", endTime: "17:00" }, tokenOutsider);
+
+    const managerDefaultView = await apiGet(`/api/shifts?startDate=${mon}&endDate=${mon}`, tokenManager);
+    const managerVisibleIds = (managerDefaultView.body?.shifts || []).map((s) => s.user_id);
+    check(
+        "15a. Manager's default view includes self + BOTH direct reports",
+        managerDefaultView.status === 200 &&
+            managerVisibleIds.includes(managerUserId) &&
+            managerVisibleIds.includes(reportOneUserId) &&
+            managerVisibleIds.includes(reportTwoUserId),
+        JSON.stringify(managerVisibleIds)
+    );
+    check(
+        "15b. Manager's default view does NOT include the outsider (different team)",
+        !managerVisibleIds.includes(outsiderUserId),
+        JSON.stringify(managerVisibleIds)
+    );
+
+    const managerViewsReportExplicitly = await apiGet(`/api/shifts?startDate=${mon}&endDate=${mon}&userId=${reportOneUserId}`, tokenManager);
+    check(
+        "15c. Manager CAN explicitly view a direct report's schedule via ?userId= -> 200",
+        managerViewsReportExplicitly.status === 200 && (managerViewsReportExplicitly.body?.shifts || []).some((s) => s.user_id === reportOneUserId),
+        JSON.stringify(managerViewsReportExplicitly.body)
+    );
+
+    const managerTriesOutsiderViaParam = await apiGet(`/api/shifts?startDate=${mon}&endDate=${mon}&userId=${outsiderUserId}`, tokenManager);
+    check("15d. Manager CANNOT view the outsider's schedule via ?userId= -> 403 (cannot bypass team scoping via API parameter manipulation)", managerTriesOutsiderViaParam.status === 403, JSON.stringify(managerTriesOutsiderViaParam.body));
+
+    const managerTriesNonexistentUserId = await apiGet(`/api/shifts?startDate=${mon}&endDate=${mon}&userId=9999999`, tokenManager);
+    check("15e. Manager requesting a nonexistent user id -> also 403 (same generic message, does not leak existence)", managerTriesNonexistentUserId.status === 403, JSON.stringify(managerTriesNonexistentUserId.body));
+
+    // Manager tier gets no NEW write capability from this visibility
+    // change -- still cannot edit a direct report's schedule (unchanged
+    // write-side ownership boundary, isAdminTier only).
+    const reportOneShiftLookup = await apiGet(`/api/shifts?startDate=${mon}&endDate=${mon}&userId=${reportOneUserId}`, tokenManager);
+    const reportOneShiftId = reportOneShiftLookup.body?.shifts?.[0]?.id;
+    const managerTriesEditReport = await apiPatch(`/api/shifts/${reportOneShiftId}`, { notes: "manager edit attempt" }, tokenManager);
+    check("15f. Manager still CANNOT edit a direct report's schedule (visibility != write access) -> 403", managerTriesEditReport.status === 403, JSON.stringify(managerTriesEditReport.body));
+
+    // Department filter is Admin/Super Admin only.
+    const managerTriesDepartmentFilter = await apiGet(`/api/shifts?startDate=${mon}&endDate=${mon}&departmentId=1`, tokenManager);
+    check("15g. Non-admin-tier caller using ?departmentId= -> 403", managerTriesDepartmentFilter.status === 403, JSON.stringify(managerTriesDepartmentFilter.body));
+
+    // ---------- 16. SEARCH ENDPOINT ----------
+    console.log("\nTEST 16 -- /api/shifts/search respects the same visibility model, is case-insensitive, supports partial match");
+
+    const employeeSearchesOutsider = await apiGet(`/api/shifts/search?q=outsider&date=${mon}`, tokenEmp);
+    check(
+        "16a. Plain Employee CAN search organization-wide and find someone outside any team relationship",
+        employeeSearchesOutsider.status === 200 && (employeeSearchesOutsider.body?.results || []).some((r) => r.userId === outsiderUserId),
+        JSON.stringify(employeeSearchesOutsider.body)
+    );
+
+    const caseInsensitiveSearch = await apiGet(`/api/shifts/search?q=OUTSIDER&date=${mon}`, tokenEmp);
+    check("16b. Search is case-insensitive", caseInsensitiveSearch.status === 200 && (caseInsensitiveSearch.body?.results || []).some((r) => r.userId === outsiderUserId), JSON.stringify(caseInsensitiveSearch.body));
+
+    const partialSearch = await apiGet(`/api/shifts/search?q=Report&date=${mon}`, tokenEmp);
+    const partialMatchIds = (partialSearch.body?.results || []).map((r) => r.userId);
+    check("16c. Partial name match finds BOTH 'Report One' and 'Report Two'", partialMatchIds.includes(reportOneUserId) && partialMatchIds.includes(reportTwoUserId), JSON.stringify(partialMatchIds));
+
+    const managerSearchesTeamMember = await apiGet(`/api/shifts/search?q=${encodeURIComponent("Report One")}&date=${mon}`, tokenManager);
+    check("16d. Manager searching finds their OWN team member", managerSearchesTeamMember.status === 200 && (managerSearchesTeamMember.body?.results || []).some((r) => r.userId === reportOneUserId), JSON.stringify(managerSearchesTeamMember.body));
+
+    const managerSearchesOutsider = await apiGet(`/api/shifts/search?q=Outsider&date=${mon}`, tokenManager);
+    check("16e. Manager searching does NOT find someone outside their team (search is scoped, not just the list view)", managerSearchesOutsider.status === 200 && (managerSearchesOutsider.body?.results || []).length === 0, JSON.stringify(managerSearchesOutsider.body));
+
+    const searchMissingQuery = await apiGet(`/api/shifts/search?date=${mon}`, tokenEmp);
+    check("16f. Search with no q param -> 400", searchMissingQuery.status === 400, JSON.stringify(searchMissingQuery.body));
+
+    const searchIncludesShiftTime = (employeeSearchesOutsider.body?.results || []).find((r) => r.userId === outsiderUserId);
+    check(
+        "16g. Search result includes that day's shift status/start time for a matched employee",
+        searchIncludesShiftTime?.status === "working" && String(searchIncludesShiftTime?.startTime).startsWith("09:00"),
+        JSON.stringify(searchIncludesShiftTime)
+    );
 
     // ---------- Bulk save ----------
     console.log("\nEXTRA -- bulk save endpoint");

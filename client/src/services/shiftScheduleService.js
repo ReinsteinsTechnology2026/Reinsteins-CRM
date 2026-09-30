@@ -6,8 +6,13 @@ import api from "./api";
 // convention already used by taskActivityService.js.
 // ==========================================
 
-export const getShifts = async (startDate, endDate) => {
-    const { data } = await api.get("/shifts", { params: { startDate, endDate } });
+export const getShifts = async (startDate, endDate, extraParams = {}) => {
+    const { data } = await api.get("/shifts", { params: { startDate, endDate, ...extraParams } });
+    return data;
+};
+
+export const searchShiftEmployees = async (q, date) => {
+    const { data } = await api.get("/shifts/search", { params: { q, date } });
     return data;
 };
 

@@ -277,6 +277,121 @@
     margin-top:2px;
 }
 
+/* ---------- 12-HOUR TIME INPUT (TimeInput12h) ---------- */
+
+.time-input-12h{
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+
+.time-input-12h-select{
+    background:var(--card-light);
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    font-size:13px;
+    font-weight:600;
+    padding:8px 10px;
+    cursor:pointer;
+}
+
+.time-input-12h-hour,
+.time-input-12h-minute{
+    width:58px;
+    text-align:center;
+}
+
+.time-input-12h-meridiem{
+    width:68px;
+}
+
+.time-input-12h-colon{
+    color:var(--text-muted);
+    font-weight:700;
+}
+
+/* ---------- EMPLOYEE / SHIFT SEARCH ---------- */
+
+.shift-search-panel{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:16px;
+    margin-bottom:16px;
+}
+
+.shift-search-panel h3{
+    margin:0 0 10px;
+    color:var(--text);
+    font-size:15px;
+    font-weight:700;
+}
+
+.shift-search-input-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.shift-search-input{
+    flex:1;
+    min-width:200px;
+    background:var(--card-light);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    font-size:13px;
+    padding:9px 14px;
+}
+
+.shift-search-date-input{
+    background:var(--card-light);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    font-size:13px;
+    padding:9px 14px;
+}
+
+.shift-search-results{
+    margin-top:14px;
+    overflow-x:auto;
+}
+
+.shift-search-empty,
+.shift-search-hint{
+    margin-top:14px;
+    color:var(--text-secondary);
+    font-size:13px;
+}
+
+.shift-status-badge{
+    display:inline-block;
+    padding:3px 10px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:700;
+    text-transform:capitalize;
+}
+
+.shift-status-badge.working{
+    background:var(--primary-dark);
+    color:#fff;
+}
+
+.shift-status-badge.off{
+    background:var(--card-light);
+    color:var(--text-muted);
+    border:1px solid var(--border);
+}
+
+.shift-status-badge.leave{
+    background:var(--danger-light);
+    color:var(--danger);
+}
+
 /* ---------- RESPONSIVE SWITCH ---------- */
 
 @media (max-width: 768px){
@@ -301,6 +416,15 @@
 
     .shift-form-time-row{
         grid-template-columns:1fr;
+    }
+
+    .time-input-12h-select{
+        padding:8px 6px;
+    }
+
+    .shift-search-input-row{
+        flex-direction:column;
+        align-items:stretch;
     }
 
 }
