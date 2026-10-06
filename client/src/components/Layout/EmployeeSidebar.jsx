@@ -441,6 +441,11 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
       path:
         `${basePath}/reporting-manager`,
     },
+    {
+      name: "Hierarchy",
+      icon: <FaSitemap />,
+      path: `${basePath}/hierarchy`,
+    },
     ...(hasTeamVisibility
       ? [
           {

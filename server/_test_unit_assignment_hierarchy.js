@@ -573,9 +573,10 @@ describe("route authorization", () => {
     return layer.route.stack.map((s) => s.handle);
   }
 
-  test("GET /organization/my-hierarchy requires authentication", () => {
+  test("GET /organization/my-hierarchy requires authentication only", () => {
     const handles = routeFor(organizationRoutes, "/my-hierarchy", "get");
     assert.ok(handles.includes(protect), "my-hierarchy must run protect");
+    assert.equal(handles.length, 2, "my-hierarchy must be protect plus the handler, with no role gate");
   });
 
   test("GET /features/:id runs protect and project access before the handler", () => {
