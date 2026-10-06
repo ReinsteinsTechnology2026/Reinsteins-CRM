@@ -1,0 +1,286 @@
+/* ==========================================
+   EMPLOYEE HIERARCHY
+   Palette matches the Employee-portal pages
+   (MyTeam.css) so the card reads as part of the
+   same product.
+========================================== */
+
+.eh-page {
+  padding: 30px;
+  color: #17211D;
+  max-width: 1100px;
+}
+
+.eh-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.eh-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.eh-header p {
+  margin: 0;
+  color: #53615A;
+  font-size: 13.5px;
+}
+
+.eh-section {
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  border-radius: 16px;
+  padding: 22px;
+  margin-bottom: 20px;
+}
+
+.eh-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  font-size: 15px;
+  color: #53615A;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.eh-chain {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.eh-chain-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 420px;
+}
+
+.eh-connector {
+  color: #7A8780;
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+.eh-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.eh-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  background: #F7FAF8;
+  border: 1px solid #E2E9E5;
+  border-radius: 12px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.eh-card:hover,
+.eh-card:focus-visible {
+  border-color: #16A66A;
+  outline: none;
+}
+
+.eh-card-selected {
+  box-shadow: 0 0 0 2px rgba(22, 166, 106, 0.25);
+}
+
+.eh-card-you {
+  background: #FFFFFF;
+  border-color: #16A66A;
+  border-width: 2px;
+}
+
+.eh-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.eh-card-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.eh-card-designation {
+  font-size: 13px;
+  color: #17211D;
+}
+
+.eh-card-meta {
+  font-size: 12px;
+  color: #7A8780;
+}
+
+.eh-avatar {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #E2E9E5;
+  color: #0E744A;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.eh-avatar-lg {
+  width: 56px;
+  height: 56px;
+  font-size: 18px;
+}
+
+.eh-you-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #16A66A;
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.eh-empty {
+  color: #7A8780;
+  font-size: 13.5px;
+  margin: 10px 0 0;
+  text-align: center;
+}
+
+.eh-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid #16A66A;
+  background: #16A66A;
+  color: #FFFFFF;
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.eh-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.eh-button-ghost {
+  background: #FFFFFF;
+  color: #0E744A;
+}
+
+.eh-detail {
+  position: sticky;
+  bottom: 16px;
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 8px 24px rgba(15, 12, 10, 0.12);
+}
+
+.eh-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.eh-detail-header strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eh-detail-sub {
+  display: block;
+  color: #53615A;
+  font-size: 13px;
+}
+
+.eh-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.eh-detail-grid dt {
+  font-size: 11.5px;
+  color: #7A8780;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.eh-detail-grid dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+}
+
+.eh-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.eh-detail-reports {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.eh-state {
+  padding: 40px;
+  text-align: center;
+  color: #53615A;
+}
+
+.eh-state-error {
+  color: #D64545;
+}
+
+@media (max-width: 768px) {
+  .eh-page {
+    padding: 16px;
+  }
+
+  .eh-section {
+    padding: 16px;
+  }
+
+  .eh-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .eh-detail {
+    position: static;
+  }
+}

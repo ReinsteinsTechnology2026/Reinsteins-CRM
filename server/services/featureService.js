@@ -3,6 +3,7 @@ const pool = require("../config/db");
 const { deleteLinksForItem } = require("./workItemLinkService");
 const { createWithGeneratedCode } = require("./workItemCodeService");
 const { isEligibleProjectAssignee } = require("./projectPermissionService");
+const { resolveAssignedBy, resolvePreservedId } = require("../utils/assignmentRules");
 
 // ==========================================
 // FEATURE SERVICE
@@ -261,9 +262,21 @@ const updateFeature = async (id, data, projectId, updatedBy) => {
     await assertEpicBelongsToProject(epic_id, projectId);
     await assertEligibleAssignee(assigned_to, projectId);
 
-    // Same reassignment semantics as epicService.updateEpic -- Assigned
-    // By becomes whoever performs THIS change.
-    const assignedBy = assigned_to ? updatedBy : null;
+    const [currentRows] = await pool.query(
+        "SELECT owner_id, assigned_to, assigned_by FROM features WHERE id = ?",
+        [id]
+    );
+    const current = currentRows[0] || {};
+
+    const assignedTo = resolvePreservedId(assigned_to, current.assigned_to);
+
+    const assignedBy = resolveAssignedBy({
+        assignedTo,
+        currentAssignedTo: current.assigned_to,
+        currentAssignedBy: current.assigned_by,
+        actorId: updatedBy,
+    });
+    const ownerId = resolvePreservedId(owner_id, current.owner_id);
 
     await pool.query(`
         UPDATE features
@@ -283,13 +296,13 @@ const updateFeature = async (id, data, projectId, updatedBy) => {
 
         title,
         description || null,
-        owner_id || null,
+        ownerId,
         status,
         priority,
         start_date || null,
         due_date || null,
         epic_id || null,
-        assigned_to || null,
+        assignedTo,
         assignedBy,
         id,
 

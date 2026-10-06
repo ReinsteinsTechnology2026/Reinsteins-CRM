@@ -4,6 +4,7 @@ const {
     getMyTeam,
     getDirectReports,
     getMyReportingManager,
+    getMyHierarchy,
     getDepartmentManagers,
     getOrgChartRoots,
     getOrgChartNodeChildren,
@@ -33,6 +34,7 @@ const router = express.Router();
 router.get("/my-team", protect, getMyTeam);
 router.get("/direct-reports", protect, getDirectReports);
 router.get("/my-reporting-manager", protect, getMyReportingManager);
+router.get("/my-hierarchy", protect, getMyHierarchy);
 router.get("/departments/:id/managers", protect, getDepartmentManagers);
 router.get("/chart/roots", protect, getOrgChartRoots);
 router.get("/chart/:id/children", protect, getOrgChartNodeChildren);

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { getPortalBasePath } from "../../utils/portalBasePath";
 
 import {
   FaArrowLeft,
@@ -183,7 +184,7 @@ function ProjectWorkspace() {
   // Same component reused under both /admin and /employee — every
   // internal navigation call below is built from this instead of a
   // hardcoded "/employee/..." prefix.
-  const basePath = location.pathname.startsWith("/admin") ? "/admin" : "/employee";
+  const basePath = getPortalBasePath(location.pathname);
 
   // "/admin/*" is wrapped in ProtectedRoute allowedRole="admin" — a
   // non-admin literally cannot render this component under that
@@ -191,7 +192,7 @@ function ProjectWorkspace() {
   // signal for the same role='admin' organization-admin exception
   // the backend now applies to GET /:id, GET /:id/my-permissions,
   // and DELETE /:id (see accessMiddleware.js's Or-Admin middlewares).
-  const isOrgAdmin = basePath === "/admin";
+  const isOrgAdmin = basePath.endsWith("/admin");
 
   const [project, setProject] = useState(null);
   const [epics, setEpics] = useState([]);
@@ -1148,6 +1149,10 @@ function BacklogTab({
 
   const [expanded, setExpanded] = useState({});
 
+  const navigate = useNavigate();
+  const location = useLocation();
+  const basePath = getPortalBasePath(location.pathname);
+
   const toggle = (key) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
@@ -1327,7 +1332,17 @@ function BacklogTab({
           <FaFolder />
           <span className="pw-story-title">
             {story.story_code && <span className="pw-item-code">{story.story_code}</span>}
-            {story.title}
+            <button
+              type="button"
+              className="pw-title-link"
+              title="Open user story"
+              onClick={(event) => {
+                event.stopPropagation();
+                navigate(`${basePath}/user-stories/${story.id}`);
+              }}
+            >
+              {story.title}
+            </button>
           </span>
           <span className="pw-item-type-badge">User Story</span>
           <span className="pw-story-count">
@@ -1392,7 +1407,17 @@ function BacklogTab({
           <FaFolder />
           <span className="pw-story-title">
             {feature.feature_code && <span className="pw-item-code">{feature.feature_code}</span>}
-            {feature.title}
+            <button
+              type="button"
+              className="pw-title-link"
+              title="Open feature"
+              onClick={(event) => {
+                event.stopPropagation();
+                navigate(`${basePath}/features/${feature.id}`);
+              }}
+            >
+              {feature.title}
+            </button>
           </span>
           <span className="pw-item-type-badge">Feature</span>
           <span className="pw-story-count">
@@ -1473,7 +1498,17 @@ function BacklogTab({
           <FaFolder />
           <span className="pw-story-title">
             {epic.epic_code && <span className="pw-item-code">{epic.epic_code}</span>}
-            {epic.title}
+            <button
+              type="button"
+              className="pw-title-link"
+              title="Open epic"
+              onClick={(event) => {
+                event.stopPropagation();
+                navigate(`${basePath}/epics/${epic.id}`);
+              }}
+            >
+              {epic.title}
+            </button>
           </span>
           <span className="pw-item-type-badge">Epic</span>
           <span className="pw-story-count">

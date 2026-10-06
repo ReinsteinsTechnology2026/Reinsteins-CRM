@@ -651,6 +651,23 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           </span>
         </button>
 
+        {/* HIERARCHY -- personal reporting position (see
+            client/src/pages/Employee/EmployeeHierarchy.jsx) */}
+
+        <button
+          type="button"
+          className={`sidebar-item ${
+            isActive(`${basePath}/hierarchy`) ? "active" : ""
+          }`}
+          onClick={() => handleNavigate(`${basePath}/hierarchy`)}
+        >
+          <FaUsers />
+
+          <span className="admin-sidebar-menu-name">
+            Hierarchy
+          </span>
+        </button>
+
         {/* ORGANIZATION -- internal company structure (Org
             Chart / Departments / Designations). Distinct from
             TechOps above. Expandable: the parent button only

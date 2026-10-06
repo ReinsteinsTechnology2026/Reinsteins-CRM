@@ -3,6 +3,7 @@ const pool = require("../config/db");
 const { deleteLinksForItem } = require("./workItemLinkService");
 const { createWithGeneratedCode } = require("./workItemCodeService");
 const { isEligibleProjectAssignee } = require("./projectPermissionService");
+const { resolveAssignedBy, resolvePreservedId } = require("../utils/assignmentRules");
 
 // ==========================================
 // ASSIGNMENT ELIGIBILITY
@@ -213,13 +214,21 @@ const updateEpic = async (id, data, projectId, updatedBy) => {
 
     await assertEligibleAssignee(assigned_to, projectId);
 
-    // Per decision: on reassignment, Assigned By becomes whoever is
-    // performing THIS change (updatedBy = req.user.id from the
-    // controller) -- not preserved as the original creator. Only set
-    // when assigned_to is actually present in the payload, so a
-    // partial update that omits assigned_to doesn't clobber an
-    // existing assignment's assigned_by with a stray value.
-    const assignedBy = assigned_to ? updatedBy : null;
+    const [currentRows] = await pool.query(
+        "SELECT owner_id, assigned_to, assigned_by FROM epics WHERE id = ?",
+        [id]
+    );
+    const current = currentRows[0] || {};
+
+    const assignedTo = resolvePreservedId(assigned_to, current.assigned_to);
+
+    const assignedBy = resolveAssignedBy({
+        assignedTo,
+        currentAssignedTo: current.assigned_to,
+        currentAssignedBy: current.assigned_by,
+        actorId: updatedBy,
+    });
+    const ownerId = resolvePreservedId(owner_id, current.owner_id);
 
     await pool.query(`
         UPDATE epics
@@ -238,12 +247,12 @@ const updateEpic = async (id, data, projectId, updatedBy) => {
 
         title,
         description || null,
-        owner_id || null,
+        ownerId,
         status,
         priority,
         start_date || null,
         due_date || null,
-        assigned_to || null,
+        assignedTo,
         assignedBy,
         id,
 

@@ -4,6 +4,7 @@ const { setTaskTags } = require("./tagService");
 const { deleteLinksForItem } = require("./workItemLinkService");
 const { createWithGeneratedCode, generateNextTaskNumber } = require("./workItemCodeService");
 const { isEligibleProjectAssignee } = require("./projectPermissionService");
+const { resolveAssignedBy, resolvePreservedId } = require("../utils/assignmentRules");
 
 // ==========================================
 // CROSS-PROJECT PARENT VALIDATION
@@ -137,7 +138,12 @@ const getUserStoryById = async (id) => {
             creator.full_name AS created_by_name,
             assignee.full_name AS assigned_to_name,
             assigner.full_name AS assigned_by_name,
-            sp.name AS sprint_name
+            sp.name AS sprint_name,
+            f.title AS feature_title,
+            f.feature_code AS feature_code,
+            e.id AS parent_epic_id,
+            e.title AS parent_epic_title,
+            e.epic_code AS parent_epic_code
         FROM user_stories us
         INNER JOIN projects p
             ON p.id = us.project_id
@@ -151,6 +157,12 @@ const getUserStoryById = async (id) => {
             ON assigner.id = us.assigned_by
         LEFT JOIN sprints sp
             ON sp.id = us.sprint_id
+        LEFT JOIN features f
+            ON f.id = us.feature_id
+            AND f.deleted_at IS NULL
+        LEFT JOIN epics e
+            ON e.id = f.epic_id
+            AND e.deleted_at IS NULL
         WHERE us.id = ?
         AND us.deleted_at IS NULL
         LIMIT 1
@@ -351,10 +363,21 @@ const updateUserStory = async (id, data, projectId, updatedBy) => {
     await assertFeatureBelongsToProject(feature_id, projectId);
     await assertEligibleAssignee(assigned_to, projectId);
 
-    // Same reassignment semantics as epicService.updateEpic /
-    // featureService.updateFeature -- Assigned By becomes whoever
-    // performs THIS change.
-    const assignedBy = assigned_to ? updatedBy : null;
+    const [currentRows] = await pool.query(
+        "SELECT owner_id, assigned_to, assigned_by FROM user_stories WHERE id = ?",
+        [id]
+    );
+    const current = currentRows[0] || {};
+
+    const assignedTo = resolvePreservedId(assigned_to, current.assigned_to);
+
+    const assignedBy = resolveAssignedBy({
+        assignedTo,
+        currentAssignedTo: current.assigned_to,
+        currentAssignedBy: current.assigned_by,
+        actorId: updatedBy,
+    });
+    const ownerId = resolvePreservedId(owner_id, current.owner_id);
 
     await pool.query(`
         UPDATE user_stories
@@ -375,14 +398,14 @@ const updateUserStory = async (id, data, projectId, updatedBy) => {
 
         title,
         description || null,
-        owner_id || null,
+        ownerId,
         status,
         priority,
         start_date || null,
         due_date || null,
         tags || null,
         feature_id || null,
-        assigned_to || null,
+        assignedTo,
         assignedBy,
         id
 

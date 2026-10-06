@@ -164,6 +164,13 @@ function CreateEpicModal({
 
     }
 
+    const assigneeChanged = String(epic?.assigned_to ?? "") !== String(formData.assigned_to || "");
+    const assignedByName = !formData.assigned_to
+        ? "—"
+        : epic && !assigneeChanged
+            ? epic.assigned_by_name || "—"
+            : currentUser?.fullName || currentUser?.name || "";
+
     return (
 
         <div className="wi-modal-overlay">
@@ -218,7 +225,7 @@ function CreateEpicModal({
                             <label>Assigned By</label>
                             <input
                                 type="text"
-                                value={currentUser?.name || currentUser?.fullName || ""}
+                                value={assignedByName}
                                 disabled
                                 readOnly
                             />

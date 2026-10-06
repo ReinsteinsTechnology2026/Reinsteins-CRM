@@ -170,6 +170,13 @@ function CreateUserStoryModal({
 
     }
 
+    const assigneeChanged = String(story?.assigned_to ?? "") !== String(formData.assigned_to || "");
+    const assignedByName = !formData.assigned_to
+        ? "—"
+        : story && !assigneeChanged
+            ? story.assigned_by_name || "—"
+            : currentUser?.fullName || currentUser?.name || "";
+
     return (
 
         <div className="wi-modal-overlay">
@@ -246,7 +253,7 @@ function CreateUserStoryModal({
                             <label>Assigned By</label>
                             <input
                                 type="text"
-                                value={currentUser?.name || currentUser?.fullName || ""}
+                                value={assignedByName}
                                 disabled
                                 readOnly
                             />

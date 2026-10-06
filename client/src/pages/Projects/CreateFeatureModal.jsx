@@ -161,6 +161,13 @@ function CreateFeatureModal({
 
     }
 
+    const assigneeChanged = String(feature?.assigned_to ?? "") !== String(formData.assigned_to || "");
+    const assignedByName = !formData.assigned_to
+        ? "—"
+        : feature && !assigneeChanged
+            ? feature.assigned_by_name || "—"
+            : currentUser?.fullName || currentUser?.name || "";
+
     return (
 
         <div className="wi-modal-overlay">
@@ -231,7 +238,7 @@ function CreateFeatureModal({
                             <label>Assigned By</label>
                             <input
                                 type="text"
-                                value={currentUser?.name || currentUser?.fullName || ""}
+                                value={assignedByName}
                                 disabled
                                 readOnly
                             />

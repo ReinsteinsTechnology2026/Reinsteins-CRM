@@ -4,6 +4,7 @@ const { setTaskTags, attachTagsToTasks } = require("./tagService");
 
 const { deleteLinksForItem } = require("./workItemLinkService");
 const { generateNextTaskNumber, taskCode } = require("./workItemCodeService");
+const { resolveAssignedBy, resolvePreservedId } = require("../utils/assignmentRules");
 
 // ==========================================
 // CROSS-PROJECT PARENT VALIDATION (Task)
@@ -571,7 +572,7 @@ const normalizeDueDate = (value) => {
 
 };
 
-const updateTask = async (id, data) => {
+const updateTask = async (id, data, actorId) => {
 
     const {
 
@@ -587,6 +588,20 @@ const updateTask = async (id, data) => {
 
     } = data;
 
+    const [[currentTask]] = await pool.query(
+        `SELECT assigned_to, assigned_by FROM tasks WHERE id=?`,
+        [id]
+    );
+
+    const assignedTo = resolvePreservedId(assigned_to, currentTask?.assigned_to);
+
+    const assignedBy = resolveAssignedBy({
+        assignedTo,
+        currentAssignedTo: currentTask?.assigned_to,
+        currentAssignedBy: currentTask?.assigned_by,
+        actorId,
+    });
+
     await pool.query(
 
         `
@@ -595,6 +610,7 @@ const updateTask = async (id, data) => {
             task_title=?,
             task_description=?,
             assigned_to=?,
+            assigned_by=?,
             priority=?,
             status=?,
             due_date=?,
@@ -607,7 +623,8 @@ const updateTask = async (id, data) => {
 
             title,
             description,
-            assigned_to,
+            assignedTo,
+            assignedBy,
             priority,
             status,
             normalizeDueDate(due_date),
@@ -691,13 +708,15 @@ const transferTask = async (
 
         `
         UPDATE tasks
-        SET assigned_to=?
+        SET assigned_to=?, assigned_by=?
         WHERE id=?
         `,
 
         [
 
             assignedTo,
+
+            assignedBy,
 
             taskId
 
@@ -787,11 +806,23 @@ const sendBackTask = async (id) => {
 // (see transferTask above).
 // ==========================================
 
-const assignTask = async (taskId, assignedTo) => {
+const assignTask = async (taskId, assignedTo, actorId) => {
+
+    const [[currentTask]] = await pool.query(
+        `SELECT assigned_to, assigned_by FROM tasks WHERE id=?`,
+        [taskId]
+    );
+
+    const assignedBy = resolveAssignedBy({
+        assignedTo,
+        currentAssignedTo: currentTask?.assigned_to,
+        currentAssignedBy: currentTask?.assigned_by,
+        actorId,
+    });
 
     await pool.query(
-        `UPDATE tasks SET assigned_to=? WHERE id=?`,
-        [assignedTo, taskId]
+        `UPDATE tasks SET assigned_to=?, assigned_by=? WHERE id=?`,
+        [assignedTo, assignedBy, taskId]
     );
 
 };

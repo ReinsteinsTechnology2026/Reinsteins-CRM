@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { getPortalBasePath } from "../../utils/portalBasePath";
 
 import { FaArrowLeft, FaTasks, FaPlus, FaPen } from "react-icons/fa";
 
@@ -30,6 +31,10 @@ function UserStoryDetail() {
     const { id } = useParams();
 
     const navigate = useNavigate();
+
+    const location = useLocation();
+
+    const basePath = getPortalBasePath(location.pathname);
 
     const [story, setStory] = useState(null);
 
@@ -89,10 +94,26 @@ function UserStoryDetail() {
             <div className="wi-breadcrumb">
                 <button
                     type="button"
-                    onClick={() => navigate(`/admin/projects/${story.project_id}`)}
+                    onClick={() => navigate(`${basePath}/projects/${story.project_id}`)}
                 >
                     <FaArrowLeft /> {story.project_name}
                 </button>
+                {story.parent_epic_id && (
+                    <button
+                        type="button"
+                        onClick={() => navigate(`${basePath}/epics/${story.parent_epic_id}`)}
+                    >
+                        {story.parent_epic_title}
+                    </button>
+                )}
+                {story.feature_id && (
+                    <button
+                        type="button"
+                        onClick={() => navigate(`${basePath}/features/${story.feature_id}`)}
+                    >
+                        {story.feature_title}
+                    </button>
+                )}
                 <span className="current">User Story</span>
             </div>
 
@@ -156,6 +177,50 @@ function UserStoryDetail() {
                     <div>
                         <label>Assigned By</label>
                         <span>{story.assigned_by_name || "—"}</span>
+                    </div>
+
+                    <div>
+                        <label>Created By</label>
+                        <span>{story.created_by_name || "—"}</span>
+                    </div>
+
+                    <div>
+                        <label>Parent Epic</label>
+                        <span>
+                            {story.parent_epic_id ? (
+                                <button
+                                    type="button"
+                                    className="wi-link-button"
+                                    onClick={() => navigate(`${basePath}/epics/${story.parent_epic_id}`)}
+                                >
+                                    {story.parent_epic_code && (
+                                        <span className="wi-code">{story.parent_epic_code}</span>
+                                    )}
+                                    {story.parent_epic_title}
+                                </button>
+                            ) : (
+                                "None"
+                            )}
+                        </span>
+                    </div>
+
+                    <div>
+                        <label>Feature</label>
+                        <span>
+                            {story.feature_title
+                                ? `${story.feature_code ? `${story.feature_code} · ` : ""}${story.feature_title}`
+                                : "None"}
+                        </span>
+                    </div>
+
+                    <div>
+                        <label>Created</label>
+                        <span>{formatDateTime(story.created_at)}</span>
+                    </div>
+
+                    <div>
+                        <label>Last Updated</label>
+                        <span>{formatDateTime(story.updated_at)}</span>
                     </div>
 
                     <div>
@@ -256,7 +321,7 @@ function UserStoryDetail() {
 
                                 <tr
                                     key={task.id}
-                                    onClick={() => navigate(`/admin/task-workspace/${task.id}`)}
+                                    onClick={() => navigate(`${basePath}/task-workspace/${task.id}`)}
                                 >
 
                                     <td>

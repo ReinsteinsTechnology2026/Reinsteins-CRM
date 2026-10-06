@@ -73,6 +73,9 @@ import AdminTasksList from "./pages/TaskManagement/AdminTasksList";
 
 import ProjectsList from "./pages/Projects/ProjectsList";
 import UserStoryDetail from "./pages/Projects/UserStoryDetail";
+import EpicDetail from "./pages/Projects/EpicDetail";
+import FeatureDetail from "./pages/Projects/FeatureDetail";
+import EmployeeHierarchy from "./pages/Employee/EmployeeHierarchy";
 
 // ==========================================
 // CHAT
@@ -159,6 +162,9 @@ const ADMIN_ROUTES = [
   { path: "projects", Component: ProjectsList },
   { path: "projects/:id", Component: ProjectWorkspace },
   { path: "user-stories/:id", Component: UserStoryDetail },
+  { path: "epics/:id", Component: EpicDetail },
+  { path: "features/:id", Component: FeatureDetail },
+  { path: "hierarchy", Component: EmployeeHierarchy },
   { path: "leave", Component: AdminLeave },
   { path: "reports", Component: AdminReports },
   { path: "sops", Component: SopLibrary },
@@ -192,6 +198,10 @@ const EMPLOYEE_ROUTES = [
   { path: "reporting-manager", Component: MyReportingManager },
   { path: "projects", Component: ExecutiveProjects },
   { path: "projects/:id", Component: ProjectWorkspace },
+  { path: "user-stories/:id", Component: UserStoryDetail },
+  { path: "epics/:id", Component: EpicDetail },
+  { path: "features/:id", Component: FeatureDetail },
+  { path: "hierarchy", Component: EmployeeHierarchy },
   { path: "organization", Component: ExecutiveOrganization },
   { path: "reports", Component: ExecutiveReports },
 ];

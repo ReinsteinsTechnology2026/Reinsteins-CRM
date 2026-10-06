@@ -303,6 +303,75 @@ const getOrgChartNodeChildren = async (req, res) => {
     }
 };
 
+const MAX_HIERARCHY_DEPTH = 15;
+
+const getMyHierarchy = async (req, res) => {
+    try {
+
+        const selfId = req.user.id;
+
+        const selfNodes = await fetchOrgNodes("u.id = ?", [selfId]);
+
+        if (selfNodes.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Your profile could not be found",
+            });
+        }
+
+        const [selfRows] = await pool.query(
+            "SELECT reporting_manager_id FROM users WHERE id = ? LIMIT 1",
+            [selfId]
+        );
+
+        const directManagerId = selfRows[0]?.reporting_manager_id || null;
+
+        const managers = [];
+        const visited = new Set([Number(selfId)]);
+        let nextManagerId = directManagerId;
+
+        while (nextManagerId && managers.length < MAX_HIERARCHY_DEPTH && !visited.has(Number(nextManagerId))) {
+
+            visited.add(Number(nextManagerId));
+
+            const managerNodes = await fetchOrgNodes("u.id = ?", [nextManagerId]);
+
+            if (managerNodes.length === 0) break;
+
+            managers.push(managerNodes[0]);
+
+            const [managerRows] = await pool.query(
+                "SELECT reporting_manager_id FROM users WHERE id = ? LIMIT 1",
+                [nextManagerId]
+            );
+
+            nextManagerId = managerRows[0]?.reporting_manager_id || null;
+        }
+
+        const peers = directManagerId
+            ? await fetchOrgNodes("u.reporting_manager_id = ? AND u.id <> ?", [directManagerId, selfId])
+            : [];
+
+        const directReports = await fetchOrgNodes("u.reporting_manager_id = ?", [selfId]);
+
+        return res.status(200).json({
+            success: true,
+            self: selfNodes[0],
+            managers: managers.reverse(),
+            peers,
+            directReports,
+        });
+
+    } catch (error) {
+        console.error("Get My Hierarchy Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to load your hierarchy",
+        });
+    }
+};
+
 const searchOrgUsers = async (req, res) => {
     try {
 
@@ -994,6 +1063,7 @@ module.exports = {
     getDepartmentManagers,
     getOrgChartRoots,
     getOrgChartNodeChildren,
+    getMyHierarchy,
     searchOrgUsers,
     transferUser,
     setReportingManager,

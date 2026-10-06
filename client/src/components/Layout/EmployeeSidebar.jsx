@@ -349,6 +349,11 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
       path: `${basePath}/organization`,
     },
     {
+      name: "Hierarchy",
+      icon: <FaUserTie />,
+      path: `${basePath}/hierarchy`,
+    },
+    {
       name: "Reports",
       icon: <FaChartBar />,
       path: `${basePath}/reports`,

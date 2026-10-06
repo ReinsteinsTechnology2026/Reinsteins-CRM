@@ -476,7 +476,9 @@ const updateTask = async (req, res) => {
 
             req.params.id,
 
-            req.body
+            req.body,
+
+            req.user.id
 
         );
 
@@ -1447,7 +1449,7 @@ const assignTask = async (req, res) => {
             });
         }
 
-        await assignTaskService(req.params.id, proposedAssigneeId);
+        await assignTaskService(req.params.id, proposedAssigneeId, req.user.id);
 
         const actionLabel = task.assigned_to ? "Reassigned" : "Assigned";
 
