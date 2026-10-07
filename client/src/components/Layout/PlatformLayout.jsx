@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 
 import platformApi from "../../services/platformApi";
 import "../../styles/platformTheme.css";
+import ZioVentureLogo from "../Common/ZioVentureLogo";
 import "../../styles/platformComponents.css";
 import "./PlatformLayout.css";
 
@@ -86,9 +87,7 @@ function PlatformLayout() {
       <aside className="platform-sidebar">
 
         <div className="platform-sidebar-brand">
-          <span className="platform-wordmark platform-wordmark-sm">
-            <span className="brand-zio">Zio</span><span className="brand-venture">Venture</span>
-          </span>
+          <ZioVentureLogo size={40} />
         </div>
 
         <nav className="platform-nav">

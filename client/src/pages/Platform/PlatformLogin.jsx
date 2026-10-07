@@ -4,6 +4,7 @@ import { FaEye, FaEyeSlash, FaEnvelope, FaLock, FaShieldAlt } from "react-icons/
 import { toast } from "react-toastify";
 
 import platformApi from "../../services/platformApi";
+import ZioVentureLogo from "../../components/Common/ZioVentureLogo";
 import "../../styles/platformTheme.css";
 import "./PlatformLogin.css";
 
@@ -123,9 +124,7 @@ function PlatformLogin() {
       <div className="platform-login-panel">
 
         <div className="platform-login-brand">
-          <span className="platform-wordmark">
-            <span className="brand-zio">Zio</span><span className="brand-venture">Venture</span>
-          </span>
+          <ZioVentureLogo size={96} />
           <p>Platform Administration</p>
         </div>
 

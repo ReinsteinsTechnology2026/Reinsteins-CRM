@@ -2,6 +2,8 @@ import { useState } from "react";
 import { NavLink, Link } from "react-router-dom";
 import { FaBars, FaTimes } from "react-icons/fa";
 
+import ZioVentureLogo from "../Common/ZioVentureLogo";
+
 import "./PublicNavbar.css";
 
 // ==========================================
@@ -27,7 +29,7 @@ function PublicNavbar() {
       <div className="pub-container pub-navbar-inner">
 
         <Link to="/" className="pub-navbar-brand" onClick={() => setMenuOpen(false)}>
-          <span className="brand-zio">Zio</span><span className="brand-venture">Venture</span>
+          <ZioVentureLogo size={40} />
         </Link>
 
         <nav className={`pub-navbar-links${menuOpen ? " open" : ""}`}>

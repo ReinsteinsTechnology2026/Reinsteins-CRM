@@ -42,10 +42,6 @@
     margin-bottom: 20px;
 }
 
-.platform-wordmark-sm {
-    font-size: 20px;
-}
-
 .platform-nav {
     display: flex;
     flex-direction: column;

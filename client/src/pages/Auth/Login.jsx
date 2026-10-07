@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import CompanyLogo from "../../components/Common/CompanyLogo";
+import ZioVentureLogo from "../../components/Common/ZioVentureLogo";
 import {
   FaEye,
   FaEyeSlash,
@@ -246,7 +247,7 @@ function Login() {
       // Default ZioVenture branding -- used until a future phase adds
       // real per-company logo storage (Phase 5 explicitly does not
       // build that yet; companyInfo.logoUrl is always null today).
-      <div className="groworgs-fallback-mark" aria-hidden="true">Zi</div>
+      <ZioVentureLogo size={90} />
     )
   ) : (
     <CompanyLogo size={90} />

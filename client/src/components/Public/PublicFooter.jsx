@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
 
+import ZioVentureLogo from "../Common/ZioVentureLogo";
+
 import "./PublicFooter.css";
 
 function PublicFooter() {
@@ -8,9 +10,7 @@ function PublicFooter() {
       <div className="pub-container pub-footer-inner">
 
         <div className="pub-footer-brand">
-          <span className="pub-navbar-brand">
-            <span className="brand-zio">Zio</span><span className="brand-venture">Venture</span>
-          </span>
+          <ZioVentureLogo size={40} />
           <p>One platform for employees, work, and daily operations.</p>
         </div>
 
