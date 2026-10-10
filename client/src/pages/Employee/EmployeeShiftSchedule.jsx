@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FaCalendarWeek, FaChevronLeft, FaChevronRight, FaTimes, FaTrash, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 
@@ -6,6 +6,7 @@ import { getShifts, createShift, updateShift, deleteShift, searchShiftEmployees 
 import EmployeeNameplate from "../../components/EmployeeNameplate";
 import TimeInput12h from "../../components/TimeInput12h";
 import { formatTime12h, formatTimeRange12h, calculateShiftDuration } from "../../utils/timeFormat";
+import socket, { connectSocket } from "../../services/socket";
 
 import "./EmployeeShiftSchedule.css";
 
@@ -46,8 +47,8 @@ function formatRangeLabel(monday) {
     return `${monday.toLocaleDateString("en-IN", opts)} - ${sunday.toLocaleDateString("en-IN", opts)}`;
 }
 
-function shiftCellLabel(entry) {
-    if (!entry) return "—";
+function shiftCellLabel(entry, isDefaultOffDay) {
+    if (!entry) return isDefaultOffDay ? "OFF" : "—";
     if (entry.status === "off") return "OFF";
     if (entry.status === "leave") return "LEAVE";
     if (entry.start_time && entry.end_time) {
@@ -92,9 +93,14 @@ function EmployeeShiftSchedule() {
 
     const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
     const [shifts, setShifts] = useState([]);
+    const [defaultOffDates, setDefaultOffDates] = useState(() => new Set());
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [saving, setSaving] = useState(false);
+    // "idle" | "saving" | "saved" -- drives both the disabled state and
+    // the button label (Saving... / Saved [check]) for the Save flow.
+    const [saveState, setSaveState] = useState("idle");
+    const saving = saveState !== "idle";
+    const submittingRef = useRef(false);
 
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState(EMPTY_FORM);
@@ -116,6 +122,7 @@ function EmployeeShiftSchedule() {
 
             const data = await getShifts(weekDates[0], weekDates[6]);
             setShifts(Array.isArray(data.shifts) ? data.shifts : []);
+            setDefaultOffDates(new Set(Array.isArray(data.defaultOffDates) ? data.defaultOffDates : []));
 
         } catch (err) {
             console.error("Load shift schedule error:", err);
@@ -131,6 +138,88 @@ function EmployeeShiftSchedule() {
         loadSchedule();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [weekStart]);
+
+    // ==========================================
+    // REAL-TIME UPDATES
+    // The socket now only ever RECEIVES events this account is
+    // authorized for (see utils/shiftDefaults.js's
+    // resolveShiftRoomPlan): self always; for a Manager, their own
+    // direct reports too; every other tier, self only -- deliberately
+    // narrower than what REST would let them look up one at a time on
+    // request, so a plain Employee's socket never receives a
+    // colleague's event here at all, whether or not they have
+    // searched for that person.
+    //
+    // This merge still keeps one extra, purely VISUAL guard: only
+    // patch a row already on screen (my own id, always seeded, or an
+    // id already present from the initial load -- a Manager's default
+    // load already includes their team, per getShiftVisibilityScope's
+    // "team" scope). This is now a defensive safety net rather than
+    // the authorization boundary itself -- it still matters for a
+    // Manager's team, and stops a team member's very-first-shift-of-
+    // the-week event from spawning a row out of sequence (that one
+    // case still needs a reconnect/week-nav, same as it would on the
+    // very first page load today).
+    //
+    // The payload carries notes too, so a live-merged row is already
+    // complete -- opening it to edit does not need a fresh fetch.
+    // ==========================================
+
+    useEffect(() => {
+        connectSocket();
+
+        const handleShiftUpdated = (payload) => {
+            if (!payload || !weekDates.includes(payload.shiftDate)) return;
+
+            setShifts((prev) => {
+                const isOwnShift = Number(payload.userId) === Number(currentUser?.id);
+                const isAlreadyVisible = prev.some((s) => Number(s.user_id) === Number(payload.userId));
+                if (!isOwnShift && !isAlreadyVisible) return prev;
+
+                const withoutThisId = prev.filter((s) => s.id !== payload.id);
+                if (payload.action === "deleted") return withoutThisId;
+
+                // Name/designation: this event's own row never carries
+                // them (kept minimal/non-identifying -- see the
+                // broadcast's own header comment), so reuse whatever
+                // this user_id was already displayed with -- their own
+                // profile for self, or an existing row's name for a
+                // team member who already has one on screen.
+                const existingRowForUser = prev.find((s) => Number(s.user_id) === Number(payload.userId));
+                const displayName = isOwnShift ? currentUser?.fullName : existingRowForUser?.full_name;
+                const displayDesignation = isOwnShift ? currentUser?.designation : existingRowForUser?.designation;
+
+                return [
+                    ...withoutThisId,
+                    {
+                        id: payload.id,
+                        user_id: payload.userId,
+                        full_name: displayName,
+                        designation: displayDesignation,
+                        shift_date: payload.shiftDate,
+                        status: payload.status,
+                        start_time: payload.startTime,
+                        end_time: payload.endTime,
+                        notes: payload.notes ?? null,
+                    },
+                ];
+            });
+        };
+
+        // Resync on (re)connect -- covers a dropped connection missing
+        // events while offline; the database remains the source of
+        // truth, this just refetches it once the socket is back.
+        const handleConnect = () => loadSchedule();
+
+        socket.on("shift:updated", handleShiftUpdated);
+        socket.on("connect", handleConnect);
+
+        return () => {
+            socket.off("shift:updated", handleShiftUpdated);
+            socket.off("connect", handleConnect);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [weekDates, currentUser?.id]);
 
     // Group the flat shift list by employee so each row/card only has
     // to look up its own 7 day-cells. My own row is always seeded (even
@@ -205,6 +294,12 @@ function EmployeeShiftSchedule() {
     const handleSubmit = async (event) => {
         event.preventDefault();
 
+        // Belt-and-suspenders double-submit guard on top of the
+        // disabled button -- a ref (not state) so a second invocation
+        // in the same tick is blocked even before React re-renders.
+        if (submittingRef.current) return;
+        submittingRef.current = true;
+
         const payload = {
             shiftDate: formData.shiftDate,
             status: formData.status,
@@ -214,7 +309,7 @@ function EmployeeShiftSchedule() {
         };
 
         try {
-            setSaving(true);
+            setSaveState("saving");
 
             if (formData.id) {
                 await updateShift(formData.id, payload);
@@ -227,31 +322,41 @@ function EmployeeShiftSchedule() {
                 toast.success("Your schedule was added");
             }
 
-            setShowForm(false);
+            setSaveState("saved");
             await loadSchedule();
+            // Brief "Saved [check]" state so the click -> Saving... ->
+            // Saved -> closed flow is visible, not an instant jump.
+            setTimeout(() => {
+                setShowForm(false);
+                setSaveState("idle");
+            }, 500);
 
         } catch (err) {
             console.error("Save my shift error:", err);
             toast.error(err.response?.data?.message || "Unable to save your schedule");
+            setSaveState("idle");
         } finally {
-            setSaving(false);
+            submittingRef.current = false;
         }
     };
 
     const handleDelete = async () => {
-        if (!formData.id) return;
+        if (!formData.id || submittingRef.current) return;
+        submittingRef.current = true;
 
         try {
-            setSaving(true);
+            setSaveState("saving");
             await deleteShift(formData.id);
             toast.success("Your schedule entry was removed");
             setShowForm(false);
+            setSaveState("idle");
             await loadSchedule();
         } catch (err) {
             console.error("Delete my shift error:", err);
             toast.error(err.response?.data?.message || "Unable to remove your schedule entry");
+            setSaveState("idle");
         } finally {
-            setSaving(false);
+            submittingRef.current = false;
         }
     };
 
@@ -345,7 +450,9 @@ function EmployeeShiftSchedule() {
                                             <td>{new Date(`${result.shiftDate}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
                                             <td>
                                                 {result.status ? (
-                                                    <span className={`shift-status-badge ${result.status}`}>{result.status}</span>
+                                                    <span className={`shift-status-badge ${result.status}`}>
+                                                        {result.isDefaultOff ? "OFF" : result.status}
+                                                    </span>
                                                 ) : (
                                                     <span className="shift-status-badge off">no entry</span>
                                                 )}
@@ -424,11 +531,14 @@ function EmployeeShiftSchedule() {
                                             </td>
                                             {weekDates.map((date) => {
                                                 const entry = row.days[date];
+                                                const isDefaultOffDay = !entry && defaultOffDates.has(date);
                                                 const baseClass = entry?.status === "off" || entry?.status === "leave"
                                                     ? `shift-cell shift-cell-${entry.status}`
                                                     : entry
                                                         ? "shift-cell shift-cell-working"
-                                                        : "shift-cell shift-cell-empty";
+                                                        : isDefaultOffDay
+                                                            ? "shift-cell shift-cell-off"
+                                                            : "shift-cell shift-cell-empty";
                                                 const cellClass = row.isSelf ? `${baseClass} shift-cell-editable` : baseClass;
                                                 return (
                                                     <td
@@ -438,7 +548,9 @@ function EmployeeShiftSchedule() {
                                                         role={row.isSelf ? "button" : undefined}
                                                         tabIndex={row.isSelf ? 0 : undefined}
                                                     >
-                                                        {row.isSelf && !entry ? "+ Add" : shiftCellLabel(entry)}
+                                                        {row.isSelf && !entry
+                                                            ? (isDefaultOffDay ? "OFF" : "+ Add")
+                                                            : shiftCellLabel(entry, isDefaultOffDay)}
                                                     </td>
                                                 );
                                             })}
@@ -456,11 +568,14 @@ function EmployeeShiftSchedule() {
                                     <div className="shift-employee-card-days">
                                         {weekDates.map((date, i) => {
                                             const entry = row.days[date];
+                                            const isDefaultOffDay = !entry && defaultOffDates.has(date);
                                             const baseClass = entry?.status === "off" || entry?.status === "leave"
                                                 ? `shift-day-badge shift-cell-${entry.status}`
                                                 : entry
                                                     ? "shift-day-badge shift-cell-working"
-                                                    : "shift-day-badge shift-cell-empty";
+                                                    : isDefaultOffDay
+                                                        ? "shift-day-badge shift-cell-off"
+                                                        : "shift-day-badge shift-cell-empty";
                                             return (
                                                 <div
                                                     className="shift-employee-card-day"
@@ -470,7 +585,11 @@ function EmployeeShiftSchedule() {
                                                     tabIndex={row.isSelf ? 0 : undefined}
                                                 >
                                                     <span className="shift-employee-card-day-label">{WEEKDAY_LABELS[i]}</span>
-                                                    <span className={baseClass}>{row.isSelf && !entry ? "+ Add" : shiftCellLabel(entry)}</span>
+                                                    <span className={baseClass}>
+                                                        {row.isSelf && !entry
+                                                            ? (isDefaultOffDay ? "OFF" : "+ Add")
+                                                            : shiftCellLabel(entry, isDefaultOffDay)}
+                                                    </span>
                                                 </div>
                                             );
                                         })}
@@ -546,7 +665,11 @@ function EmployeeShiftSchedule() {
                                 <div className="shift-form-actions-right">
                                     <button type="button" className="cancel-employee-button" onClick={() => setShowForm(false)}>Cancel</button>
                                     <button type="submit" className="save-employee-button" disabled={saving}>
-                                        {saving ? "Saving..." : formData.id ? "Save Changes" : "Add"}
+                                        {saveState === "saving"
+                                            ? "Saving..."
+                                            : saveState === "saved"
+                                                ? "Saved ✓"
+                                                : formData.id ? "Save Changes" : "Add"}
                                     </button>
                                 </div>
                             </div>

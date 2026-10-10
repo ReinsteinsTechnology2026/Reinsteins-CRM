@@ -50,6 +50,15 @@ function presenceRoom(companySlug) {
     return `tenant:${companySlug}:presence`;
 }
 
+// Tenant-wide room every authenticated socket for a company joins on
+// connect (same pattern as presenceRoom), used for shift-schedule
+// change broadcasts. A client with no "shift:updated" listener
+// registered simply ignores events in this room, so joining costs
+// nothing for users who never open Shift Management.
+function shiftRoom(companySlug) {
+    return `tenant:${companySlug}:shifts`;
+}
+
 // Convenience for REST controllers/services: builds a room using
 // whatever company the CURRENT request/context belongs to, without
 // the caller needing to look up the slug itself.
@@ -62,6 +71,9 @@ function currentMeetingRoom(meetingId) {
 function currentConversationRoom(conversationId) {
     return conversationRoom(getCurrentCompanySlug(), conversationId);
 }
+function currentShiftRoom() {
+    return shiftRoom(getCurrentCompanySlug());
+}
 
 module.exports = {
     LEGACY_COMPANY_SLUG,
@@ -70,7 +82,9 @@ module.exports = {
     meetingRoom,
     conversationRoom,
     presenceRoom,
+    shiftRoom,
     currentUserRoom,
     currentMeetingRoom,
     currentConversationRoom,
+    currentShiftRoom,
 };

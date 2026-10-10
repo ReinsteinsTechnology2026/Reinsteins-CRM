@@ -1,5 +1,7 @@
 const pool = require("../config/db");
 const { getDirectReportRows } = require("../services/organizationService");
+const { isWeekendDate, computeDefaultOffDates } = require("../utils/shiftDefaults");
+const { currentShiftRoom, currentUserRoom } = require("../utils/socketRooms");
 
 // ==========================================
 // SHIFT SCHEDULE (Phase 17b)
@@ -159,6 +161,52 @@ async function getShiftVisibilityScope(req) {
     }
 
     return { type: "self" };
+}
+
+// ==========================================
+// REAL-TIME BROADCAST
+// Called only AFTER a write has already committed successfully --
+// every call site below is placed after the pool.query() that
+// persists the change, never in a catch block or before validation.
+//
+// Targets the UNION of two rooms. A socket that happens to be a
+// member of both (e.g. an Admin, viewing their own shift) is still
+// only ever notified once -- verified directly against the installed
+// socket.io package: BroadcastOperator.to() accumulates the targeted
+// rooms into a Set (node_modules/socket.io/dist/broadcast-operator.js),
+// and the adapter's apply() tracks a single Set of socket ids across
+// ALL of them, skipping any id already delivered to
+// (node_modules/socket.io-adapter/dist/in-memory-adapter.js) -- this
+// is not an assumption, every call site here issues exactly one
+// .emit() across both rooms, never two separate emits.
+//   - the affected employee's own personal room (currentUserRoom) --
+//     always reaches their own other open tabs/devices, and -- per
+//     app.js's connection-time room plan -- any Manager who is
+//     specifically THEIR direct manager, since that Manager watches
+//     this exact room too. A Manager outside this employee's team was
+//     never joined to it, so they never receive this event at all.
+//   - the broad, tenant-wide shift room (currentShiftRoom) -- joined
+//     ONLY by Admin/Super Admin at connect time (see
+//     utils/shiftDefaults.js's resolveShiftRoomPlan for why every
+//     other tier is deliberately narrower than what REST would let
+//     them look up one at a time).
+// Both rooms' names are built from the ambient tenant context (see
+// socketRooms.js) -- never from anything the client supplies, so a
+// company can never receive another company's shift events.
+//
+// The SAME payload (including notes) goes to both targets -- no
+// separate "stripped" version -- because recipient authorization is
+// enforced by room MEMBERSHIP (who is allowed to be listening at
+// all), not by trimming fields per recipient.
+//
+// "deleted" events omit status/times/notes since there is no longer a
+// row to describe.
+// ==========================================
+
+function broadcastShiftUpdate(req, payload) {
+    const io = req.app.get("io");
+    if (!io) return;
+    io.to(currentUserRoom(payload.userId)).to(currentShiftRoom()).emit("shift:updated", payload);
 }
 
 async function recordShiftHistory({ shiftScheduleId, userId, action, oldValue, updatedByUserId }) {
@@ -323,6 +371,11 @@ const getShifts = async (req, res) => {
             startDate,
             endDate,
             shifts,
+            // Every Saturday/Sunday in [startDate, endDate] -- the
+            // single source of truth for "defaults to OFF with no
+            // explicit row," computed server-side so clients never
+            // need their own day-of-week logic (see utils/shiftDefaults.js).
+            defaultOffDates: computeDefaultOffDates(startDate, endDate),
         });
 
     } catch (error) {
@@ -418,6 +471,8 @@ const searchShiftEmployees = async (req, res) => {
 
         const shiftByUser = new Map(shiftRows.map((s) => [s.user_id, s]));
 
+        const dateIsWeekend = isWeekendDate(date);
+
         const results = employees.map((employee) => {
             const shift = shiftByUser.get(employee.id);
             return {
@@ -427,10 +482,16 @@ const searchShiftEmployees = async (req, res) => {
                 designation: employee.designation,
                 departmentName: employee.department_name,
                 shiftDate: date,
-                status: shift?.status || null,
+                // No explicit row on a Saturday/Sunday reports as the
+                // default OFF status rather than null, so every
+                // consumer of this endpoint sees the same default this
+                // feature applies everywhere else -- never persisted,
+                // computed fresh on each request.
+                status: shift?.status || (dateIsWeekend ? "off" : null),
                 startTime: shift?.start_time || null,
                 endTime: shift?.end_time || null,
                 notes: shift?.notes || null,
+                isDefaultOff: !shift && dateIsWeekend,
             };
         });
 
@@ -530,6 +591,17 @@ const createShift = async (req, res) => {
             updatedByUserId: req.user.id,
         });
 
+        broadcastShiftUpdate(req, {
+            action: "created",
+            id: newId,
+            userId: Number(userId),
+            shiftDate,
+            status: clean.status,
+            startTime: clean.startTime,
+            endTime: clean.endTime,
+            notes: clean.notes,
+        });
+
         return res.status(201).json({
             success: true,
             message: "Shift created successfully",
@@ -559,7 +631,7 @@ const updateShift = async (req, res) => {
         const { id } = req.params;
 
         const [rows] = await pool.query(
-            `SELECT id, user_id, shift_date, status, start_time, end_time, notes FROM shift_schedules WHERE id = ? LIMIT 1`,
+            `SELECT id, user_id, TO_CHAR(shift_date, 'YYYY-MM-DD') AS shift_date, status, start_time, end_time, notes FROM shift_schedules WHERE id = ? LIMIT 1`,
             [id]
         );
 
@@ -624,6 +696,17 @@ const updateShift = async (req, res) => {
             updatedByUserId: req.user.id,
         });
 
+        broadcastShiftUpdate(req, {
+            action: "updated",
+            id: Number(id),
+            userId: Number(existingShift.user_id),
+            shiftDate: existingShift.shift_date,
+            status: merged.status,
+            startTime: merged.startTime,
+            endTime: merged.endTime,
+            notes: merged.notes,
+        });
+
         return res.status(200).json({
             success: true,
             message: "Shift updated successfully",
@@ -686,6 +769,13 @@ const deleteShift = async (req, res) => {
         });
 
         await pool.query(`DELETE FROM shift_schedules WHERE id = ?`, [id]);
+
+        broadcastShiftUpdate(req, {
+            action: "deleted",
+            id: Number(id),
+            userId: Number(existingShift.user_id),
+            shiftDate: existingShift.shift_date,
+        });
 
         return res.status(200).json({
             success: true,
@@ -787,6 +877,17 @@ const bulkSaveShifts = async (req, res) => {
                     updatedByUserId: req.user.id,
                 });
 
+                broadcastShiftUpdate(req, {
+                    action: "updated",
+                    id: existingShift.id,
+                    userId: Number(userId),
+                    shiftDate,
+                    status: clean.status,
+                    startTime: clean.startTime,
+                    endTime: clean.endTime,
+                    notes: clean.notes,
+                });
+
                 results.push({ userId, shiftDate, success: true, id: existingShift.id, action: "updated" });
 
             } else {
@@ -809,6 +910,17 @@ const bulkSaveShifts = async (req, res) => {
                     action: "created",
                     oldValue: { shiftDate, ...clean },
                     updatedByUserId: req.user.id,
+                });
+
+                broadcastShiftUpdate(req, {
+                    action: "created",
+                    id: newId,
+                    userId: Number(userId),
+                    shiftDate,
+                    status: clean.status,
+                    startTime: clean.startTime,
+                    endTime: clean.endTime,
+                    notes: clean.notes,
                 });
 
                 results.push({ userId, shiftDate, success: true, id: newId, action: "created" });

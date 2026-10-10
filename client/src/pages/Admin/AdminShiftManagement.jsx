@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FaCalendarWeek, FaChevronLeft, FaChevronRight, FaTrash, FaTimes, FaUserShield, FaCopy, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 
@@ -14,6 +14,7 @@ import {
 import EmployeeNameplate from "../../components/EmployeeNameplate";
 import TimeInput12h from "../../components/TimeInput12h";
 import { formatTime12h, formatTimeRange12h, calculateShiftDuration } from "../../utils/timeFormat";
+import socket, { connectSocket } from "../../services/socket";
 
 import "./AdminShiftManagement.css";
 
@@ -48,8 +49,8 @@ function formatRangeLabel(monday) {
     return `${monday.toLocaleDateString("en-IN", opts)} - ${sunday.toLocaleDateString("en-IN", opts)}`;
 }
 
-function shiftCellLabel(entry) {
-    if (!entry) return "—";
+function shiftCellLabel(entry, isDefaultOffDay) {
+    if (!entry) return isDefaultOffDay ? "OFF" : "—";
     if (entry.status === "off") return "OFF";
     if (entry.status === "leave") return "LEAVE";
     if (entry.start_time && entry.end_time) {
@@ -74,10 +75,19 @@ function AdminShiftManagement() {
 
     const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
     const [shifts, setShifts] = useState([]);
+    const [defaultOffDates, setDefaultOffDates] = useState(() => new Set());
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-    const [saving, setSaving] = useState(false);
+    // Split per form (not one shared `saving` boolean) -- otherwise
+    // submitting the self-service form would also disable the
+    // Administrative Override form's buttons, and vice versa.
+    const [selfSaveState, setSelfSaveState] = useState("idle");
+    const [overrideSaveState, setOverrideSaveState] = useState("idle");
+    const saving = selfSaveState !== "idle";
+    const overrideSaving = overrideSaveState !== "idle";
+    const selfSubmittingRef = useRef(false);
+    const overrideSubmittingRef = useRef(false);
     const [copying, setCopying] = useState(false);
 
     // Two SEPARATE forms/modals -- self-service (no employee picker,
@@ -110,6 +120,7 @@ function AdminShiftManagement() {
 
             const data = await getShifts(weekDates[0], weekDates[6]);
             setShifts(Array.isArray(data.shifts) ? data.shifts : []);
+            setDefaultOffDates(new Set(Array.isArray(data.defaultOffDates) ? data.defaultOffDates : []));
 
         } catch (err) {
             console.error("Load shift schedule error:", err);
@@ -137,6 +148,62 @@ function AdminShiftManagement() {
     useEffect(() => {
         loadEmployees();
     }, []);
+
+    // ==========================================
+    // REAL-TIME UPDATES
+    // This page is reached only by role==='admin' (route-gated), and
+    // admin-tier sockets always join the broad, tenant-wide shift
+    // room (see app.js's connect-time room plan) -- the same
+    // unrestricted access this tier already has over REST. So any
+    // change whose date falls in the currently-displayed week is
+    // merged regardless of which employee it belongs to -- unlike the
+    // narrower, authorization-filtered merge on
+    // EmployeeShiftSchedule.jsx (reached by every other tier,
+    // including the one REST actually restricts: Manager). The
+    // payload carries notes too, so a live-merged row is already
+    // complete.
+    // ==========================================
+
+    useEffect(() => {
+        connectSocket();
+
+        const handleShiftUpdated = (payload) => {
+            if (!payload || !weekDates.includes(payload.shiftDate)) return;
+
+            setShifts((prev) => {
+                const withoutThisId = prev.filter((s) => s.id !== payload.id);
+                if (payload.action === "deleted") return withoutThisId;
+
+                const employee = employees.find((e) => e.id === payload.userId);
+
+                return [
+                    ...withoutThisId,
+                    {
+                        id: payload.id,
+                        user_id: payload.userId,
+                        full_name: employee?.full_name,
+                        designation: employee?.designation,
+                        shift_date: payload.shiftDate,
+                        status: payload.status,
+                        start_time: payload.startTime,
+                        end_time: payload.endTime,
+                        notes: payload.notes ?? null,
+                    },
+                ];
+            });
+        };
+
+        const handleConnect = () => loadSchedule();
+
+        socket.on("shift:updated", handleShiftUpdated);
+        socket.on("connect", handleConnect);
+
+        return () => {
+            socket.off("shift:updated", handleShiftUpdated);
+            socket.off("connect", handleConnect);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [weekDates, employees]);
 
     // Company-wide view: every active employee gets a row (even with a
     // blank week), my own row pinned to the top and highlighted.
@@ -204,6 +271,9 @@ function AdminShiftManagement() {
     const handleSelfSubmit = async (event) => {
         event.preventDefault();
 
+        if (selfSubmittingRef.current) return;
+        selfSubmittingRef.current = true;
+
         const payload = {
             shiftDate: selfForm.shiftDate,
             status: selfForm.status,
@@ -213,7 +283,7 @@ function AdminShiftManagement() {
         };
 
         try {
-            setSaving(true);
+            setSelfSaveState("saving");
 
             if (selfForm.id) {
                 await updateShift(selfForm.id, payload);
@@ -223,31 +293,39 @@ function AdminShiftManagement() {
                 toast.success("Your schedule was added");
             }
 
-            setShowSelfForm(false);
+            setSelfSaveState("saved");
             await loadSchedule();
+            setTimeout(() => {
+                setShowSelfForm(false);
+                setSelfSaveState("idle");
+            }, 500);
 
         } catch (err) {
             console.error("Save my shift error:", err);
             toast.error(err.response?.data?.message || "Unable to save your schedule");
+            setSelfSaveState("idle");
         } finally {
-            setSaving(false);
+            selfSubmittingRef.current = false;
         }
     };
 
     const handleSelfDelete = async () => {
-        if (!selfForm.id) return;
+        if (!selfForm.id || selfSubmittingRef.current) return;
+        selfSubmittingRef.current = true;
 
         try {
-            setSaving(true);
+            setSelfSaveState("saving");
             await deleteShift(selfForm.id);
             toast.success("Your schedule entry was removed");
             setShowSelfForm(false);
+            setSelfSaveState("idle");
             await loadSchedule();
         } catch (err) {
             console.error("Delete my shift error:", err);
             toast.error(err.response?.data?.message || "Unable to remove your schedule entry");
+            setSelfSaveState("idle");
         } finally {
-            setSaving(false);
+            selfSubmittingRef.current = false;
         }
     };
 
@@ -312,6 +390,9 @@ function AdminShiftManagement() {
             return;
         }
 
+        if (overrideSubmittingRef.current) return;
+        overrideSubmittingRef.current = true;
+
         const payload = {
             userId: overrideForm.userId,
             shiftDate: overrideForm.shiftDate,
@@ -322,7 +403,7 @@ function AdminShiftManagement() {
         };
 
         try {
-            setSaving(true);
+            setOverrideSaveState("saving");
 
             if (overrideForm.id) {
                 await updateShift(overrideForm.id, payload);
@@ -332,31 +413,39 @@ function AdminShiftManagement() {
                 toast.success("Shift created successfully (administrative override)");
             }
 
-            setShowOverrideForm(false);
+            setOverrideSaveState("saved");
             await loadSchedule();
+            setTimeout(() => {
+                setShowOverrideForm(false);
+                setOverrideSaveState("idle");
+            }, 500);
 
         } catch (err) {
             console.error("Save override shift error:", err);
             toast.error(err.response?.data?.message || "Unable to save shift");
+            setOverrideSaveState("idle");
         } finally {
-            setSaving(false);
+            overrideSubmittingRef.current = false;
         }
     };
 
     const handleOverrideDelete = async () => {
-        if (!overrideForm.id) return;
+        if (!overrideForm.id || overrideSubmittingRef.current) return;
+        overrideSubmittingRef.current = true;
 
         try {
-            setSaving(true);
+            setOverrideSaveState("saving");
             await deleteShift(overrideForm.id);
             toast.success("Shift deleted successfully (administrative override)");
             setShowOverrideForm(false);
+            setOverrideSaveState("idle");
             await loadSchedule();
         } catch (err) {
             console.error("Delete override shift error:", err);
             toast.error(err.response?.data?.message || "Unable to delete shift");
+            setOverrideSaveState("idle");
         } finally {
-            setSaving(false);
+            overrideSubmittingRef.current = false;
         }
     };
 
@@ -477,7 +566,9 @@ function AdminShiftManagement() {
                                             <td>{new Date(`${result.shiftDate}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
                                             <td>
                                                 {result.status ? (
-                                                    <span className={`shift-status-badge ${result.status}`}>{result.status}</span>
+                                                    <span className={`shift-status-badge ${result.status}`}>
+                                                        {result.isDefaultOff ? "OFF" : result.status}
+                                                    </span>
                                                 ) : (
                                                     <span className="shift-status-badge off">no entry</span>
                                                 )}
@@ -564,11 +655,14 @@ function AdminShiftManagement() {
                                         </td>
                                         {weekDates.map((date) => {
                                             const entry = row.days[date];
+                                            const isDefaultOffDay = !entry && defaultOffDates.has(date);
                                             const baseClass = entry?.status === "off" || entry?.status === "leave"
                                                 ? `shift-cell shift-cell-${entry.status}`
                                                 : entry
                                                     ? "shift-cell shift-cell-working"
-                                                    : "shift-cell shift-cell-empty";
+                                                    : isDefaultOffDay
+                                                        ? "shift-cell shift-cell-off"
+                                                        : "shift-cell shift-cell-empty";
                                             // Only MY row is directly clickable (self-service). Every
                                             // other employee's row is read-only here -- reaching it
                                             // requires the explicit Administrative Override panel above.
@@ -581,7 +675,9 @@ function AdminShiftManagement() {
                                                     role={row.isSelf ? "button" : undefined}
                                                     tabIndex={row.isSelf ? 0 : undefined}
                                                 >
-                                                    {row.isSelf && !entry ? "+ Add" : shiftCellLabel(entry)}
+                                                    {row.isSelf && !entry
+                                                        ? (isDefaultOffDay ? "OFF" : "+ Add")
+                                                        : shiftCellLabel(entry, isDefaultOffDay)}
                                                 </td>
                                             );
                                         })}
@@ -655,7 +751,11 @@ function AdminShiftManagement() {
                                 <div className="shift-form-actions-right">
                                     <button type="button" className="cancel-employee-button" onClick={() => setShowSelfForm(false)}>Cancel</button>
                                     <button type="submit" className="save-employee-button" disabled={saving}>
-                                        {saving ? "Saving..." : selfForm.id ? "Save Changes" : "Add"}
+                                        {selfSaveState === "saving"
+                                            ? "Saving..."
+                                            : selfSaveState === "saved"
+                                                ? "Saved ✓"
+                                                : selfForm.id ? "Save Changes" : "Add"}
                                     </button>
                                 </div>
                             </div>
@@ -736,14 +836,18 @@ function AdminShiftManagement() {
 
                             <div className="employee-modal-actions">
                                 {overrideForm.id ? (
-                                    <button type="button" className="shift-delete-button" onClick={handleOverrideDelete} disabled={saving}>
+                                    <button type="button" className="shift-delete-button" onClick={handleOverrideDelete} disabled={overrideSaving}>
                                         <FaTrash /> Delete
                                     </button>
                                 ) : <span />}
                                 <div className="shift-form-actions-right">
                                     <button type="button" className="cancel-employee-button" onClick={() => setShowOverrideForm(false)}>Cancel</button>
-                                    <button type="submit" className="save-employee-button" disabled={saving}>
-                                        {saving ? "Saving..." : overrideForm.id ? "Save Changes" : "Create Shift"}
+                                    <button type="submit" className="save-employee-button" disabled={overrideSaving}>
+                                        {overrideSaveState === "saving"
+                                            ? "Saving..."
+                                            : overrideSaveState === "saved"
+                                                ? "Saved ✓"
+                                                : overrideForm.id ? "Save Changes" : "Create Shift"}
                                     </button>
                                 </div>
                             </div>

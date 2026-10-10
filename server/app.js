@@ -46,9 +46,12 @@ const {
   meetingRoom,
   conversationRoom,
   presenceRoom,
+  shiftRoom,
   LEGACY_COMPANY_SLUG,
 } = require("./utils/socketRooms");
 const { UPLOADS_ROOT } = require("./utils/tenantUploadPath");
+const { isManagerTierUser, resolveShiftRoomPlan } = require("./utils/shiftDefaults");
+const { getDirectReportRows } = require("./services/organizationService");
 const { verifyFileAccessToken } = require("./utils/fileAccessToken");
 const { signFileUrlsMiddleware } = require("./middleware/signFileUrlsMiddleware");
 
@@ -347,7 +350,7 @@ async function authenticateLegacySocket(token) {
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
   const [users] = await pool.query(
-    `SELECT id, employee_id, full_name, role, status FROM users WHERE id = ? LIMIT 1`,
+    `SELECT id, employee_id, full_name, role, system_access, status FROM users WHERE id = ? LIMIT 1`,
     [decoded.id]
   );
 
@@ -362,6 +365,11 @@ async function authenticateLegacySocket(token) {
       employeeId: user.employee_id,
       fullName: user.full_name,
       role: user.role,
+      // Needed so shift-event room membership (and any future
+      // tier-scoped realtime feature) can mirror the REST API's own
+      // role/system_access-based authorization -- see
+      // utils/shiftDefaults.js's resolveShiftRoomPlan.
+      systemAccess: user.system_access,
     },
     tenantContext: { tenantPool: pool.__legacyPool, companySlug: LEGACY_COMPANY_SLUG },
   };
@@ -418,6 +426,9 @@ async function authenticateTenantSocket(token) {
       employeeId: user.employee_id,
       fullName: user.full_name,
       role: user.role,
+      // Already fetched above (line ~405) but previously discarded
+      // here -- see the matching comment in authenticateLegacySocket.
+      systemAccess: user.system_access,
     },
     tenantContext: { tenantPool, companySlug: company.company_slug },
   };
@@ -474,7 +485,7 @@ io.use(
 
 io.on(
   "connection",
-  (socket) => {
+  async (socket) => {
     const userId =
       String(
         socket.user.id
@@ -539,6 +550,55 @@ io.on(
     socket.join(
       presenceRoom(companySlug)
     );
+
+    // ========================================
+    // SHIFT-SCHEDULE ROOM MEMBERSHIP
+    // See utils/shiftDefaults.js's resolveShiftRoomPlan for the full
+    // reasoning. Only Admin/Super Admin join the broad, tenant-wide
+    // room -- matching AdminShiftManagement.jsx's own default view
+    // (the full company roster). A Manager watches each of their OWN
+    // direct reports' personal rooms instead (never the broad room),
+    // matching their REST-restricted team scope. Every other tier
+    // gets neither -- only their own personal room (already joined
+    // above, for every tier, unconditionally) -- deliberately
+    // narrower than what REST would let them look up one at a time on
+    // request, since nothing in this feature asks for an ambient,
+    // unasked-for broadcast to every employee. Computed once at
+    // connect time, the same way `onlineUsers`/presence already is; a
+    // role or team change takes effect on the next reconnect, not
+    // mid-session -- the same limitation every other realtime feature
+    // here already has, not a new one.
+    // ========================================
+
+    try {
+      const directReportIds = isManagerTierUser(socket.user)
+        ? (await runWithTenantContext(
+            socket.tenantContext,
+            () => getDirectReportRows(socket.user.id)
+          )).map((report) => report.id)
+        : [];
+
+      const shiftRoomPlan = resolveShiftRoomPlan(socket.user, directReportIds);
+
+      if (shiftRoomPlan.joinBroadRoom) {
+        socket.join(shiftRoom(companySlug));
+      }
+
+      for (const watchedUserId of shiftRoomPlan.watchUserIds) {
+        socket.join(userRoom(companySlug, watchedUserId));
+      }
+
+    } catch (err) {
+      // Fail closed: on any error resolving this socket's shift-room
+      // plan, join NEITHER the broad room nor any extra per-report
+      // room, rather than defaulting to the wider (unrestricted) one.
+      // The socket's own personal room (joined above) still covers
+      // self-service shift updates.
+      console.error(
+        `Shift room setup failed for user ${userId} [tenant: ${companySlug}]:`,
+        err.message
+      );
+    }
 
     // ========================================
     // TRACK USER CONNECTION
