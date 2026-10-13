@@ -156,6 +156,19 @@ function Login() {
         )
       );
 
+      if (companySlug && companyInfo) {
+        sessionStorage.setItem(
+          "company",
+          JSON.stringify(
+            companyInfo
+          )
+        );
+      } else {
+        sessionStorage.removeItem(
+          "company"
+        );
+      }
+
       toast.success(
         "Login successful"
       );
@@ -205,6 +218,10 @@ function Login() {
 
       sessionStorage.removeItem(
         "user"
+      );
+
+      sessionStorage.removeItem(
+        "company"
       );
 
       toast.error(

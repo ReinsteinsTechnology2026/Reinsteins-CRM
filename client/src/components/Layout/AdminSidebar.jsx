@@ -58,6 +58,19 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
   const { companySlug } = useParams();
   const basePath = companySlug ? `/${companySlug}/admin` : "/admin";
 
+  // Tenant-aware company name, cached at login time (Login.jsx) from
+  // the same /tenant-auth/:companySlug/info call already used for the
+  // login page's own branding -- reused here rather than re-fetched.
+  // Legacy Reinsteins (no companySlug) never sets this key, so the
+  // fallback below preserves today's exact Reinsteins branding.
+  const companyName = (() => {
+    try {
+      return JSON.parse(sessionStorage.getItem("company"))?.name || null;
+    } catch {
+      return null;
+    }
+  })();
+
   // ==========================================
   // MOBILE/TABLET DRAWER — FOCUS ON OPEN
   //
@@ -337,7 +350,7 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
         <div>
 
           <h2>
-            Reinsteins
+            {companyName || "Reinsteins"}
           </h2>
 
           <span>
@@ -800,7 +813,7 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
       <div className="sidebar-footer">
 
         <p>
-          Reinsteins Technology
+          {companyName || "Reinsteins Technology"}
         </p>
 
         <span>

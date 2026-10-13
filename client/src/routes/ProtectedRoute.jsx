@@ -119,6 +119,10 @@ function ProtectedRoute({
             "user"
           );
 
+          sessionStorage.removeItem(
+            "company"
+          );
+
           setAuthenticated(
             false
           );
@@ -208,6 +212,10 @@ function ProtectedRoute({
 
           sessionStorage.removeItem(
             "user"
+          );
+
+          sessionStorage.removeItem(
+            "company"
           );
 
           setUser(

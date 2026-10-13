@@ -613,6 +613,10 @@ function EmployeeHeader({ mobileNavOpen, onOpenMobileNav }) {
         "user"
       );
 
+      sessionStorage.removeItem(
+        "company"
+      );
+
       // Remove old authentication
       // left from previous localStorage setup.
       localStorage.removeItem(

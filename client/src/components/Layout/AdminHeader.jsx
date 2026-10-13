@@ -374,6 +374,10 @@ function AdminHeader({ mobileNavOpen, onOpenMobileNav }) {
         "user"
       );
 
+      sessionStorage.removeItem(
+        "company"
+      );
+
       // Clear authentication left over
       // from the previous localStorage system
 

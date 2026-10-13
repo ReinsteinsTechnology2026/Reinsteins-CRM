@@ -59,6 +59,10 @@ api.interceptors.response.use(
       sessionStorage.removeItem(
         "user"
       );
+
+      sessionStorage.removeItem(
+        "company"
+      );
     }
 
     return Promise.reject(
