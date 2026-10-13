@@ -3,6 +3,13 @@ import { FaEnvelope, FaCheckCircle, FaTrash, FaSync } from "react-icons/fa";
 
 import api from "../../services/api";
 
+// NOTE (UI audit, Batch 0): this file imports no CSS of its own. Its
+// "admin-settings-*" classes are defined only in AdminSettings.css --
+// it renders correctly today only because whatever page mounts this
+// component (as a tab/child) already loaded AdminSettings.css first.
+// Do not remove or rename those classes in AdminSettings.css without
+// checking this file too.
+
 // ==========================================
 // ADMIN EMAIL SETTINGS (Phase 16A foundation)
 //

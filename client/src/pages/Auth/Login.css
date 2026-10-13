@@ -5,7 +5,7 @@
 .login-page {
   min-height: 100vh;
   display: flex;
-  background: #ffffff;
+  background: var(--background);
 }
 
 
@@ -30,8 +30,8 @@
     ),
     linear-gradient(
       135deg,
-      #111816 0%,
-      #18211e 100%
+      var(--dark) 0%,
+      var(--dark-surface) 100%
     );
 
   color: #ffffff;
@@ -60,11 +60,11 @@
 
   border-radius: 20px;
 
-  background: #111816;
+  background: var(--dark);
 
   border: 1px solid rgba(22, 166, 106, 0.35);
 
-  color: #16a66a;
+  color: var(--primary);
 
   font-size: 46px;
   font-weight: 800;
@@ -130,7 +130,7 @@
 
   box-sizing: border-box;
 
-  background: #ffffff;
+  background: var(--background);
 }
 
 
@@ -152,7 +152,7 @@
 .login-header h2 {
   margin: 0 0 12px;
 
-  color: #17211d;
+  color: var(--text);
 
   font-size: 52px;
   font-weight: 700;
@@ -162,7 +162,7 @@
 .login-header p {
   margin: 0;
 
-  color: #53615a;
+  color: var(--text-secondary);
 
   font-size: 18px;
 }
@@ -182,7 +182,7 @@
 
   margin-bottom: 10px;
 
-  color: #17211d;
+  color: var(--text);
 
   font-size: 15px;
   font-weight: 600;
@@ -206,15 +206,15 @@
 
   box-sizing: border-box;
 
-  border: 1px solid #e2e9e5;
+  border: 1px solid var(--border);
 
   border-radius: 14px;
 
   outline: none;
 
-  background: #ffffff;
+  background: var(--card);
 
-  color: #17211d;
+  color: var(--text);
 
   font-size: 17px;
 
@@ -226,19 +226,19 @@
 
 
 .login-card .input-container input::placeholder {
-  color: #7a8780;
+  color: var(--text-muted);
 }
 
 
 .input-container input:hover {
-  border-color: #cbecdd;
+  border-color: var(--border-light);
 }
 
 
 .input-container input:focus {
-  border-color: #16a66a;
+  border-color: var(--primary);
 
-  background: #ffffff;
+  background: var(--card);
 
   box-shadow:
     0 0 0 4px rgba(22, 166, 106, 0.12);
@@ -257,7 +257,7 @@
 
   transform: translateY(-50%);
 
-  color: #7a8780;
+  color: var(--text-muted);
 
   font-size: 19px;
 
@@ -281,7 +281,7 @@
 
   background: transparent;
 
-  color: #53615a;
+  color: var(--text-secondary);
 
   cursor: pointer;
 
@@ -296,7 +296,7 @@
 
 
 .password-toggle:hover {
-  color: #16a66a;
+  color: var(--primary);
 }
 
 
@@ -314,7 +314,7 @@
 
   border-radius: 14px;
 
-  background: #16a66a;
+  background: var(--primary);
 
   color: #ffffff;
 
@@ -331,7 +331,7 @@
 
 
 .login-button:hover:not(:disabled) {
-  background: #128957;
+  background: var(--primary-hover);
 
   transform: translateY(-1px);
 
@@ -366,7 +366,7 @@
 .login-footer p {
   margin: 0 0 6px;
 
-  color: #17211d;
+  color: var(--text);
 
   font-size: 17px;
   font-weight: 600;
@@ -374,7 +374,7 @@
 
 
 .login-footer span {
-  color: #7a8780;
+  color: var(--text-muted);
 
   font-size: 14px;
 }
@@ -396,7 +396,7 @@
 
     padding: 25px;
 
-    background: #ffffff;
+    background: var(--background);
   }
 
 

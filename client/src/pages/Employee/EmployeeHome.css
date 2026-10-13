@@ -1,4 +1,14 @@
-﻿.employee-layout {
+﻿/* NOTE (UI audit, Batch 0): this file redeclares several selectors
+   that EmployeeSidebar.css/EmployeeHeader.css/EmployeeLayout.css also
+   define for the shared portal shell (.employee-sidebar, .employee-
+   brand, .employee-navigation, .employee-nav-item, .employee-
+   sidebar-footer, .employee-main, .employee-header, .employee-
+   header-actions, .employee-logout, .employee-header-profile).
+   Whichever rule wins depends on CSS import order, not intent -- a
+   real override risk. Do not rely on either copy without checking
+   the other first. */
+
+.employee-layout {
   min-height: 100vh;
   background: #FFFFFF;
 }

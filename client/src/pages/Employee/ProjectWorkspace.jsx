@@ -82,6 +82,12 @@ import TaskFilterBar from "../../components/TaskFilterBar";
 
 import { DEFAULT_TASK_FILTERS, isTaskFilterActive, taskMatchesFilters } from "../../utils/taskFilter";
 
+// NOTE (UI audit, Batch 0): MyTeam.css is an unrelated Employee page's
+// stylesheet -- this file borrows its "my-team-card"/"my-team-empty"/
+// "my-team-header" classes as a generic section-card/empty-state
+// wrapper throughout. Editing MyTeam.css for the My Team feature will
+// silently restyle this board too. Do not remove this import without
+// replacing every "my-team-*" class used below.
 import "./MyTeam.css";
 import "./ProjectWorkspace.css";
 

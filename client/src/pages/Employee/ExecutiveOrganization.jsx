@@ -6,6 +6,11 @@ import { toast } from "react-toastify";
 
 import api from "../../services/api";
 
+// NOTE (UI audit, Batch 0): this page depends on two other pages'
+// stylesheets -- Admin's Organization.css (org-chart/department
+// classes) and this folder's own MyTeam.css (card/empty-state
+// classes). Neither is unused here despite living elsewhere; check
+// both before editing or removing either file.
 import "../Admin/Organization.css";
 import "./MyTeam.css";
 

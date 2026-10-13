@@ -1,0 +1,29 @@
+.ui-empty-state {
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.ui-empty-state-icon {
+  font-size: 32px;
+  color: var(--ui-text-muted);
+  margin-bottom: 12px;
+}
+
+.ui-empty-state-title {
+  margin: 0 0 4px;
+
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ui-text);
+}
+
+.ui-empty-state-description {
+  margin: 0;
+
+  font-size: 13.5px;
+  color: var(--ui-text-secondary);
+}
+
+.ui-empty-state-action {
+  margin-top: 16px;
+}

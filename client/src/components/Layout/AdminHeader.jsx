@@ -472,6 +472,13 @@ function AdminHeader({ mobileNavOpen, onOpenMobileNav }) {
 
           {isOpen && (
 
+            /* NOTE (UI audit, Batch 0): every "employee-notification-*"
+               class below is defined only in EmployeeHeader.css, not
+               here in AdminHeader.css. It renders correctly today only
+               because the app's CSS is bundled globally with no
+               scoping -- do not rename/remove those classes in
+               EmployeeHeader.css, or move/delete this block, without
+               checking both files first. */
             <div className="employee-notification-dropdown">
 
               <div className="employee-notification-dropdown-header">

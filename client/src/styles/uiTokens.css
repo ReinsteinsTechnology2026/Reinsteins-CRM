@@ -1,0 +1,150 @@
+/* ==========================================
+   SHARED UI COMPONENT TOKENS (Batch 1)
+
+   Every component in components/UI/ reads ONLY the --ui-* tokens
+   below -- never a portal's own --primary/--p-primary directly. That
+   indirection is what lets one Button/Modal/Badge/Table/EmptyState/
+   Skeleton render correctly in both the WorkHub tenant portal (this
+   file's default :root block) and the Platform Owner console (the
+   .platform-shell block). Every value on both sides is a var()
+   reference to a token theme.css or platformTheme.css already define
+   -- nothing here is a new literal color, so neither portal's
+   resolved palette changes by one pixel.
+
+   Two values have no existing source token to alias and are literal
+   dimensions (not colors): --ui-radius-sm and --ui-border-strong in
+   the WorkHub (:root) block. theme.css defines only a single
+   --radius (14px) and a single --border, with no "small"/"strong"
+   variant the way platformTheme.css and publicTheme.css both do.
+   --ui-radius-sm:8px matches the de facto radius already used on
+   WorkHub's own Register.css buttons/inputs (not invented), and
+   --ui-border-strong reuses --border itself (WorkHub has no darker
+   border token to point to).
+========================================== */
+
+:root {
+
+    --ui-primary: var(--primary);
+    --ui-primary-hover: var(--primary-hover);
+    --ui-primary-light: var(--mint);
+
+    --ui-surface: var(--card);
+    --ui-surface-secondary: var(--surface-secondary);
+
+    --ui-text: var(--text);
+    --ui-text-secondary: var(--text-secondary);
+    --ui-text-muted: var(--text-muted);
+
+    --ui-border: var(--border);
+    --ui-border-strong: var(--border);
+
+    --ui-success: var(--success);
+    --ui-success-light: var(--success-light);
+
+    --ui-warning: var(--warning);
+    --ui-warning-light: var(--warning-light);
+
+    --ui-danger: var(--danger);
+    --ui-danger-light: var(--danger-light);
+
+    --ui-info: var(--info);
+    --ui-info-light: var(--info-light);
+
+    --ui-neutral: var(--text-secondary);
+    --ui-neutral-light: var(--surface-secondary);
+
+    --ui-radius: var(--radius);
+    --ui-radius-sm: 8px;
+
+    --ui-shadow: var(--shadow);
+    --ui-shadow-hover: var(--shadow-hover);
+
+}
+
+/* Platform Owner console -- redeclares the same neutral tokens,
+   scoped to .platform-shell, so anything from components/UI/ rendered
+   inside it automatically picks up Platform's own indigo/slate
+   identity instead of WorkHub's emerald. Every value here is a var()
+   reference to platformTheme.css's own --p-* tokens. */
+.platform-shell {
+
+    --ui-primary: var(--p-primary);
+    --ui-primary-hover: var(--p-primary-hover);
+    --ui-primary-light: var(--p-primary-light);
+
+    --ui-surface: var(--p-surface);
+    --ui-surface-secondary: var(--p-surface-secondary);
+
+    --ui-text: var(--p-text);
+    --ui-text-secondary: var(--p-text-secondary);
+    --ui-text-muted: var(--p-text-muted);
+
+    --ui-border: var(--p-border);
+    --ui-border-strong: var(--p-border-strong);
+
+    --ui-success: var(--p-success);
+    --ui-success-light: var(--p-success-light);
+
+    --ui-warning: var(--p-warning);
+    --ui-warning-light: var(--p-warning-light);
+
+    --ui-danger: var(--p-danger);
+    --ui-danger-light: var(--p-danger-light);
+
+    --ui-info: var(--p-info);
+    --ui-info-light: var(--p-info-light);
+
+    --ui-neutral: var(--p-text-secondary);
+    --ui-neutral-light: var(--p-surface-secondary);
+
+    --ui-radius: var(--p-radius);
+    --ui-radius-sm: var(--p-radius-sm);
+
+    --ui-shadow: var(--p-shadow);
+    --ui-shadow-hover: var(--p-shadow-hover);
+
+}
+
+/* ZioVenture public site -- not required by this batch (only WorkHub
+   and Platform Owner contexts were requested), included for
+   completeness since components/UI/ is meant to be genuinely portal-
+   agnostic and the public site already has an equivalent token set to
+   alias. Not exercised by this batch's verification. */
+.public-shell {
+
+    --ui-primary: var(--pub-primary);
+    --ui-primary-hover: var(--pub-primary-hover);
+    --ui-primary-light: var(--pub-primary-light);
+
+    --ui-surface: var(--pub-surface);
+    --ui-surface-secondary: var(--pub-bg-subtle);
+
+    --ui-text: var(--pub-ink);
+    --ui-text-secondary: var(--pub-ink-secondary);
+    --ui-text-muted: var(--pub-ink-muted);
+
+    --ui-border: var(--pub-border);
+    --ui-border-strong: var(--pub-border-strong);
+
+    --ui-success: var(--pub-success);
+    --ui-success-light: var(--pub-success-light);
+
+    --ui-warning: var(--warning);
+    --ui-warning-light: var(--warning-light);
+
+    --ui-danger: var(--danger);
+    --ui-danger-light: var(--danger-light);
+
+    --ui-info: var(--info);
+    --ui-info-light: var(--info-light);
+
+    --ui-neutral: var(--pub-ink-secondary);
+    --ui-neutral-light: var(--pub-bg-subtle);
+
+    --ui-radius: var(--pub-radius);
+    --ui-radius-sm: var(--pub-radius-sm);
+
+    --ui-shadow: var(--pub-shadow);
+    --ui-shadow-hover: var(--pub-shadow-hover);
+
+}

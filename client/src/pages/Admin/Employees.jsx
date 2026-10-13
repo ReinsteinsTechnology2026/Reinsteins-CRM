@@ -5,7 +5,6 @@ import {
 
 import {
   FaPlus,
-  FaTimes,
   FaUsers,
   FaEdit,
   FaUserCheck,
@@ -40,7 +39,47 @@ import {
 import api from "../../services/api";
 import { API_ORIGIN } from "../../config";
 
+import { Badge, EmptyState, Modal, Skeleton } from "../../components/UI";
+
 import "./Employees.css";
+
+// ==========================================
+// EMPLOYMENT STATUS -> BADGE TONE
+// Employees.css's own .employment-status-badge rules only ever
+// covered "active"/"resigned"/"terminated"/"inactive"/"retired" --
+// three real statuses this page actually sets (`completed`,
+// `discontinued`, `converted` -- see isFormerEmployee below) had no
+// matching CSS at all and rendered as an unstyled pill. This covers
+// every real status plus a safe fallback, not just the ones the old
+// CSS happened to style. "retired" intentionally gets its own tone
+// (info/blue) rather than reusing "success" -- the old design used
+// two very similar pale greens for "active" and "retired", which
+// read as nearly the same color.
+// ==========================================
+
+const EMPLOYMENT_STATUS_TONE = {
+  active: "success",
+  resigned: "neutral",
+  terminated: "danger",
+  completed: "info",
+  discontinued: "warning",
+  converted: "info",
+  inactive: "warning",
+  retired: "info",
+};
+
+function employmentStatusTone(status) {
+  return EMPLOYMENT_STATUS_TONE[status] || "neutral";
+}
+
+// Badge (components/UI/Badge.css) doesn't apply text-transform the
+// way the old .employment-status-badge CSS did -- capitalizing here
+// keeps the rendered label ("Active" not "active") identical to
+// before.
+function capitalize(value) {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
 
 // ==========================================
 // BACKEND URL
@@ -63,6 +102,11 @@ function Employees() {
     loading,
     setLoading,
   ] = useState(true);
+
+  const [
+    loadError,
+    setLoadError,
+  ] = useState("");
 
   const [
     showForm,
@@ -247,6 +291,7 @@ function Employees() {
     async () => {
       try {
         setLoading(true);
+        setLoadError("");
 
         const response =
           await api.get(
@@ -260,12 +305,15 @@ function Employees() {
 
       } catch (error) {
 
-        toast.error(
+        const message =
           error.response
             ?.data
             ?.message ||
-            "Unable to load employees"
-        );
+            "Unable to load employees";
+
+        toast.error(message);
+
+        setLoadError(message);
 
       } finally {
 
@@ -1795,11 +1843,11 @@ function Employees() {
 
             <div>
 
-             <h2 style={{ color: "#17211D" }}>
+             <h2>
   Employee Management
 </h2>
 
-       <p style={{ color: "#64748B" }}>
+       <p>
   View employee profiles, photos and manage employee accounts.
 </p>
 
@@ -1834,6 +1882,10 @@ function Employees() {
             </div>
 
           </div>
+
+          {loadError && (
+            <div className="employees-load-error">{loadError}</div>
+          )}
 
           {/* SUMMARY */}
 
@@ -2057,30 +2109,32 @@ function Employees() {
 
             {loading ? (
 
-              <div className="employees-empty">
-
-                Loading
-                employees...
-
+              <div className="employees-skeleton-rows">
+                <Skeleton height="52px" />
+                <Skeleton height="52px" />
+                <Skeleton height="52px" />
+                <Skeleton height="52px" />
+                <Skeleton height="52px" />
               </div>
 
             ) : visibleEmployees.length ===
               0 ? (
 
-              <div className="employees-empty">
-
-                {activeTab ===
-                "formerEmployees"
-                  ? "No former employees."
-                  : activeTab ===
-                    "formerInterns"
-                  ? "No former interns."
-                  : activeTab ===
-                    "activeInterns"
-                  ? "No active interns."
-                  : "No employees found."}
-
-              </div>
+              <EmptyState
+                icon={<FaUsers />}
+                description={
+                  activeTab ===
+                  "formerEmployees"
+                    ? "No former employees."
+                    : activeTab ===
+                      "formerInterns"
+                    ? "No former interns."
+                    : activeTab ===
+                      "activeInterns"
+                    ? "No active interns."
+                    : "No employees found."
+                }
+              />
 
             ) : (
 
@@ -2288,15 +2342,13 @@ function Employees() {
 
                             <td>
 
-                              <span
-                                className={`employment-status-badge ${employmentStatus}`}
-                              >
+                              <Badge tone={employmentStatusTone(employmentStatus)}>
 
                                 {
-                                  employmentStatus
+                                  capitalize(employmentStatus)
                                 }
 
-                              </span>
+                              </Badge>
 
                             </td>
 
@@ -2631,39 +2683,12 @@ function Employees() {
 
       {showForm && (
 
-        <div className="employee-modal-overlay">
-
-          <div className="employee-modal">
-
-            <div className="employee-modal-header">
-
-              <div>
-
-                <h2>
-                  Add Employee
-                </h2>
-
-                <p>
-                  Create a new
-                  employee login
-                  account.
-                </p>
-
-              </div>
-
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() =>
-                  setShowForm(
-                    false
-                  )
-                }
-              >
-                <FaTimes />
-              </button>
-
-            </div>
+        <Modal
+          open
+          onClose={() => setShowForm(false)}
+          title="Add Employee"
+          description="Create a new employee login account."
+        >
 
             <form
               onSubmit={
@@ -2916,9 +2941,7 @@ function Employees() {
 
             </form>
 
-          </div>
-
-        </div>
+        </Modal>
 
       )}
 
@@ -2928,39 +2951,12 @@ function Employees() {
 
       {showInternForm && (
 
-        <div className="employee-modal-overlay">
-
-          <div className="employee-modal">
-
-            <div className="employee-modal-header">
-
-              <div>
-
-                <h2>
-                  Add Intern
-                </h2>
-
-                <p>
-                  Create a new
-                  intern login
-                  account.
-                </p>
-
-              </div>
-
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() =>
-                  setShowInternForm(
-                    false
-                  )
-                }
-              >
-                <FaTimes />
-              </button>
-
-            </div>
+        <Modal
+          open
+          onClose={() => setShowInternForm(false)}
+          title="Add Intern"
+          description="Create a new intern login account."
+        >
 
             <form
               onSubmit={
@@ -3235,9 +3231,7 @@ function Employees() {
 
             </form>
 
-          </div>
-
-        </div>
+        </Modal>
 
       )}
 
@@ -3247,38 +3241,13 @@ function Employees() {
 
       {selectedEmployee && (
 
-        <div className="employee-modal-overlay">
-
-          <div className="employee-modal employee-details-modal">
-
-            <div className="employee-modal-header">
-
-              <div>
-
-                <h2>
-                  Employee Details
-                </h2>
-
-                <p>
-                  Complete employee
-                  profile information.
-                </p>
-
-              </div>
-
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() =>
-                  setSelectedEmployee(
-                    null
-                  )
-                }
-              >
-                <FaTimes />
-              </button>
-
-            </div>
+        <Modal
+          open
+          onClose={() => setSelectedEmployee(null)}
+          title="Employee Details"
+          description="Complete employee profile information."
+          className="employee-details-modal"
+        >
 
             {isFormerEmployee(
               selectedEmployee
@@ -3820,10 +3789,10 @@ function Employees() {
 
               {historyLoading ? (
 
-                <p className="employment-history-empty">
-                  Loading employment
-                  history...
-                </p>
+                <div className="employment-history-skeleton-rows">
+                  <Skeleton height="60px" />
+                  <Skeleton height="60px" />
+                </div>
 
               ) : employmentHistory.length ===
                 0 ? (
@@ -3964,9 +3933,7 @@ function Employees() {
 
             </div>
 
-          </div>
-
-        </div>
+        </Modal>
 
       )}
 
@@ -3976,171 +3943,141 @@ function Employees() {
 
       {resignTarget && (
 
-        <div className="employee-modal-overlay">
+        <Modal
+          open
+          onClose={() => setResignTarget(null)}
+          title="Mark Employee as Resigned"
+          description="This keeps the employee's full profile and history — only their employment status changes."
+        >
 
-          <div className="employee-modal">
+          <form
+            onSubmit={
+              handleConfirmResign
+            }
+          >
 
-            <div className="employee-modal-header">
+            <div className="employee-form-group">
+              <label>
+                Employee Name
+              </label>
+              <input
+                type="text"
+                value={
+                  resignTarget.full_name
+                }
+                disabled
+              />
+            </div>
 
-              <div>
-                <h2>
-                  Mark Employee as
-                  Resigned
-                </h2>
-                <p>
-                  This keeps the
-                  employee's full
-                  profile and history
-                  — only their
-                  employment status
-                  changes.
-                </p>
-              </div>
+            <div className="employee-form-group">
+              <label>
+                Employee ID
+              </label>
+              <input
+                type="text"
+                value={
+                  resignTarget.employee_id
+                }
+                disabled
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Designation
+              </label>
+              <input
+                type="text"
+                value={
+                  resignTarget.designation ||
+                  "Not provided"
+                }
+                disabled
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Last Working Date
+              </label>
+              <input
+                type="date"
+                name="lastWorkingDate"
+                value={
+                  lifecycleForm.lastWorkingDate
+                }
+                onChange={
+                  handleLifecycleFieldChange
+                }
+                required
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Resignation Reason
+              </label>
+              <textarea
+                name="reason"
+                value={
+                  lifecycleForm.reason
+                }
+                onChange={
+                  handleLifecycleFieldChange
+                }
+                placeholder="Optional"
+                rows="3"
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Exit Notes
+              </label>
+              <textarea
+                name="exitNotes"
+                value={
+                  lifecycleForm.exitNotes
+                }
+                onChange={
+                  handleLifecycleFieldChange
+                }
+                placeholder="Optional HR/Admin notes"
+                rows="3"
+              />
+            </div>
+
+            <div className="employee-modal-actions">
 
               <button
                 type="button"
-                className="modal-close"
+                className="cancel-employee-button"
                 onClick={() =>
                   setResignTarget(
                     null
                   )
                 }
               >
-                <FaTimes />
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="save-employee-button"
+                disabled={
+                  lifecycleSaving
+                }
+              >
+                {lifecycleSaving
+                  ? "Saving..."
+                  : "Confirm Resignation"}
               </button>
 
             </div>
 
-            <form
-              onSubmit={
-                handleConfirmResign
-              }
-            >
+          </form>
 
-              <div className="employee-form-group">
-                <label>
-                  Employee Name
-                </label>
-                <input
-                  type="text"
-                  value={
-                    resignTarget.full_name
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Employee ID
-                </label>
-                <input
-                  type="text"
-                  value={
-                    resignTarget.employee_id
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Designation
-                </label>
-                <input
-                  type="text"
-                  value={
-                    resignTarget.designation ||
-                    "Not provided"
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Last Working Date
-                </label>
-                <input
-                  type="date"
-                  name="lastWorkingDate"
-                  value={
-                    lifecycleForm.lastWorkingDate
-                  }
-                  onChange={
-                    handleLifecycleFieldChange
-                  }
-                  required
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Resignation Reason
-                </label>
-                <textarea
-                  name="reason"
-                  value={
-                    lifecycleForm.reason
-                  }
-                  onChange={
-                    handleLifecycleFieldChange
-                  }
-                  placeholder="Optional"
-                  rows="3"
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Exit Notes
-                </label>
-                <textarea
-                  name="exitNotes"
-                  value={
-                    lifecycleForm.exitNotes
-                  }
-                  onChange={
-                    handleLifecycleFieldChange
-                  }
-                  placeholder="Optional HR/Admin notes"
-                  rows="3"
-                />
-              </div>
-
-              <div className="employee-modal-actions">
-
-                <button
-                  type="button"
-                  className="cancel-employee-button"
-                  onClick={() =>
-                    setResignTarget(
-                      null
-                    )
-                  }
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="save-employee-button"
-                  disabled={
-                    lifecycleSaving
-                  }
-                >
-                  {lifecycleSaving
-                    ? "Saving..."
-                    : "Confirm Resignation"}
-                </button>
-
-              </div>
-
-            </form>
-
-          </div>
-
-        </div>
+        </Modal>
 
       )}
 
@@ -4150,177 +4087,151 @@ function Employees() {
 
       {terminateTarget && (
 
-        <div className="employee-modal-overlay">
+        <Modal
+          open
+          onClose={() => setTerminateTarget(null)}
+          title={
+            isInternType(
+              terminateTarget
+            )
+              ? "Terminate Internship"
+              : "Terminate Employee"
+          }
+          description="This keeps the full profile and history — only the employment status changes."
+        >
 
-          <div className="employee-modal">
+          <form
+            onSubmit={
+              handleConfirmTerminate
+            }
+          >
 
-            <div className="employee-modal-header">
+            <div className="employee-form-group">
+              <label>
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={
+                  terminateTarget.full_name
+                }
+                disabled
+              />
+            </div>
 
-              <div>
-                <h2>
-                  {isInternType(
-                    terminateTarget
-                  )
-                    ? "Terminate Internship"
-                    : "Terminate Employee"}
-                </h2>
-                <p>
-                  This keeps the
-                  full profile and
-                  history — only the
-                  employment status
-                  changes.
-                </p>
-              </div>
+            <div className="employee-form-group">
+              <label>
+                {isInternType(
+                  terminateTarget
+                )
+                  ? "Intern ID"
+                  : "Employee ID"}
+              </label>
+              <input
+                type="text"
+                value={
+                  terminateTarget.employee_id
+                }
+                disabled
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Designation
+              </label>
+              <input
+                type="text"
+                value={
+                  terminateTarget.designation ||
+                  "Not provided"
+                }
+                disabled
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Last Working Date
+              </label>
+              <input
+                type="date"
+                name="lastWorkingDate"
+                value={
+                  lifecycleForm.lastWorkingDate
+                }
+                onChange={
+                  handleLifecycleFieldChange
+                }
+                required
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Termination Reason
+              </label>
+              <textarea
+                name="reason"
+                value={
+                  lifecycleForm.reason
+                }
+                onChange={
+                  handleLifecycleFieldChange
+                }
+                placeholder="Optional"
+                rows="3"
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Admin Notes
+              </label>
+              <textarea
+                name="exitNotes"
+                value={
+                  lifecycleForm.exitNotes
+                }
+                onChange={
+                  handleLifecycleFieldChange
+                }
+                placeholder="Optional HR/Admin notes"
+                rows="3"
+              />
+            </div>
+
+            <div className="employee-modal-actions">
 
               <button
                 type="button"
-                className="modal-close"
+                className="cancel-employee-button"
                 onClick={() =>
                   setTerminateTarget(
                     null
                   )
                 }
               >
-                <FaTimes />
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="terminate-confirm-button"
+                disabled={
+                  lifecycleSaving
+                }
+              >
+                {lifecycleSaving
+                  ? "Saving..."
+                  : "Confirm Termination"}
               </button>
 
             </div>
 
-            <form
-              onSubmit={
-                handleConfirmTerminate
-              }
-            >
+          </form>
 
-              <div className="employee-form-group">
-                <label>
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={
-                    terminateTarget.full_name
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  {isInternType(
-                    terminateTarget
-                  )
-                    ? "Intern ID"
-                    : "Employee ID"}
-                </label>
-                <input
-                  type="text"
-                  value={
-                    terminateTarget.employee_id
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Designation
-                </label>
-                <input
-                  type="text"
-                  value={
-                    terminateTarget.designation ||
-                    "Not provided"
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Last Working Date
-                </label>
-                <input
-                  type="date"
-                  name="lastWorkingDate"
-                  value={
-                    lifecycleForm.lastWorkingDate
-                  }
-                  onChange={
-                    handleLifecycleFieldChange
-                  }
-                  required
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Termination Reason
-                </label>
-                <textarea
-                  name="reason"
-                  value={
-                    lifecycleForm.reason
-                  }
-                  onChange={
-                    handleLifecycleFieldChange
-                  }
-                  placeholder="Optional"
-                  rows="3"
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Admin Notes
-                </label>
-                <textarea
-                  name="exitNotes"
-                  value={
-                    lifecycleForm.exitNotes
-                  }
-                  onChange={
-                    handleLifecycleFieldChange
-                  }
-                  placeholder="Optional HR/Admin notes"
-                  rows="3"
-                />
-              </div>
-
-              <div className="employee-modal-actions">
-
-                <button
-                  type="button"
-                  className="cancel-employee-button"
-                  onClick={() =>
-                    setTerminateTarget(
-                      null
-                    )
-                  }
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="terminate-confirm-button"
-                  disabled={
-                    lifecycleSaving
-                  }
-                >
-                  {lifecycleSaving
-                    ? "Saving..."
-                    : "Confirm Termination"}
-                </button>
-
-              </div>
-
-            </form>
-
-          </div>
-
-        </div>
+        </Modal>
 
       )}
 
@@ -4330,158 +4241,128 @@ function Employees() {
 
       {rehireTarget && (
 
-        <div className="employee-modal-overlay">
+        <Modal
+          open
+          onClose={() => setRehireTarget(null)}
+          title="Rehire Employee"
+          description="Reactivates this same employee record and Employee ID — their previous employment period stays preserved in history."
+        >
 
-          <div className="employee-modal">
+          <form
+            onSubmit={
+              handleConfirmRehire
+            }
+          >
 
-            <div className="employee-modal-header">
+            <div className="employee-form-group">
+              <label>
+                Employee Name
+              </label>
+              <input
+                type="text"
+                value={
+                  rehireTarget.full_name
+                }
+                disabled
+              />
+            </div>
 
-              <div>
-                <h2>
-                  Rehire Employee
-                </h2>
-                <p>
-                  Reactivates this
-                  same employee record
-                  and Employee ID —
-                  their previous
-                  employment period
-                  stays preserved in
-                  history.
-                </p>
-              </div>
+            <div className="employee-form-group">
+              <label>
+                Employee ID
+              </label>
+              <input
+                type="text"
+                value={
+                  rehireTarget.employee_id
+                }
+                disabled
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                New Designation
+              </label>
+              <input
+                type="text"
+                name="designation"
+                value={
+                  rehireForm.designation
+                }
+                onChange={
+                  handleRehireFieldChange
+                }
+                placeholder="Example: Senior Software Developer"
+                required
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                New Joining Date
+              </label>
+              <input
+                type="date"
+                name="joiningDate"
+                value={
+                  rehireForm.joiningDate
+                }
+                onChange={
+                  handleRehireFieldChange
+                }
+                required
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Notes
+              </label>
+              <textarea
+                name="notes"
+                value={
+                  rehireForm.notes
+                }
+                onChange={
+                  handleRehireFieldChange
+                }
+                placeholder="Optional"
+                rows="3"
+              />
+            </div>
+
+            <div className="employee-modal-actions">
 
               <button
                 type="button"
-                className="modal-close"
+                className="cancel-employee-button"
                 onClick={() =>
                   setRehireTarget(
                     null
                   )
                 }
               >
-                <FaTimes />
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="save-employee-button"
+                disabled={
+                  lifecycleSaving
+                }
+              >
+                {lifecycleSaving
+                  ? "Saving..."
+                  : "Confirm Rehire"}
               </button>
 
             </div>
 
-            <form
-              onSubmit={
-                handleConfirmRehire
-              }
-            >
+          </form>
 
-              <div className="employee-form-group">
-                <label>
-                  Employee Name
-                </label>
-                <input
-                  type="text"
-                  value={
-                    rehireTarget.full_name
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Employee ID
-                </label>
-                <input
-                  type="text"
-                  value={
-                    rehireTarget.employee_id
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  New Designation
-                </label>
-                <input
-                  type="text"
-                  name="designation"
-                  value={
-                    rehireForm.designation
-                  }
-                  onChange={
-                    handleRehireFieldChange
-                  }
-                  placeholder="Example: Senior Software Developer"
-                  required
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  New Joining Date
-                </label>
-                <input
-                  type="date"
-                  name="joiningDate"
-                  value={
-                    rehireForm.joiningDate
-                  }
-                  onChange={
-                    handleRehireFieldChange
-                  }
-                  required
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Notes
-                </label>
-                <textarea
-                  name="notes"
-                  value={
-                    rehireForm.notes
-                  }
-                  onChange={
-                    handleRehireFieldChange
-                  }
-                  placeholder="Optional"
-                  rows="3"
-                />
-              </div>
-
-              <div className="employee-modal-actions">
-
-                <button
-                  type="button"
-                  className="cancel-employee-button"
-                  onClick={() =>
-                    setRehireTarget(
-                      null
-                    )
-                  }
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="save-employee-button"
-                  disabled={
-                    lifecycleSaving
-                  }
-                >
-                  {lifecycleSaving
-                    ? "Saving..."
-                    : "Confirm Rehire"}
-                </button>
-
-              </div>
-
-            </form>
-
-          </div>
-
-        </div>
+        </Modal>
 
       )}
 
@@ -4491,153 +4372,124 @@ function Employees() {
 
       {completeTarget && (
 
-        <div className="employee-modal-overlay">
+        <Modal
+          open
+          onClose={() => setCompleteTarget(null)}
+          title="Complete Internship"
+          description="This keeps the intern's full profile and history — only their internship status changes."
+        >
 
-          <div className="employee-modal">
+          <form
+            onSubmit={
+              handleConfirmComplete
+            }
+          >
 
-            <div className="employee-modal-header">
+            <div className="employee-form-group">
+              <label>
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={
+                  completeTarget.full_name
+                }
+                disabled
+              />
+            </div>
 
-              <div>
-                <h2>
-                  Complete Internship
-                </h2>
-                <p>
-                  This keeps the
-                  intern's full
-                  profile and history
-                  — only their
-                  internship status
-                  changes.
-                </p>
-              </div>
+            <div className="employee-form-group">
+              <label>
+                Intern ID
+              </label>
+              <input
+                type="text"
+                value={
+                  completeTarget.employee_id
+                }
+                disabled
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Designation
+              </label>
+              <input
+                type="text"
+                value={
+                  completeTarget.designation ||
+                  "Not provided"
+                }
+                disabled
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Completion Date
+              </label>
+              <input
+                type="date"
+                name="lastWorkingDate"
+                value={
+                  lifecycleForm.lastWorkingDate
+                }
+                onChange={
+                  handleLifecycleFieldChange
+                }
+                required
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Completion Notes
+              </label>
+              <textarea
+                name="exitNotes"
+                value={
+                  lifecycleForm.exitNotes
+                }
+                onChange={
+                  handleLifecycleFieldChange
+                }
+                placeholder="Optional"
+                rows="3"
+              />
+            </div>
+
+            <div className="employee-modal-actions">
 
               <button
                 type="button"
-                className="modal-close"
+                className="cancel-employee-button"
                 onClick={() =>
                   setCompleteTarget(
                     null
                   )
                 }
               >
-                <FaTimes />
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="save-employee-button"
+                disabled={
+                  lifecycleSaving
+                }
+              >
+                {lifecycleSaving
+                  ? "Saving..."
+                  : "Confirm Completion"}
               </button>
 
             </div>
 
-            <form
-              onSubmit={
-                handleConfirmComplete
-              }
-            >
+          </form>
 
-              <div className="employee-form-group">
-                <label>
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={
-                    completeTarget.full_name
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Intern ID
-                </label>
-                <input
-                  type="text"
-                  value={
-                    completeTarget.employee_id
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Designation
-                </label>
-                <input
-                  type="text"
-                  value={
-                    completeTarget.designation ||
-                    "Not provided"
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Completion Date
-                </label>
-                <input
-                  type="date"
-                  name="lastWorkingDate"
-                  value={
-                    lifecycleForm.lastWorkingDate
-                  }
-                  onChange={
-                    handleLifecycleFieldChange
-                  }
-                  required
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Completion Notes
-                </label>
-                <textarea
-                  name="exitNotes"
-                  value={
-                    lifecycleForm.exitNotes
-                  }
-                  onChange={
-                    handleLifecycleFieldChange
-                  }
-                  placeholder="Optional"
-                  rows="3"
-                />
-              </div>
-
-              <div className="employee-modal-actions">
-
-                <button
-                  type="button"
-                  className="cancel-employee-button"
-                  onClick={() =>
-                    setCompleteTarget(
-                      null
-                    )
-                  }
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="save-employee-button"
-                  disabled={
-                    lifecycleSaving
-                  }
-                >
-                  {lifecycleSaving
-                    ? "Saving..."
-                    : "Confirm Completion"}
-                </button>
-
-              </div>
-
-            </form>
-
-          </div>
-
-        </div>
+        </Modal>
 
       )}
 
@@ -4647,171 +4499,141 @@ function Employees() {
 
       {discontinueTarget && (
 
-        <div className="employee-modal-overlay">
+        <Modal
+          open
+          onClose={() => setDiscontinueTarget(null)}
+          title="Discontinue Internship"
+          description="This keeps the intern's full profile and history — only their internship status changes."
+        >
 
-          <div className="employee-modal">
+          <form
+            onSubmit={
+              handleConfirmDiscontinue
+            }
+          >
 
-            <div className="employee-modal-header">
+            <div className="employee-form-group">
+              <label>
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={
+                  discontinueTarget.full_name
+                }
+                disabled
+              />
+            </div>
 
-              <div>
-                <h2>
-                  Discontinue
-                  Internship
-                </h2>
-                <p>
-                  This keeps the
-                  intern's full
-                  profile and history
-                  — only their
-                  internship status
-                  changes.
-                </p>
-              </div>
+            <div className="employee-form-group">
+              <label>
+                Intern ID
+              </label>
+              <input
+                type="text"
+                value={
+                  discontinueTarget.employee_id
+                }
+                disabled
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Designation
+              </label>
+              <input
+                type="text"
+                value={
+                  discontinueTarget.designation ||
+                  "Not provided"
+                }
+                disabled
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Last Working Date
+              </label>
+              <input
+                type="date"
+                name="lastWorkingDate"
+                value={
+                  lifecycleForm.lastWorkingDate
+                }
+                onChange={
+                  handleLifecycleFieldChange
+                }
+                required
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Reason
+              </label>
+              <textarea
+                name="reason"
+                value={
+                  lifecycleForm.reason
+                }
+                onChange={
+                  handleLifecycleFieldChange
+                }
+                placeholder="Optional"
+                rows="3"
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Notes
+              </label>
+              <textarea
+                name="exitNotes"
+                value={
+                  lifecycleForm.exitNotes
+                }
+                onChange={
+                  handleLifecycleFieldChange
+                }
+                placeholder="Optional"
+                rows="3"
+              />
+            </div>
+
+            <div className="employee-modal-actions">
 
               <button
                 type="button"
-                className="modal-close"
+                className="cancel-employee-button"
                 onClick={() =>
                   setDiscontinueTarget(
                     null
                   )
                 }
               >
-                <FaTimes />
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="terminate-confirm-button"
+                disabled={
+                  lifecycleSaving
+                }
+              >
+                {lifecycleSaving
+                  ? "Saving..."
+                  : "Confirm Discontinuation"}
               </button>
 
             </div>
 
-            <form
-              onSubmit={
-                handleConfirmDiscontinue
-              }
-            >
+          </form>
 
-              <div className="employee-form-group">
-                <label>
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={
-                    discontinueTarget.full_name
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Intern ID
-                </label>
-                <input
-                  type="text"
-                  value={
-                    discontinueTarget.employee_id
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Designation
-                </label>
-                <input
-                  type="text"
-                  value={
-                    discontinueTarget.designation ||
-                    "Not provided"
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Last Working Date
-                </label>
-                <input
-                  type="date"
-                  name="lastWorkingDate"
-                  value={
-                    lifecycleForm.lastWorkingDate
-                  }
-                  onChange={
-                    handleLifecycleFieldChange
-                  }
-                  required
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Reason
-                </label>
-                <textarea
-                  name="reason"
-                  value={
-                    lifecycleForm.reason
-                  }
-                  onChange={
-                    handleLifecycleFieldChange
-                  }
-                  placeholder="Optional"
-                  rows="3"
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Notes
-                </label>
-                <textarea
-                  name="exitNotes"
-                  value={
-                    lifecycleForm.exitNotes
-                  }
-                  onChange={
-                    handleLifecycleFieldChange
-                  }
-                  placeholder="Optional"
-                  rows="3"
-                />
-              </div>
-
-              <div className="employee-modal-actions">
-
-                <button
-                  type="button"
-                  className="cancel-employee-button"
-                  onClick={() =>
-                    setDiscontinueTarget(
-                      null
-                    )
-                  }
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="terminate-confirm-button"
-                  disabled={
-                    lifecycleSaving
-                  }
-                >
-                  {lifecycleSaving
-                    ? "Saving..."
-                    : "Confirm Discontinuation"}
-                </button>
-
-              </div>
-
-            </form>
-
-          </div>
-
-        </div>
+        </Modal>
 
       )}
 
@@ -4823,162 +4645,130 @@ function Employees() {
 
       {convertTarget && (
 
-        <div className="employee-modal-overlay">
+        <Modal
+          open
+          onClose={() => setConvertTarget(null)}
+          title="Convert to Employee"
+          description="Reuses the SAME WorkHub account — no new login, no duplicate user. A new Employee ID is generated and the previous Intern ID stays visible in history."
+        >
 
-          <div className="employee-modal">
+          <form
+            onSubmit={
+              handleConfirmConvert
+            }
+          >
 
-            <div className="employee-modal-header">
+            <div className="employee-form-group">
+              <label>
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={
+                  convertTarget.full_name
+                }
+                disabled
+              />
+            </div>
 
-              <div>
-                <h2>
-                  Convert to Employee
-                </h2>
-                <p>
-                  Reuses the SAME
-                  WorkHub account —
-                  no new login, no
-                  duplicate user. A
-                  new Employee ID is
-                  generated and the
-                  previous Intern ID
-                  stays visible in
-                  history.
-                </p>
-              </div>
+            <div className="employee-form-group">
+              <label>
+                Current Intern ID
+              </label>
+              <input
+                type="text"
+                value={
+                  convertTarget.employee_id
+                }
+                disabled
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                New Employee
+                Designation
+              </label>
+              <input
+                type="text"
+                name="designation"
+                value={
+                  rehireForm.designation
+                }
+                onChange={
+                  handleRehireFieldChange
+                }
+                placeholder="Example: Junior Software Engineer"
+                required
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Employee Joining
+                Date
+              </label>
+              <input
+                type="date"
+                name="joiningDate"
+                value={
+                  rehireForm.joiningDate
+                }
+                onChange={
+                  handleRehireFieldChange
+                }
+                required
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Notes
+              </label>
+              <textarea
+                name="notes"
+                value={
+                  rehireForm.notes
+                }
+                onChange={
+                  handleRehireFieldChange
+                }
+                placeholder="Optional"
+                rows="3"
+              />
+            </div>
+
+            <div className="employee-modal-actions">
 
               <button
                 type="button"
-                className="modal-close"
+                className="cancel-employee-button"
                 onClick={() =>
                   setConvertTarget(
                     null
                   )
                 }
               >
-                <FaTimes />
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="save-employee-button"
+                disabled={
+                  lifecycleSaving
+                }
+              >
+                {lifecycleSaving
+                  ? "Saving..."
+                  : "Confirm Conversion"}
               </button>
 
             </div>
 
-            <form
-              onSubmit={
-                handleConfirmConvert
-              }
-            >
+          </form>
 
-              <div className="employee-form-group">
-                <label>
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={
-                    convertTarget.full_name
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Current Intern ID
-                </label>
-                <input
-                  type="text"
-                  value={
-                    convertTarget.employee_id
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  New Employee
-                  Designation
-                </label>
-                <input
-                  type="text"
-                  name="designation"
-                  value={
-                    rehireForm.designation
-                  }
-                  onChange={
-                    handleRehireFieldChange
-                  }
-                  placeholder="Example: Junior Software Engineer"
-                  required
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Employee Joining
-                  Date
-                </label>
-                <input
-                  type="date"
-                  name="joiningDate"
-                  value={
-                    rehireForm.joiningDate
-                  }
-                  onChange={
-                    handleRehireFieldChange
-                  }
-                  required
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Notes
-                </label>
-                <textarea
-                  name="notes"
-                  value={
-                    rehireForm.notes
-                  }
-                  onChange={
-                    handleRehireFieldChange
-                  }
-                  placeholder="Optional"
-                  rows="3"
-                />
-              </div>
-
-              <div className="employee-modal-actions">
-
-                <button
-                  type="button"
-                  className="cancel-employee-button"
-                  onClick={() =>
-                    setConvertTarget(
-                      null
-                    )
-                  }
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="save-employee-button"
-                  disabled={
-                    lifecycleSaving
-                  }
-                >
-                  {lifecycleSaving
-                    ? "Saving..."
-                    : "Confirm Conversion"}
-                </button>
-
-              </div>
-
-            </form>
-
-          </div>
-
-        </div>
+        </Modal>
 
       )}
 
@@ -4988,158 +4778,128 @@ function Employees() {
 
       {rehireInternTarget && (
 
-        <div className="employee-modal-overlay">
+        <Modal
+          open
+          onClose={() => setRehireInternTarget(null)}
+          title="Rehire as Intern"
+          description="Reactivates this same account and Intern ID — their previous internship period stays preserved in history."
+        >
 
-          <div className="employee-modal">
+          <form
+            onSubmit={
+              handleConfirmRehireIntern
+            }
+          >
 
-            <div className="employee-modal-header">
+            <div className="employee-form-group">
+              <label>
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={
+                  rehireInternTarget.full_name
+                }
+                disabled
+              />
+            </div>
 
-              <div>
-                <h2>
-                  Rehire as Intern
-                </h2>
-                <p>
-                  Reactivates this
-                  same account and
-                  Intern ID — their
-                  previous internship
-                  period stays
-                  preserved in
-                  history.
-                </p>
-              </div>
+            <div className="employee-form-group">
+              <label>
+                Intern ID
+              </label>
+              <input
+                type="text"
+                value={
+                  rehireInternTarget.employee_id
+                }
+                disabled
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                New Internship Role
+              </label>
+              <input
+                type="text"
+                name="designation"
+                value={
+                  rehireForm.designation
+                }
+                onChange={
+                  handleRehireFieldChange
+                }
+                placeholder="Example: Backend Development Intern"
+                required
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                New Start Date
+              </label>
+              <input
+                type="date"
+                name="joiningDate"
+                value={
+                  rehireForm.joiningDate
+                }
+                onChange={
+                  handleRehireFieldChange
+                }
+                required
+              />
+            </div>
+
+            <div className="employee-form-group">
+              <label>
+                Notes
+              </label>
+              <textarea
+                name="notes"
+                value={
+                  rehireForm.notes
+                }
+                onChange={
+                  handleRehireFieldChange
+                }
+                placeholder="Optional"
+                rows="3"
+              />
+            </div>
+
+            <div className="employee-modal-actions">
 
               <button
                 type="button"
-                className="modal-close"
+                className="cancel-employee-button"
                 onClick={() =>
                   setRehireInternTarget(
                     null
                   )
                 }
               >
-                <FaTimes />
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                className="save-employee-button"
+                disabled={
+                  lifecycleSaving
+                }
+              >
+                {lifecycleSaving
+                  ? "Saving..."
+                  : "Confirm Rehire"}
               </button>
 
             </div>
 
-            <form
-              onSubmit={
-                handleConfirmRehireIntern
-              }
-            >
+          </form>
 
-              <div className="employee-form-group">
-                <label>
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={
-                    rehireInternTarget.full_name
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Intern ID
-                </label>
-                <input
-                  type="text"
-                  value={
-                    rehireInternTarget.employee_id
-                  }
-                  disabled
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  New Internship Role
-                </label>
-                <input
-                  type="text"
-                  name="designation"
-                  value={
-                    rehireForm.designation
-                  }
-                  onChange={
-                    handleRehireFieldChange
-                  }
-                  placeholder="Example: Backend Development Intern"
-                  required
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  New Start Date
-                </label>
-                <input
-                  type="date"
-                  name="joiningDate"
-                  value={
-                    rehireForm.joiningDate
-                  }
-                  onChange={
-                    handleRehireFieldChange
-                  }
-                  required
-                />
-              </div>
-
-              <div className="employee-form-group">
-                <label>
-                  Notes
-                </label>
-                <textarea
-                  name="notes"
-                  value={
-                    rehireForm.notes
-                  }
-                  onChange={
-                    handleRehireFieldChange
-                  }
-                  placeholder="Optional"
-                  rows="3"
-                />
-              </div>
-
-              <div className="employee-modal-actions">
-
-                <button
-                  type="button"
-                  className="cancel-employee-button"
-                  onClick={() =>
-                    setRehireInternTarget(
-                      null
-                    )
-                  }
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  className="save-employee-button"
-                  disabled={
-                    lifecycleSaving
-                  }
-                >
-                  {lifecycleSaving
-                    ? "Saving..."
-                    : "Confirm Rehire"}
-                </button>
-
-              </div>
-
-            </form>
-
-          </div>
-
-        </div>
+        </Modal>
 
       )}
 
@@ -5152,22 +4912,12 @@ function Employees() {
 
       {orgTarget && (
 
-        <div className="employee-modal-overlay">
-          <div className="employee-modal">
-
-            <div className="employee-modal-header">
-              <div>
-                <h2>Designation, Department, Reporting Manager & Access</h2>
-                <p>{orgTarget.full_name} ({orgTarget.employee_id})</p>
-              </div>
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() => setOrgTarget(null)}
-              >
-                <FaTimes />
-              </button>
-            </div>
+        <Modal
+          open
+          onClose={() => setOrgTarget(null)}
+          title="Designation, Department, Reporting Manager & Access"
+          description={`${orgTarget.full_name} (${orgTarget.employee_id})`}
+        >
 
             <form onSubmit={handleOrgSubmit}>
 
@@ -5311,8 +5061,7 @@ function Employees() {
 
             </form>
 
-          </div>
-        </div>
+        </Modal>
 
       )}
 

@@ -7,6 +7,8 @@ import {
   FaUserCheck,
   FaUserClock,
   FaTasks,
+  FaCheckCircle,
+  FaChartBar,
 } from "react-icons/fa";
 
 import api from "../../services/api";
@@ -26,8 +28,18 @@ import {
   getStatusBreakdown,
 } from "../../utils/dashboardStats";
 
+import { Badge, Button, EmptyState, Skeleton } from "../../components/UI";
+
 import "../../styles/workItems.css";
 import "./AdminHome.css";
+
+// Mirrors the existing loadError convention from AdminEmailSettings.jsx
+// (plain string, shown as a dismiss-free inline notice) rather than
+// inventing a new error-handling pattern for this one page.
+function capitalize(value) {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
 
 function AdminHome() {
 
@@ -60,6 +72,23 @@ function AdminHome() {
 
   const [activeSprints, setActiveSprints] = useState([]);
 
+  // ==========================================
+  // LOADING / ERROR STATE
+  // Presentational only -- does not change what is
+  // fetched or how; it only tracks whether the
+  // initial load is still in flight, and whether any
+  // of the three independent calls below failed, so
+  // the dashboard can show a skeleton instead of
+  // silently rendering zeros, and a notice instead of
+  // silently swallowing a failure (console.error
+  // alone, as before, stays for each individual
+  // failure).
+  // ==========================================
+
+  const [loading, setLoading] = useState(true);
+
+  const [loadError, setLoadError] = useState("");
+
   useEffect(() => {
 
     const loadDashboard = async () => {
@@ -88,6 +117,8 @@ function AdminHome() {
 
         );
 
+        setLoadError("Some dashboard data could not be loaded. Showing what's available.");
+
       }
 
     };
@@ -98,6 +129,7 @@ function AdminHome() {
         setAllTasks(response.tasks || []);
       } catch (error) {
         console.error("Unable to load dashboard tasks:", error);
+        setLoadError("Some dashboard data could not be loaded. Showing what's available.");
       }
     };
 
@@ -107,12 +139,13 @@ function AdminHome() {
         setActiveSprints(response.sprints || []);
       } catch (error) {
         console.error("Unable to load dashboard sprints:", error);
+        setLoadError("Some dashboard data could not be loaded. Showing what's available.");
       }
     };
 
-    loadDashboard();
-    loadTasks();
-    loadSprints();
+    Promise.allSettled([loadDashboard(), loadTasks(), loadSprints()]).then(() => {
+      setLoading(false);
+    });
 
   }, []);
 
@@ -134,6 +167,10 @@ function AdminHome() {
 
     <div className="dashboard-content">
 
+      {loadError && (
+        <div className="dashboard-load-error">{loadError}</div>
+      )}
+
       <div className="stats-grid">
 
         <div className="stat-card">
@@ -148,7 +185,7 @@ function AdminHome() {
 
             <p>Total Employees</p>
 
-            <h2>{stats.totalEmployees}</h2>
+            <h2>{loading ? <Skeleton width="48px" height="26px" /> : stats.totalEmployees}</h2>
 
             <span>
 
@@ -172,7 +209,7 @@ function AdminHome() {
 
             <p>Present Today</p>
 
-            <h2>{stats.presentToday}</h2>
+            <h2>{loading ? <Skeleton width="48px" height="26px" /> : stats.presentToday}</h2>
 
             <span>
 
@@ -196,7 +233,7 @@ function AdminHome() {
 
             <p>On Leave</p>
 
-            <h2>{stats.onLeave}</h2>
+            <h2>{loading ? <Skeleton width="48px" height="26px" /> : stats.onLeave}</h2>
 
             <span>
 
@@ -220,7 +257,7 @@ function AdminHome() {
 
             <p>Active Tasks</p>
 
-            <h2>{statusBreakdown.in_progress}</h2>
+            <h2>{loading ? <Skeleton width="48px" height="26px" /> : statusBreakdown.in_progress}</h2>
 
             <span>
 
@@ -248,20 +285,26 @@ function AdminHome() {
             <h3>Pending Review</h3>
             <span>Tasks awaiting an approval decision across your projects</span>
           </div>
-          <button
-            type="button"
-            className="admin-panel-link"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => navigate("/admin/tasks")}
           >
             View all
-          </button>
+          </Button>
         </div>
 
-        {pendingReviewTasks.length === 0 ? (
+        {loading ? (
 
-          <div className="empty-state">
-            <p>Nothing is currently pending review.</p>
+          <div className="dashboard-skeleton-rows">
+            <Skeleton height="38px" />
+            <Skeleton height="38px" />
+            <Skeleton height="38px" />
           </div>
+
+        ) : pendingReviewTasks.length === 0 ? (
+
+          <EmptyState icon={<FaCheckCircle />} description="Nothing is currently pending review." />
 
         ) : (
 
@@ -317,21 +360,29 @@ function AdminHome() {
 
           {
 
+            loading
+
+            ?
+
+            (
+
+              <div className="dashboard-skeleton-rows">
+                <Skeleton height="48px" />
+                <Skeleton height="48px" />
+                <Skeleton height="48px" />
+              </div>
+
+            )
+
+            :
+
             recentEmployees.length === 0
 
             ?
 
             (
 
-              <div className="empty-state">
-
-                <p>
-
-                  No employees available.
-
-                </p>
-
-              </div>
+              <EmptyState icon={<FaUsers />} description="No employees available." />
 
             )
 
@@ -383,15 +434,11 @@ function AdminHome() {
 
                       </div>
 
-                      <span
+                      <Badge tone={employee.status === "active" ? "success" : "danger"}>
 
-                        className={`employee-status ${employee.status}`}
+                        {capitalize(employee.status)}
 
-                      >
-
-                        {employee.status}
-
-                      </span>
+                      </Badge>
 
                     </div>
 
@@ -419,11 +466,16 @@ function AdminHome() {
             <span>Past due date and not yet closed</span>
           </div>
 
-          {overdueTasks.length === 0 ? (
+          {loading ? (
 
-            <div className="empty-state">
-              <p>No overdue tasks.</p>
+            <div className="dashboard-skeleton-rows">
+              <Skeleton height="38px" />
+              <Skeleton height="38px" />
             </div>
+
+          ) : overdueTasks.length === 0 ? (
+
+            <EmptyState icon={<FaCheckCircle />} description="No overdue tasks." />
 
           ) : (
 
@@ -464,11 +516,16 @@ function AdminHome() {
             <span>Sprints currently in progress across your projects</span>
           </div>
 
-          {activeSprints.length === 0 ? (
+          {loading ? (
 
-            <div className="empty-state">
-              <p>No active sprints right now.</p>
+            <div className="dashboard-skeleton-rows">
+              <Skeleton height="48px" />
+              <Skeleton height="48px" />
             </div>
+
+          ) : activeSprints.length === 0 ? (
+
+            <EmptyState icon={<FaTasks />} description="No active sprints right now." />
 
           ) : (
 
@@ -516,11 +573,17 @@ function AdminHome() {
             <span>All tasks visible to you, by status</span>
           </div>
 
-          {totalVisibleTasks === 0 ? (
+          {loading ? (
 
-            <div className="empty-state">
-              <p>No tasks to summarize yet.</p>
+            <div className="dashboard-skeleton-rows">
+              <Skeleton height="24px" />
+              <Skeleton height="24px" />
+              <Skeleton height="24px" />
             </div>
+
+          ) : totalVisibleTasks === 0 ? (
+
+            <EmptyState icon={<FaChartBar />} description="No tasks to summarize yet." />
 
           ) : (
 

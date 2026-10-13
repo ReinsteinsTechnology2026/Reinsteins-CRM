@@ -1,0 +1,25 @@
+.ui-skeleton {
+  display: inline-block;
+
+  background: linear-gradient(
+    90deg,
+    var(--ui-surface-secondary) 25%,
+    var(--ui-border) 37%,
+    var(--ui-surface-secondary) 63%
+  );
+  background-size: 400% 100%;
+
+  animation: ui-skeleton-shimmer 1.4s ease infinite;
+}
+
+@keyframes ui-skeleton-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-skeleton {
+    animation: none;
+    background: var(--ui-surface-secondary);
+  }
+}

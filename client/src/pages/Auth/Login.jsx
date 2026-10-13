@@ -290,7 +290,7 @@ function Login() {
           </div>
 
           {companySlug && companyInfoError && (
-            <p style={{ color: "#D64545", fontSize: 13.5, marginBottom: 18 }}>
+            <p style={{ color: "var(--danger)", fontSize: 13.5, marginBottom: 18 }}>
               This company could not be found. Please check the link you used, or contact your administrator.
             </p>
           )}

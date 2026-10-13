@@ -26,7 +26,7 @@
   justify-content: center;
   margin-bottom: 25px;
   border-radius: 16px;
-  background: #2878D8;
+  background: var(--primary);
   font-size: 34px;
   font-weight: 800;
 }
@@ -102,7 +102,7 @@
 }
 
 .register-input-container:focus-within {
-  border-color: #2878D8;
+  border-color: var(--primary);
 }
 
 .register-input-container svg {
@@ -128,7 +128,7 @@
   margin-top: 5px;
   border: none;
   border-radius: 8px;
-  background: #2878D8;
+  background: var(--primary);
   color: white;
   font-weight: 600;
   cursor: pointer;
@@ -151,7 +151,7 @@
 .register-login-link button {
   border: none;
   background: transparent;
-  color: #2878D8;
+  color: var(--primary);
   font-weight: 600;
   cursor: pointer;
 }
@@ -170,7 +170,7 @@
 
 .registration-success-icon {
   margin-bottom: 15px;
-  color: #16A66A;
+  color: var(--primary);
   font-size: 55px;
 }
 
@@ -187,7 +187,7 @@
   margin: 28px 0;
   padding: 20px;
   border-radius: 12px;
-  background: #EAF3FF;
+  background: var(--mint);
 }
 
 .generated-id-box span {
@@ -199,7 +199,7 @@
 .generated-id-box strong {
   display: block;
   margin-top: 7px;
-  color: #2878D8;
+  color: var(--primary-dark);
   font-size: 30px;
   letter-spacing: 2px;
 }
@@ -207,7 +207,7 @@
 .approval-message {
   padding: 18px;
   border-radius: 10px;
-  background: #FFF5DD;
+  background: var(--warning-light);
 }
 
 .approval-message h3 {
@@ -228,7 +228,7 @@
   margin-top: 25px;
   border: none;
   border-radius: 8px;
-  background: #2878D8;
+  background: var(--primary);
   color: white;
   font-weight: 600;
   cursor: pointer;

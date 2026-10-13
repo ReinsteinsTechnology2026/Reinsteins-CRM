@@ -19,6 +19,26 @@
   font-size: 13px;
 }
 
+/* Mirrors AdminHome.css's .dashboard-load-error -- same plain inline
+   notice convention, not a dismissible toast or a blocking state. */
+.employees-load-error {
+  margin-top: 16px;
+  padding: 11px 16px;
+  border-radius: var(--radius);
+  background: var(--warning-light);
+  color: var(--warning);
+  font-size: 13.5px;
+}
+
+/* Table loading state -- mirrors AdminHome.css's
+   .dashboard-skeleton-rows. */
+.employees-skeleton-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+}
+
 .employees-header-actions {
   display: flex;
   align-items: center;
@@ -281,7 +301,9 @@
 .employee-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+  row-gap: 6px;
 }
 
 .edit-employee-action,
@@ -486,18 +508,21 @@
 
 /* ==========================================
    EYE / VIEW BUTTON
+   Standardized to 34px/7px radius -- matches every other row action
+   button (.edit-employee-action etc., .resign-employee-action etc.)
+   so the row doesn't misalign by 2px when several render side by side.
 ========================================== */
 
 .view-employee-action {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
 
   display: inline-flex;
   align-items: center;
   justify-content: center;
 
   border: none;
-  border-radius: 8px;
+  border-radius: 7px;
 
   background: rgba(22,166,106,.15);
 
@@ -1121,6 +1146,16 @@
 
 }
 
+.employment-history-skeleton-rows{
+
+    display:flex;
+
+    flex-direction:column;
+
+    gap:12px;
+
+}
+
 .employment-history-list{
 
     display:flex;
@@ -1189,4 +1224,81 @@
     padding-right:18px;
   }
 
+}
+
+/* ==========================================
+   RESPONSIVE — PAGE HEADER / SUMMARY / TABS
+   Previously had zero responsive rules outside the Details modal --
+   the header row (title + two buttons) and the fixed-width summary
+   card had nothing stopping them from cramping or overflowing on
+   narrow viewports.
+========================================== */
+
+@media (max-width:640px){
+
+  .employees-content{
+    padding:18px;
+  }
+
+  .employees-page-header{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:14px;
+  }
+
+  .employees-header-actions{
+    width:100%;
+  }
+
+  .add-employee-button,
+  .add-intern-button{
+    flex:1;
+    justify-content:center;
+  }
+
+  .employees-summary{
+    width:100%;
+  }
+
+  .employee-tabs{
+    gap:8px;
+  }
+
+  .employee-tab{
+    padding:9px 13px;
+    font-size:12.5px;
+  }
+
+}
+
+/* ==========================================
+   EMPLOYEE DETAILS MODAL (Modal migration)
+   Additive only -- these rules key on the compound selector
+   ".ui-modal.employee-details-modal" (both classes on the SAME
+   element), which only ever occurs on this one migrated modal. They
+   do not modify .employee-details-modal, .employee-modal-header, or
+   .employee-modal-actions themselves, so every other page that still
+   renders those classes under the old .employee-modal shell is
+   unaffected. Three things the generic shared Modal (components/UI/
+   Modal.css) doesn't provide and this content specifically needs:
+   the wider 720px frame for the 2-column detail grid, a body with no
+   padding of its own (the grid/header/actions below already carry
+   their own, inherited from the untouched .employee-details-modal
+   rules -- Modal's default body padding would otherwise stack with
+   it), and a sticky header while scrolling the long content.
+========================================== */
+
+.ui-modal.employee-details-modal {
+  max-width: 720px;
+}
+
+.ui-modal.employee-details-modal .ui-modal-body {
+  padding: 0;
+}
+
+.ui-modal.employee-details-modal .ui-modal-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--card);
 }

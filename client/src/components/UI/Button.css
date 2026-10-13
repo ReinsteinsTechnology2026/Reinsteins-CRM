@@ -1,0 +1,71 @@
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 11px 20px;
+
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-sm);
+
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+
+  transition: background .15s, border-color .15s, color .15s, opacity .15s;
+}
+
+.ui-btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.ui-btn:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+
+.ui-btn-primary {
+  background: var(--ui-primary);
+  color: #fff;
+}
+.ui-btn-primary:hover:not(:disabled) {
+  background: var(--ui-primary-hover);
+}
+
+.ui-btn-outline {
+  background: var(--ui-surface);
+  border-color: var(--ui-border-strong);
+  color: var(--ui-text);
+}
+.ui-btn-outline:hover:not(:disabled) {
+  background: var(--ui-surface-secondary);
+}
+
+.ui-btn-danger {
+  background: var(--ui-danger-light);
+  color: var(--ui-danger);
+}
+.ui-btn-danger:hover:not(:disabled) {
+  background: var(--ui-danger);
+  color: #fff;
+}
+
+.ui-btn-success {
+  background: var(--ui-success-light);
+  color: var(--ui-success);
+}
+.ui-btn-success:hover:not(:disabled) {
+  background: var(--ui-success);
+  color: #fff;
+}
+
+.ui-btn-sm {
+  padding: 7px 14px;
+  font-size: 12.5px;
+}
