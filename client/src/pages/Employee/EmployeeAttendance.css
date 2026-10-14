@@ -1,4 +1,4 @@
-﻿@import "./EmployeeHome.css";
+@import "./EmployeeHome.css";
 
 
 /* ==========================================
@@ -22,6 +22,25 @@
   margin-bottom: 22px;
 }
 
+.attendance-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.attendance-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: rgba(22, 166, 106, 0.14);
+  color: #16A66A;
+  font-size: 19px;
+}
+
 
 .attendance-page-header h2 {
   margin: 0;
@@ -32,7 +51,7 @@
 
 
 .attendance-page-header p {
-  margin: 7px 0 0;
+  margin: 5px 0 0;
   color: #64748B !important;
   font-size: 14px;
 }
@@ -43,28 +62,44 @@
 ========================================== */
 
 .attendance-employee-badge {
-  min-width: 130px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 150px;
   padding: 11px 18px;
-  background: #FFFFFF;
-  border: 1px solid #E2E9E5;
-  border-radius: 10px;
+  background: rgba(22, 166, 106, 0.08);
+  border: 1px solid rgba(22, 166, 106, 0.22);
+  border-radius: 12px;
   text-align: left;
+}
+
+.attendance-employee-badge-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: #16A66A;
+  color: #FFFFFF;
+  font-size: 13px;
 }
 
 
 .attendance-employee-badge span {
   display: block;
-  color: #7A8780;
+  color: #0E744A;
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 
 .attendance-employee-badge strong {
   display: block;
-  margin-top: 4px;
+  margin-top: 3px;
   color: #17211D;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -84,7 +119,7 @@
 
   background: #FFFFFF;
   border: 1px solid #E2E9E5;
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
 
@@ -137,6 +172,151 @@
 
 
 /* ==========================================
+   SUMMARY CARDS
+========================================== */
+
+.attendance-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.attendance-summary-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px;
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  border-radius: 14px;
+}
+
+.attendance-summary-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  font-size: 17px;
+}
+
+.attendance-summary-card.tone-blue .attendance-summary-card-icon {
+  background: rgba(59, 130, 196, 0.14);
+  color: #3B82C4;
+}
+
+.attendance-summary-card.tone-green .attendance-summary-card-icon {
+  background: rgba(22, 166, 106, 0.16);
+  color: #16A66A;
+}
+
+.attendance-summary-card.tone-red .attendance-summary-card-icon {
+  background: rgba(214, 69, 69, 0.14);
+  color: #D64545;
+}
+
+.attendance-summary-card.tone-amber .attendance-summary-card-icon {
+  background: rgba(224, 163, 46, 0.16);
+  color: #E0A32E;
+}
+
+.attendance-summary-card.tone-indigo .attendance-summary-card-icon {
+  background: rgba(132, 87, 201, 0.14);
+  color: #8457C9;
+}
+
+.attendance-summary-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.attendance-summary-card-body span {
+  color: #7A8780;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.attendance-summary-card-body strong {
+  color: #17211D;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.attendance-summary-card-body small {
+  color: #7A8780;
+  font-size: 11px;
+}
+
+
+/* ==========================================
+   MAIN GRID
+========================================== */
+
+.attendance-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+
+/* ==========================================
+   CARD HEADER (shared)
+========================================== */
+
+.attendance-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #E2E9E5;
+}
+
+.attendance-card-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.attendance-card-title h3 {
+  margin: 0;
+  color: #17211D;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.attendance-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: rgba(22, 166, 106, 0.14);
+  color: #16A66A;
+  font-size: 13px;
+}
+
+.attendance-record-count {
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: #F7FAF8;
+  color: #53615A;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+
+/* ==========================================
    ATTENDANCE TABLE
 ========================================== */
 
@@ -146,7 +326,7 @@
   background: #FFFFFF;
 
   border: 1px solid #E2E9E5;
-  border-radius: 10px;
+  border-radius: 14px;
 }
 
 
@@ -169,7 +349,7 @@
 ========================================== */
 
 .attendance-table th {
-  padding: 14px 17px;
+  padding: 13px 17px;
 
   background: #F7FAF8;
 
@@ -177,6 +357,8 @@
 
   font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 
   text-align: left;
 
@@ -191,7 +373,7 @@
 ========================================== */
 
 .attendance-table td {
-  padding: 15px 17px;
+  padding: 14px 17px;
 
   color: #53615A;
 
@@ -269,7 +451,7 @@
 /* ABSENT */
 
 .attendance-status-badge.absent {
-  background: rgba(181,57,57,0.16);
+  background: rgba(214,69,69,0.14);
   color: #D64545;
 }
 
@@ -277,8 +459,56 @@
 /* LEAVE */
 
 .attendance-status-badge.leave {
-  background: rgba(22,166,106,0.16);
+  background: rgba(224,163,46,0.16);
+  color: #B9821F;
+}
+
+
+/* ==========================================
+   PAGINATION
+========================================== */
+
+.attendance-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px;
+  border-top: 1px solid #F7FAF8;
+}
+
+.attendance-page-nav,
+.attendance-page-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 4px;
+  border: 1px solid #E2E9E5;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #53615A;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.attendance-page-nav:hover:not(:disabled),
+.attendance-page-number:hover {
+  border-color: #16A66A;
   color: #16A66A;
+}
+
+.attendance-page-nav:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.attendance-page-number.active {
+  background: #16A66A;
+  border-color: #16A66A;
+  color: #FFFFFF;
 }
 
 
@@ -302,20 +532,24 @@
 ========================================== */
 
 .attendance-empty {
-  padding: 60px 20px;
+  padding: 56px 20px;
 
   color: #7A8780;
 
   text-align: center;
 }
 
-
-.attendance-empty svg {
-  margin-bottom: 15px;
-
+.attendance-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background: rgba(22, 166, 106, 0.12);
   color: #16A66A;
-
-  font-size: 35px;
+  font-size: 22px;
 }
 
 
@@ -324,7 +558,7 @@
 
   color: #17211D;
 
-  font-size: 17px;
+  font-size: 16px;
 }
 
 
@@ -338,86 +572,234 @@
 
 
 /* ==========================================
-   NO RECORDS ROW
+   LOAD-ERROR STATE
+   Visually distinct from the genuine-empty-month
+   state above (red icon, explicit Retry action) so
+   a failed request can never be mistaken for a
+   confirmed "no records" result.
 ========================================== */
 
-.attendance-no-records {
-  padding: 45px !important;
+.attendance-error-icon {
+  background: rgba(214, 69, 69, 0.14) !important;
+  color: #D64545 !important;
+}
 
-  color: #7A8780 !important;
+.attendance-error-state p {
+  max-width: 360px;
+  margin-left: auto;
+  margin-right: auto;
+}
 
-  text-align: center;
+.attendance-retry-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  background: #D64545;
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
 
-  font-size: 13px !important;
+.attendance-retry-button:hover {
+  background: #B53939;
 }
 
 
 /* ==========================================
-   MONTHLY SUMMARY
+   SIDE COLUMN -- Overview / Quick Info / Legend
 ========================================== */
 
-.attendance-monthly-summary {
-  margin-top: 24px;
-
-  padding: 20px 22px;
-
-  background: #FFFFFF;
-
-  border: 1px solid #E2E9E5;
-  border-radius: 10px;
+.attendance-side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
+.attendance-overview-card,
+.attendance-legend-card {
+  padding: 18px 20px;
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  border-radius: 14px;
+}
 
-.attendance-monthly-summary h3 {
-  margin: 0 0 16px;
+.attendance-overview-card .attendance-card-title,
+.attendance-legend-card .attendance-card-title {
+  margin-bottom: 16px;
+}
 
+.attendance-overview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 30px 10px;
+  color: #B9C3BD;
+  font-size: 12.5px;
+}
+
+.attendance-overview-empty svg {
+  font-size: 32px;
+}
+
+.attendance-donut-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attendance-donut-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.attendance-donut-center strong {
   color: #17211D;
+  font-size: 19px;
+  font-weight: 800;
+}
 
-  font-size: 16px;
+.attendance-donut-center span {
+  color: #7A8780;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.attendance-overview-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attendance-overview-legend li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+}
+
+.attendance-legend-dot {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.attendance-legend-label {
+  flex: 1;
+  color: #53615A;
+  font-weight: 600;
+}
+
+.attendance-legend-value {
+  color: #17211D;
   font-weight: 700;
 }
 
-
-.attendance-summary-list {
-  display: grid;
-
-  grid-template-columns:
-    repeat(2, minmax(220px, 1fr));
-
-  column-gap: 60px;
-  row-gap: 11px;
+.attendance-legend-pct {
+  min-width: 42px;
+  color: #7A8780;
+  text-align: right;
+  font-size: 11px;
 }
 
+.attendance-quick-info {
+  display: flex;
+  gap: 12px;
+  padding: 16px 18px;
+  background: rgba(22, 166, 106, 0.08);
+  border: 1px solid rgba(22, 166, 106, 0.2);
+  border-radius: 14px;
+}
 
-.attendance-summary-row {
+.attendance-quick-info-icon {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-
-  padding-bottom: 8px;
-
-  border-bottom: 1px solid #F7FAF8;
-}
-
-
-.attendance-summary-row span {
-  color: #7A8780;
-
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: #16A66A;
+  color: #FFFFFF;
   font-size: 13px;
 }
 
-
-.attendance-summary-row strong {
+.attendance-quick-info strong {
+  display: block;
+  margin-bottom: 4px;
   color: #17211D;
+  font-size: 13px;
+}
 
-  font-size: 14px;
-  font-weight: 700;
+.attendance-quick-info p {
+  margin: 0;
+  color: #0E744A;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.attendance-legend-card ul {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attendance-legend-card ul li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.attendance-legend-card ul li .attendance-legend-dot {
+  margin-top: 5px;
+}
+
+.attendance-legend-card ul li strong {
+  display: block;
+  color: #17211D;
+  font-size: 12.5px;
+}
+
+.attendance-legend-card ul li span {
+  color: #7A8780;
+  font-size: 11.5px;
 }
 
 
 /* ==========================================
-   MOBILE
+   RESPONSIVE
 ========================================== */
+
+@media (max-width: 1180px) {
+
+  .attendance-summary-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .attendance-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
 
 @media (max-width: 768px) {
 
@@ -449,9 +831,20 @@
     box-sizing: border-box;
   }
 
+  .attendance-summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
 
-  .attendance-summary-list {
+}
+
+@media (max-width: 480px) {
+
+  .attendance-summary-cards {
     grid-template-columns: 1fr;
+  }
+
+  .attendance-pagination {
+    flex-wrap: wrap;
   }
 
 }

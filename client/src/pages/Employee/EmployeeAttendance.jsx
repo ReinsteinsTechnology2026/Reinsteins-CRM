@@ -7,15 +7,178 @@ import {
 import {
   FaCalendarAlt,
   FaClock,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaUmbrellaBeach,
+  FaIdBadge,
+  FaChevronLeft,
+  FaChevronRight,
+  FaClipboardList,
+  FaChartPie,
+  FaLightbulb,
+  FaRegCircle,
+  FaExclamationTriangle,
+  FaRedoAlt,
 } from "react-icons/fa";
 
 import {
   toast,
 } from "react-toastify";
 
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+} from "recharts";
+
 import api from "../../services/api";
 
 import "./EmployeeAttendance.css";
+
+
+// ==========================================
+// ATTENDANCE RECORD CLASSIFICATION
+//
+// Single source of truth for "is this row Present,
+// Absent, or Leave" -- used identically for the
+// monthly summary cards, the donut chart + legend,
+// the per-row table status badge, and the workable-
+// days total, so none of them can ever disagree.
+//
+// The real backend (server/controllers/
+// attendanceController.js, getMonthlyAttendanceHistory)
+// sends a resolved `status` string per day: "Present",
+// "Absent", or one of six leave codes -- CL / SL / PL /
+// UL / OL / LEAVE (getLeaveCode's own output). It never
+// sends a separate `leave_type` field on history rows.
+// The previous classification only recognized a literal
+// "leave"/"on_leave" status or a `leave_type` field that
+// never actually arrives, so every real leave day fell
+// through to Absent. This checks the six real codes
+// first (case-insensitively), then falls back to the
+// older literal-status / leave_type shape for any other
+// caller still using it.
+// ==========================================
+
+const BACKEND_LEAVE_CODES = new Set([
+  "cl",
+  "sl",
+  "pl",
+  "ul",
+  "ol",
+  "leave",
+]);
+
+const BACKEND_LEAVE_LABELS = {
+  cl: "CL",
+  sl: "SL",
+  pl: "PL",
+  ul: "UL",
+  ol: "OL",
+  leave: "LEAVE",
+};
+
+function getLegacyLeaveLabel(legacyLeaveType, record) {
+
+  if (legacyLeaveType.includes("casual")) {
+    return "CL";
+  }
+
+  if (legacyLeaveType.includes("sick")) {
+    return "SL";
+  }
+
+  if (legacyLeaveType.includes("earned")) {
+    return "EL";
+  }
+
+  if (legacyLeaveType.includes("paid")) {
+    return "PL";
+  }
+
+  if (legacyLeaveType) {
+    return legacyLeaveType.substring(0, 2).toUpperCase();
+  }
+
+  return (
+    record?.leave_code ||
+    record?.leaveCode ||
+    "Leave"
+  );
+}
+
+// Returns { bucket: "present" | "absent" | "leave", label: string } --
+// bucket drives counting/coloring, label drives the badge text.
+// Leave is checked first (matching the backend's own precedence: an
+// approved leave day is classified as Leave even if some attendance
+// also exists for it), so a record can never land in two buckets at
+// once.
+function classifyAttendanceRecord(record) {
+
+  const rawStatus =
+    String(
+      record?.status ||
+      record?.attendance_status ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+  const legacyLeaveType =
+    String(
+      record?.leave_type ||
+      record?.leaveType ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+  const isLegacyLeaveStatus =
+    rawStatus === "on_leave";
+
+  if (
+    BACKEND_LEAVE_CODES.has(rawStatus) ||
+    legacyLeaveType ||
+    isLegacyLeaveStatus
+  ) {
+
+    const label =
+      BACKEND_LEAVE_LABELS[rawStatus] ||
+      getLegacyLeaveLabel(
+        legacyLeaveType,
+        record
+      );
+
+    return {
+      bucket: "leave",
+      label,
+    };
+  }
+
+  if (
+    rawStatus === "present" ||
+    rawStatus === "completed" ||
+    rawStatus === "working" ||
+    record?.first_login_time ||
+    record?.login_time
+  ) {
+
+    return {
+      bucket: "present",
+      label: "Present",
+    };
+  }
+
+  // Explicit "absent" and any other/unrecognized status with no
+  // login signal both fall back to Absent -- same fallback
+  // semantics the previous implementation already had.
+
+  return {
+    bucket: "absent",
+    label: "Absent",
+  };
+}
 
 
 function EmployeeAttendance() {
@@ -98,6 +261,19 @@ const employeeJoinDate =
     setLoading,
   ] = useState(true);
 
+  // ==========================================
+  // LOAD ERROR
+  // Distinct from "loaded successfully with zero
+  // records" -- a failed request must never render
+  // the same empty-state card as a genuine empty
+  // month.
+  // ==========================================
+
+  const [
+    loadError,
+    setLoadError,
+  ] = useState(false);
+
 
   const [
     monthlySummary,
@@ -109,6 +285,19 @@ const employeeJoinDate =
     leaveDays: 0,
     totalWorkSeconds: 0,
   });
+
+  // ==========================================
+  // PAGINATION (client-side -- the monthly
+  // history array is already fully loaded in one
+  // request; no new API call needed)
+  // ==========================================
+
+  const [
+    currentPage,
+    setCurrentPage,
+  ] = useState(1);
+
+  const RECORDS_PER_PAGE = 10;
 
 
   // ==========================================
@@ -171,6 +360,39 @@ const employeeJoinDate =
       .join(":");
   };
 
+  // ==========================================
+  // FORMAT DURATION -- SHORT ("7h 55m")
+  // Used only for the Total Work Hours card's
+  // average-per-day subtext.
+  // ==========================================
+
+  const formatDurationShort = (
+    seconds
+  ) => {
+
+    const safeSeconds =
+      Math.max(
+        0,
+        Math.floor(
+          Number(seconds) || 0
+        )
+      );
+
+    const hours =
+      Math.floor(
+        safeSeconds / 3600
+      );
+
+    const minutes =
+      Math.floor(
+        (
+          safeSeconds % 3600
+        ) / 60
+      );
+
+    return `${hours}h ${minutes}m`;
+  };
+
 
   // ==========================================
   // FORMAT DATE
@@ -194,6 +416,26 @@ const employeeJoinDate =
         month: "short",
         year: "numeric",
       }
+    );
+  };
+
+  // ==========================================
+  // FORMAT DAY NAME ("Thu") -- derived purely
+  // from the record's own date, not a new API
+  // field.
+  // ==========================================
+
+  const formatDayName = (
+    date
+  ) => {
+
+    if (!date) {
+      return "--";
+    }
+
+    return new Date(date).toLocaleDateString(
+      "en-IN",
+      { weekday: "short" }
     );
   };
 
@@ -260,6 +502,20 @@ const employeeJoinDate =
       }
     );
   };
+
+  // ==========================================
+  // DAYS IN SELECTED MONTH
+  // ==========================================
+
+  const daysInSelectedMonth = useMemo(() => {
+    if (!selectedMonth) {
+      return 0;
+    }
+
+    const [year, month] = selectedMonth.split("-").map(Number);
+
+    return new Date(year, month, 0).getDate();
+  }, [selectedMonth]);
 
 
   // ==========================================
@@ -388,6 +644,10 @@ if (firstLoginMonth) {
           true
         );
 
+        setLoadError(
+          false
+        );
+
 
         const response =
           await api.get(
@@ -427,6 +687,8 @@ if (firstLoginMonth) {
             : []
         );
 
+        setCurrentPage(1);
+
 
 // ==========================================
 // CALCULATE MONTHLY SUMMARY FROM DAILY ROWS
@@ -445,58 +707,24 @@ let totalWorkSeconds = 0;
 safeRecords.forEach(
   (record) => {
 
-    const status =
-      String(
-        record?.status ||
-        record?.attendance_status ||
-        ""
-      ).toLowerCase();
-
-    const leaveType =
-      String(
-        record?.leave_type ||
-        record?.leaveType ||
-        ""
-      ).toLowerCase();
-
-
     // ========================================
-    // LEAVE
+    // CLASSIFY (shared helper -- see module top)
     // ========================================
 
-    const isLeave =
-      Boolean(leaveType) ||
-      status === "leave" ||
-      status === "on_leave";
+    const { bucket } =
+      classifyAttendanceRecord(
+        record
+      );
 
-
-    if (isLeave) {
+    if (bucket === "leave") {
 
       leaveDays++;
 
-    }
-
-    // ========================================
-    // PRESENT
-    // ========================================
-
-    else if (
-      status === "present" ||
-      status === "completed" ||
-      status === "working" ||
-      record?.first_login_time ||
-      record?.login_time
-    ) {
+    } else if (bucket === "present") {
 
       presentDays++;
 
-    }
-
-    // ========================================
-    // ABSENT
-    // ========================================
-
-    else {
+    } else {
 
       absentDays++;
 
@@ -559,11 +787,15 @@ setMonthlySummary({
 
         setMonthlySummary({
           workableDays: 0,
-          presentDays: 0,
           absentDays: 0,
+          presentDays: 0,
           leaveDays: 0,
           totalWorkSeconds: 0,
         });
+
+        setLoadError(
+          true
+        );
 
 
         toast.error(
@@ -594,6 +826,7 @@ setMonthlySummary({
       selectedMonth
     );
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -623,136 +856,15 @@ setMonthlySummary({
   // STATUS TEXT
   // ==========================================
 
+  // Both now thin wrappers over the single shared
+  // classifyAttendanceRecord() helper (module top) --
+  // guarantees the table badges can never disagree
+  // with the summary cards/donut, which use the same
+  // helper on the same rows.
+
   const getStatusText =
-    (record) => {
-
-      const status =
-        String(
-          record?.status ||
-          record?.attendance_status ||
-          ""
-        ).toLowerCase();
-
-
-      const leaveType =
-        String(
-          record?.leave_type ||
-          record?.leaveType ||
-          ""
-        ).toLowerCase();
-
-
-      // ========================================
-      // LEAVE
-      // ========================================
-
-      if (
-        leaveType
-      ) {
-
-        if (
-          leaveType.includes(
-            "casual"
-          )
-        ) {
-          return "CL";
-        }
-
-
-        if (
-          leaveType.includes(
-            "sick"
-          )
-        ) {
-          return "SL";
-        }
-
-
-        if (
-          leaveType.includes(
-            "earned"
-          )
-        ) {
-          return "EL";
-        }
-
-
-        if (
-          leaveType.includes(
-            "paid"
-          )
-        ) {
-          return "PL";
-        }
-
-
-        return leaveType
-          .substring(
-            0,
-            2
-          )
-          .toUpperCase();
-      }
-
-
-      // ========================================
-      // LEAVE STATUS
-      // ========================================
-
-      if (
-        status === "leave" ||
-        status === "on_leave"
-      ) {
-
-        return (
-          record?.leave_code ||
-          record?.leaveCode ||
-          "Leave"
-        );
-      }
-
-
-      // ========================================
-      // PRESENT
-      // ========================================
-
-      if (
-        status === "present" ||
-        status === "completed" ||
-        status === "working"
-      ) {
-
-        return "Present";
-      }
-
-
-      // ========================================
-      // ABSENT
-      // ========================================
-
-      if (
-        status === "absent"
-      ) {
-
-        return "Absent";
-      }
-
-
-      // ========================================
-      // FALLBACK
-      // ========================================
-
-      if (
-        record?.first_login_time ||
-        record?.login_time
-      ) {
-
-        return "Present";
-      }
-
-
-      return "Absent";
-    };
+    (record) =>
+      classifyAttendanceRecord(record).label;
 
 
   // ==========================================
@@ -760,32 +872,77 @@ setMonthlySummary({
   // ==========================================
 
   const getStatusClass =
-    (record) => {
+    (record) =>
+      classifyAttendanceRecord(record).bucket;
 
-      const status =
-        getStatusText(
-          record
-        ).toLowerCase();
+  // ==========================================
+  // OVERVIEW DONUT DATA
+  // Built only from values this component already
+  // computes for the summary cards -- "Remaining"
+  // is the one additional derived value: calendar
+  // days in the selected month strictly AFTER today
+  // that have no record yet, because they haven't
+  // happened. This is only ever non-zero for the
+  // CURRENT month -- a past month has already fully
+  // elapsed (Remaining = 0), and a future month can
+  // never be selected (the month dropdown and the
+  // backend both reject it). This is a plain calendar-
+  // day count, not a working-day count: there's no
+  // verified holiday/weekend calendar to subtract
+  // against, so it is never labelled "workable."
+  // ==========================================
 
+  const remainingDays =
+    selectedMonth === currentMonthValue
+      ? Math.max(0, daysInSelectedMonth - currentDate.getDate())
+      : 0;
 
-      if (
-        status === "present"
-      ) {
+  const overviewTotal =
+    monthlySummary.presentDays +
+    monthlySummary.absentDays +
+    monthlySummary.leaveDays +
+    remainingDays;
 
-        return "present";
-      }
+  const pct = (value) =>
+    overviewTotal > 0
+      ? Math.round((value / overviewTotal) * 1000) / 10
+      : 0;
 
+  const overviewSegments = [
+    { key: "present", label: "Present", value: monthlySummary.presentDays, color: "#16A66A" },
+    { key: "absent", label: "Absent", value: monthlySummary.absentDays, color: "#D64545" },
+    { key: "leave", label: "Leave", value: monthlySummary.leaveDays, color: "#E0A32E" },
+    { key: "remaining", label: "Remaining", value: remainingDays, color: "#D7DEDA" },
+  ];
 
-      if (
-        status === "absent"
-      ) {
+  const chartData = overviewSegments.filter((segment) => segment.value > 0);
 
-        return "absent";
-      }
+  // ==========================================
+  // AVERAGE WORK HOURS PER PRESENT DAY
+  // ==========================================
 
+  const avgWorkSecondsPerPresentDay =
+    monthlySummary.presentDays > 0
+      ? monthlySummary.totalWorkSeconds / monthlySummary.presentDays
+      : 0;
 
-      return "leave";
-    };
+  // ==========================================
+  // PAGINATION
+  // ==========================================
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(history.length / RECORDS_PER_PAGE)
+  );
+
+  const pagedHistory = history.slice(
+    (currentPage - 1) * RECORDS_PER_PAGE,
+    currentPage * RECORDS_PER_PAGE
+  );
+
+  const goToPage = (page) => {
+    setCurrentPage(Math.min(Math.max(1, page), totalPages));
+  };
 
 
   // ==========================================
@@ -795,7 +952,7 @@ setMonthlySummary({
   return (
     <>
 
-      <div className="employee-page-content">
+      <div className="employee-page-content attendance-v2">
 
 
         {/* ==================================
@@ -804,28 +961,37 @@ setMonthlySummary({
 
         <section className="attendance-page-header">
 
-          <div>
+          <div className="attendance-header-title-row">
 
-            <h2>
-              Attendance History
-            </h2>
+            <span className="attendance-header-icon">
+              <FaCalendarAlt />
+            </span>
 
-            <p>
-              Your monthly attendance
-            </p>
+            <div>
+              <h2>
+                Attendance History
+              </h2>
+
+              <p>
+                Track your monthly attendance and working hours
+              </p>
+            </div>
 
           </div>
 
 
           <div className="attendance-employee-badge">
 
-            <span>
-              Employee ID
+            <span className="attendance-employee-badge-icon">
+              <FaIdBadge />
             </span>
 
-            <strong>
-              {user?.employeeId}
-            </strong>
+            <div>
+              <span>Employee ID</span>
+              <strong>
+                {user?.employeeId}
+              </strong>
+            </div>
 
           </div>
 
@@ -881,321 +1047,544 @@ setMonthlySummary({
 
 
         {/* ==================================
-            ATTENDANCE TABLE
+            SUMMARY CARDS
         ================================== */}
 
-        <section className="attendance-history-card">
+        <section className="attendance-summary-cards">
 
-
-          {loading ? (
-
-            <div className="attendance-loading">
-
-              Loading attendance...
-
+          <div className="attendance-summary-card tone-blue">
+            <div className="attendance-summary-card-icon">
+              <FaCalendarAlt />
             </div>
+            <div className="attendance-summary-card-body">
+              <span>Total Workable Days</span>
+              <strong>{monthlySummary.workableDays}</strong>
+              <small>Present + approved leave</small>
+            </div>
+          </div>
 
+          <div className="attendance-summary-card tone-green">
+            <div className="attendance-summary-card-icon">
+              <FaCheckCircle />
+            </div>
+            <div className="attendance-summary-card-body">
+              <span>Present Days</span>
+              <strong>{monthlySummary.presentDays}</strong>
+              <small>{pct(monthlySummary.presentDays)}% of the month</small>
+            </div>
+          </div>
 
-          ) : history.length === 0 ? (
+          <div className="attendance-summary-card tone-red">
+            <div className="attendance-summary-card-icon">
+              <FaTimesCircle />
+            </div>
+            <div className="attendance-summary-card-body">
+              <span>Absent Days</span>
+              <strong>{monthlySummary.absentDays}</strong>
+              <small>{pct(monthlySummary.absentDays)}% of the month</small>
+            </div>
+          </div>
 
-            <div className="attendance-empty">
+          <div className="attendance-summary-card tone-amber">
+            <div className="attendance-summary-card-icon">
+              <FaUmbrellaBeach />
+            </div>
+            <div className="attendance-summary-card-body">
+              <span>Leave Days</span>
+              <strong>{monthlySummary.leaveDays}</strong>
+              <small>{pct(monthlySummary.leaveDays)}% of the month</small>
+            </div>
+          </div>
 
+          <div className="attendance-summary-card tone-indigo">
+            <div className="attendance-summary-card-icon">
               <FaClock />
-
-              <h3>
-                No attendance records
-              </h3>
-
-              <p>
-                No attendance information
-                is available for{" "}
-                {formatMonthName(
-                  selectedMonth
-                )}
-                .
-              </p>
-
             </div>
-
-
-          ) : (
-
-            <div className="attendance-table-wrapper">
-
-              <table className="attendance-table">
-
-
-                <thead>
-
-                  <tr>
-
-                    <th>
-                      Date
-                    </th>
-
-                    <th>
-                      First Online
-                    </th>
-
-                    <th>
-                      Last Offline
-                    </th>
-
-                    <th>
-                      Work Hours
-                    </th>
-
-                    <th>
-                      Break Time
-                    </th>
-
-                    <th>
-                      Status
-                    </th>
-
-                    <th>
-                      Sessions
-                    </th>
-
-                  </tr>
-
-                </thead>
-
-
-                <tbody>
-
-                  {history.map(
-                    (
-                      record,
-                      index
-                    ) => {
-
-                      const status =
-                        getStatusText(
-                          record
-                        );
-
-
-                      const statusClass =
-                        getStatusClass(
-                          record
-                        );
-
-
-                      return (
-
-                        <tr
-                          key={
-                            record.attendance_date ||
-                            record.date ||
-                            index
-                          }
-                        >
-
-
-                          {/* DATE */}
-
-                          <td className="attendance-date">
-
-                            {formatDate(
-                              record.attendance_date ||
-                              record.date
-                            )}
-
-                          </td>
-
-
-                          {/* FIRST ONLINE */}
-
-                          <td>
-
-                            {formatTime(
-                              record.first_login_time ||
-                              record.login_time
-                            )}
-
-                          </td>
-
-
-                          {/* LAST OFFLINE */}
-
-                          <td>
-
-                            {formatTime(
-                              record.last_logout_time ||
-                              record.logout_time
-                            )}
-
-                          </td>
-
-
-                          {/* WORK HOURS */}
-
-                          <td>
-
-                            <span className="work-hours-value">
-
-                              {formatDuration(
-                                record.total_work_seconds ??
-                                record.work_duration_seconds
-                              )}
-
-                            </span>
-
-                          </td>
-
-
-                          {/* BREAK TIME */}
-
-                          <td>
-
-                            {formatDuration(
-                              record.total_break_seconds
-                            )}
-
-                          </td>
-
-
-                          {/* STATUS */}
-
-                          <td>
-
-                            <span
-                              className={
-                                `attendance-status-badge ${statusClass}`
-                              }
-                            >
-
-                              {status}
-
-                            </span>
-
-                          </td>
-
-
-                          {/* SESSIONS */}
-
-                          <td>
-
-                            {
-                              record.total_sessions ??
-                              record.sessions ??
-                              0
-                            }
-
-                          </td>
-
-
-                        </tr>
-
-                      );
-
-                    }
-                  )}
-
-                </tbody>
-
-              </table>
-
+            <div className="attendance-summary-card-body">
+              <span>Total Work Hours</span>
+              <strong>{formatDuration(monthlySummary.totalWorkSeconds)}</strong>
+              <small>
+                {monthlySummary.presentDays > 0
+                  ? `Avg. ${formatDurationShort(avgWorkSecondsPerPresentDay)}/day`
+                  : "No working days yet"}
+              </small>
             </div>
-
-          )}
+          </div>
 
         </section>
 
 
         {/* ==================================
-            MONTHLY SUMMARY
+            MAIN LAYOUT -- Records (left) /
+            Overview + Quick Info + Legend (right)
         ================================== */}
 
-        <section className="attendance-monthly-summary">
+        <div className="attendance-main-grid">
 
-          <h3>
-            Monthly Summary
-          </h3>
+          {/* ==================================
+              ATTENDANCE RECORDS
+          ================================== */}
 
+          <section className="attendance-history-card">
 
-          <div className="attendance-summary-list">
-
-
-            <div className="attendance-summary-row">
-
-              <span>
-                Total Workable Days:
-              </span>
-
-              <strong>
-                {
-                  monthlySummary.workableDays
-                }
-              </strong>
-
+            <div className="attendance-card-header">
+              <div className="attendance-card-title">
+                <span className="attendance-card-icon"><FaClipboardList /></span>
+                <h3>Attendance Records</h3>
+              </div>
+              {history.length > 0 && (
+                <span className="attendance-record-count">
+                  {history.length} record{history.length === 1 ? "" : "s"}
+                </span>
+              )}
             </div>
 
+            {loading ? (
 
-            <div className="attendance-summary-row">
+              <div className="attendance-loading">
 
-              <span>
-                Present:
-              </span>
+                Loading attendance...
 
-              <strong>
-                {
-                  monthlySummary.presentDays
-                }
-              </strong>
-
-            </div>
+              </div>
 
 
-            <div className="attendance-summary-row">
+            ) : loadError ? (
 
-              <span>
-                Absent:
-              </span>
+              <div className="attendance-empty attendance-error-state">
 
-              <strong>
-                {
-                  monthlySummary.absentDays
-                }
-              </strong>
+                <span className="attendance-empty-icon attendance-error-icon">
+                  <FaExclamationTriangle />
+                </span>
 
-            </div>
+                <h3>
+                  Unable to load attendance
+                </h3>
+
+                <p>
+                  Something went wrong while loading{" "}
+                  {formatMonthName(selectedMonth)}. Your connection or our
+                  server may be having trouble.
+                </p>
+
+                <button
+                  type="button"
+                  className="attendance-retry-button"
+                  onClick={() => loadMonthlyAttendance(selectedMonth)}
+                >
+                  <FaRedoAlt /> Retry
+                </button>
+
+              </div>
 
 
-            <div className="attendance-summary-row">
+            ) : history.length === 0 ? (
 
-              <span>
-                Leave:
-              </span>
+              <div className="attendance-empty">
 
-              <strong>
-                {
-                  monthlySummary.leaveDays
-                }
-              </strong>
+                <span className="attendance-empty-icon"><FaClock /></span>
 
-            </div>
+                <h3>
+                  No attendance records
+                </h3>
+
+                <p>
+                  No attendance information
+                  is available for{" "}
+                  {formatMonthName(
+                    selectedMonth
+                  )}
+                  .
+                </p>
+
+              </div>
 
 
-            <div className="attendance-summary-row">
+            ) : (
 
-              <span>
-                Total Work Hours:
-              </span>
+              <>
 
-              <strong>
-                {formatDuration(
-                  monthlySummary.totalWorkSeconds
+                <div className="attendance-table-wrapper">
+
+                  <table className="attendance-table">
+
+
+                    <thead>
+
+                      <tr>
+
+                        <th>
+                          Date
+                        </th>
+
+                        <th>
+                          Day
+                        </th>
+
+                        <th>
+                          Check In
+                        </th>
+
+                        <th>
+                          Check Out
+                        </th>
+
+                        <th>
+                          Break
+                        </th>
+
+                        <th>
+                          Working Hours
+                        </th>
+
+                        <th>
+                          Status
+                        </th>
+
+                        <th>
+                          Sessions
+                        </th>
+
+                      </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                      {pagedHistory.map(
+                        (
+                          record,
+                          index
+                        ) => {
+
+                          const status =
+                            getStatusText(
+                              record
+                            );
+
+
+                          const statusClass =
+                            getStatusClass(
+                              record
+                            );
+
+                          const recordDate =
+                            record.attendance_date ||
+                            record.date;
+
+
+                          return (
+
+                            <tr
+                              key={
+                                recordDate ||
+                                index
+                              }
+                            >
+
+
+                              {/* DATE */}
+
+                              <td className="attendance-date">
+
+                                {formatDate(
+                                  recordDate
+                                )}
+
+                              </td>
+
+                              {/* DAY */}
+
+                              <td>
+                                {formatDayName(recordDate)}
+                              </td>
+
+
+                              {/* CHECK IN */}
+
+                              <td>
+
+                                {formatTime(
+                                  record.first_login_time ||
+                                  record.login_time
+                                )}
+
+                              </td>
+
+
+                              {/* CHECK OUT */}
+
+                              <td>
+
+                                {formatTime(
+                                  record.last_logout_time ||
+                                  record.logout_time
+                                )}
+
+                              </td>
+
+                              {/* BREAK TIME */}
+
+                              <td>
+
+                                {formatDuration(
+                                  record.total_break_seconds
+                                )}
+
+                              </td>
+
+
+                              {/* WORK HOURS */}
+
+                              <td>
+
+                                <span className="work-hours-value">
+
+                                  {formatDuration(
+                                    record.total_work_seconds ??
+                                    record.work_duration_seconds
+                                  )}
+
+                                </span>
+
+                              </td>
+
+
+                              {/* STATUS */}
+
+                              <td>
+
+                                <span
+                                  className={
+                                    `attendance-status-badge ${statusClass}`
+                                  }
+                                >
+
+                                  {status}
+
+                                </span>
+
+                              </td>
+
+
+                              {/* SESSIONS */}
+
+                              <td>
+
+                                {
+                                  record.total_sessions ??
+                                  record.sessions ??
+                                  0
+                                }
+
+                              </td>
+
+
+                            </tr>
+
+                          );
+
+                        }
+                      )}
+
+                    </tbody>
+
+                  </table>
+
+                </div>
+
+                {totalPages > 1 && (
+
+                  <div className="attendance-pagination">
+
+                    <button
+                      type="button"
+                      className="attendance-page-nav"
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      aria-label="Previous page"
+                    >
+                      <FaChevronLeft />
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        type="button"
+                        className={
+                          page === currentPage
+                            ? "attendance-page-number active"
+                            : "attendance-page-number"
+                        }
+                        onClick={() => goToPage(page)}
+                        aria-current={page === currentPage ? "page" : undefined}
+                      >
+                        {page}
+                      </button>
+                    ))}
+
+                    <button
+                      type="button"
+                      className="attendance-page-nav"
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      aria-label="Next page"
+                    >
+                      <FaChevronRight />
+                    </button>
+
+                  </div>
+
                 )}
-              </strong>
 
-            </div>
+              </>
 
+            )}
 
-          </div>
+          </section>
 
-        </section>
+          {/* ==================================
+              RIGHT COLUMN -- Overview / Quick
+              Info / Legend
+          ================================== */}
+
+          <aside className="attendance-side-column">
+
+            {/* OVERVIEW DONUT */}
+
+            <section className="attendance-overview-card">
+
+              <div className="attendance-card-title">
+                <span className="attendance-card-icon"><FaChartPie /></span>
+                <h3>Attendance Overview</h3>
+              </div>
+
+              {loading ? (
+
+                <div className="attendance-overview-empty">
+                  <FaRegCircle />
+                  <span>Loading...</span>
+                </div>
+
+              ) : loadError ? (
+
+                <div className="attendance-overview-empty">
+                  <FaExclamationTriangle />
+                  <span>Unable to load</span>
+                </div>
+
+              ) : overviewTotal === 0 ? (
+
+                <div className="attendance-overview-empty">
+                  <FaRegCircle />
+                  <span>No data for this month</span>
+                </div>
+
+              ) : (
+
+                <>
+
+                  <div className="attendance-donut-wrap">
+
+                    <ResponsiveContainer width="100%" height={180}>
+                      <PieChart>
+                        <Pie
+                          data={chartData}
+                          dataKey="value"
+                          nameKey="label"
+                          innerRadius={55}
+                          outerRadius={78}
+                          paddingAngle={chartData.length > 1 ? 2 : 0}
+                          startAngle={90}
+                          endAngle={-270}
+                          stroke="none"
+                        >
+                          {chartData.map((segment) => (
+                            <Cell key={segment.key} fill={segment.color} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+
+                    <div className="attendance-donut-center">
+                      <strong>
+                        {monthlySummary.presentDays}/{overviewTotal}
+                      </strong>
+                      <span>Present</span>
+                    </div>
+
+                  </div>
+
+                  <ul className="attendance-overview-legend">
+                    {overviewSegments.map((segment) => (
+                      <li key={segment.key}>
+                        <span
+                          className="attendance-legend-dot"
+                          style={{ background: segment.color }}
+                        />
+                        <span className="attendance-legend-label">{segment.label}</span>
+                        <span className="attendance-legend-value">{segment.value}</span>
+                        <span className="attendance-legend-pct">{pct(segment.value)}%</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                </>
+
+              )}
+
+            </section>
+
+            {/* QUICK INFO */}
+
+            <section className="attendance-quick-info">
+              <span className="attendance-quick-info-icon"><FaLightbulb /></span>
+              <div>
+                <strong>Quick Info</strong>
+                <p>
+                  Working hours exclude break time. Attendance data is updated
+                  in real time after you check out.
+                </p>
+              </div>
+            </section>
+
+            {/* LEGEND */}
+
+            <section className="attendance-legend-card">
+
+              <div className="attendance-card-title">
+                <h3>Legend</h3>
+              </div>
+
+              <ul>
+                <li>
+                  <span className="attendance-legend-dot" style={{ background: "#16A66A" }} />
+                  <div>
+                    <strong>Present</strong>
+                    <span>Checked in and worked normally</span>
+                  </div>
+                </li>
+                <li>
+                  <span className="attendance-legend-dot" style={{ background: "#D64545" }} />
+                  <div>
+                    <strong>Absent</strong>
+                    <span>No attendance record</span>
+                  </div>
+                </li>
+                <li>
+                  <span className="attendance-legend-dot" style={{ background: "#E0A32E" }} />
+                  <div>
+                    <strong>Leave</strong>
+                    <span>Approved leave for the day</span>
+                  </div>
+                </li>
+              </ul>
+
+            </section>
+
+          </aside>
+
+        </div>
 
 
       </div>
@@ -1203,6 +1592,5 @@ setMonthlySummary({
     </>
   );
 }
-
 
 export default EmployeeAttendance;
