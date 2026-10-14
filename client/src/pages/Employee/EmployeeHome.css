@@ -808,3 +808,596 @@
   color: #7A8780;
   font-size: 11.5px;
 }
+
+/* ==========================================
+   DASHBOARD REDESIGN (reference-matched)
+   Welcome banner, KPI row, My Work filters,
+   Today/Quick Actions/Quote sidebar. Reuses the
+   existing .employee-panel/.employee-stat-card
+   shells and color tokens above -- no parallel
+   design system introduced.
+========================================== */
+
+.dash-welcome-banner {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 32px;
+  border-radius: 20px;
+  background: linear-gradient(120deg, #E6F7EE 0%, #F4FBF7 55%, #FFFFFF 100%);
+  overflow: hidden;
+}
+
+.dash-welcome-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.dash-welcome-text h2 {
+  margin: 8px 0;
+  color: #17211D;
+  font-size: 28px;
+}
+
+.dash-wave {
+  display: inline-block;
+}
+
+.dash-welcome-text > p {
+  max-width: 560px;
+  color: #53615A;
+  line-height: 1.6;
+}
+
+.dash-welcome-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.dash-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(22, 166, 106, 0.18);
+  color: #17211D;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dash-chip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(22, 166, 106, 0.16);
+  color: #16A66A;
+  font-size: 13px;
+}
+
+.dash-chip-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.2;
+}
+
+.dash-chip-stack small {
+  color: #7A8780;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.dash-chip-status .status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #16A66A;
+}
+
+.dash-status-online .status-dot,
+.dash-status-break .status-dot {
+  background: #16A66A;
+}
+
+.dash-status-offline .status-dot {
+  background: #B9C3BD;
+}
+
+.dash-status-offline {
+  color: #53615A;
+}
+
+.dash-welcome-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 300px;
+  max-width: 400px;
+}
+
+.dash-desk-illustration {
+  width: 100%;
+  height: auto;
+}
+
+.dash-quote-bubble {
+  max-width: 190px;
+  padding: 0 4px;
+  text-align: right;
+}
+
+.dash-quote-mark {
+  color: #16A66A;
+  font-size: 16px;
+  opacity: 0.7;
+}
+
+.dash-quote-bubble p {
+  margin-top: 6px;
+  color: #17211D;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+/* ==========================================
+   MAIN GRID
+========================================== */
+
+.dash-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+  margin-top: 20px;
+}
+
+.dash-main-left {
+  min-width: 0;
+}
+
+.dash-main-right {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dash-kpi-grid {
+  margin-top: 0;
+}
+
+.dash-kpi-card {
+  position: relative;
+}
+
+/* ==========================================
+   MY WORK PANEL
+========================================== */
+
+.dash-mywork-panel {
+  margin-top: 20px;
+}
+
+.dash-mywork-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #E2E9E5;
+}
+
+.dash-mywork-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dash-mywork-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(22, 166, 106, 0.14);
+  color: #16A66A;
+  font-size: 16px;
+}
+
+.dash-mywork-title h3 {
+  color: #17211D;
+  font-size: 16px;
+}
+
+.dash-mywork-title span {
+  color: #7A8780;
+  font-size: 12px;
+}
+
+.dash-mywork-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #F7FAF8;
+}
+
+.dash-filter-tab {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #53615A;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dash-filter-tab.active {
+  background: #16A66A;
+  color: #FFFFFF;
+}
+
+.dash-view-all-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid #E2E9E5;
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: #17211D;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dash-view-all-button:hover {
+  border-color: #16A66A;
+  color: #16A66A;
+}
+
+.dash-empty-work {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 36px 20px 10px;
+  text-align: center;
+}
+
+.dash-empty-illustration {
+  width: 150px;
+  height: auto;
+  margin-bottom: 10px;
+}
+
+.dash-empty-work h4 {
+  color: #17211D;
+  font-size: 16px;
+}
+
+.dash-empty-work p {
+  max-width: 360px;
+  margin: 6px 0 20px;
+  color: #7A8780;
+  font-size: 13px;
+}
+
+.dash-add-task-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 10px;
+  background: #16A66A;
+  color: #FFFFFF;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dash-add-task-button:hover {
+  background: #128957;
+}
+
+/* ==========================================
+   TODAY (CALENDAR) WIDGET
+========================================== */
+
+.dash-today-panel {
+  min-height: 0;
+  padding: 20px;
+}
+
+.dash-today-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dash-today-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: rgba(22, 166, 106, 0.14);
+  color: #16A66A;
+  font-size: 14px;
+}
+
+.dash-today-header > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-today-header strong {
+  color: #17211D;
+  font-size: 14px;
+}
+
+.dash-today-header span {
+  color: #7A8780;
+  font-size: 11px;
+}
+
+.dash-today-chevron {
+  color: #B9C3BD;
+  font-size: 12px;
+}
+
+.dash-week-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 18px;
+}
+
+.dash-week-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 0;
+  border-radius: 10px;
+  color: #53615A;
+}
+
+.dash-week-day span {
+  font-size: 10px;
+  color: #7A8780;
+}
+
+.dash-week-day strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dash-week-day.is-today strong {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #16A66A;
+  color: #FFFFFF;
+}
+
+/* ==========================================
+   QUICK ACTIONS
+========================================== */
+
+.dash-quick-actions-panel {
+  min-height: 0;
+  padding: 20px;
+}
+
+.dash-panel-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dash-panel-title-row h3 {
+  color: #17211D;
+  font-size: 15px;
+}
+
+.dash-bolt-icon,
+.dash-quote-icon-small {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(22, 166, 106, 0.14);
+  color: #16A66A;
+  font-size: 13px;
+}
+
+.dash-quick-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.dash-quick-action-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #E2E9E5;
+  border-radius: 12px;
+  background: #FFFFFF;
+  cursor: pointer;
+  text-align: left;
+}
+
+.dash-quick-action-tile:hover {
+  border-color: #16A66A;
+}
+
+.dash-quick-action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-size: 13px;
+  color: #FFFFFF;
+}
+
+.dash-quick-action-icon.tone-green { background: #16A66A; }
+.dash-quick-action-icon.tone-blue { background: #3B82C4; }
+.dash-quick-action-icon.tone-orange { background: #E08A2E; }
+.dash-quick-action-icon.tone-purple { background: #8457C9; }
+
+.dash-quick-action-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #17211D;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.dash-quick-action-label svg {
+  color: #B9C3BD;
+  font-size: 11px;
+}
+
+/* ==========================================
+   TODAY'S QUOTE
+========================================== */
+
+.dash-quote-panel {
+  min-height: 0;
+  padding: 20px;
+}
+
+.dash-quote-text {
+  margin: 14px 0 10px;
+  color: #53615A;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.dash-quote-text strong {
+  color: #17211D;
+}
+
+.dash-quote-illustration {
+  width: 100%;
+  max-width: 140px;
+  height: auto;
+  margin-left: auto;
+  display: block;
+}
+
+/* ==========================================
+   SECONDARY (legacy) PANELS
+========================================== */
+
+.dash-secondary-panels {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px dashed #E2E9E5;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 1180px) {
+  .dash-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-main-right {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .dash-main-right > section {
+    flex: 1 1 240px;
+  }
+}
+
+@media (max-width: 860px) {
+  .dash-welcome-banner {
+    flex-direction: column;
+  }
+
+  .dash-welcome-visual {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .dash-quote-bubble {
+    position: static;
+    max-width: none;
+    text-align: left;
+    padding: 14px 0 0;
+  }
+
+  .dash-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dash-main-right {
+    flex-direction: column;
+  }
+
+  .dash-main-right > section {
+    flex: initial;
+  }
+
+  .dash-mywork-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dash-view-all-button {
+    align-self: flex-end;
+  }
+}
+
+@media (max-width: 600px) {
+  .dash-welcome-banner {
+    padding: 22px 20px;
+  }
+
+  .dash-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-welcome-chips {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

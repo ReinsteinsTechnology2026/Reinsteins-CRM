@@ -12,6 +12,16 @@ import {
   FaStop,
   FaPause,
   FaPlayCircle,
+  FaUserTie,
+  FaIdBadge,
+  FaBolt,
+  FaQuoteLeft,
+  FaChevronRight,
+  FaPlus,
+  FaCalendarWeek,
+  FaCalendarCheck,
+  FaChartBar,
+  FaClipboardList,
 } from "react-icons/fa";
 
 import {
@@ -45,6 +55,12 @@ import {
 import ExecutiveDashboard from "./ExecutiveDashboard";
 import { isExecutiveDashboardUser } from "../../utils/executiveAccess";
 
+import {
+  WelcomeDeskIllustration,
+  EmptyWorkIllustration,
+  QuoteMountainIllustration,
+} from "./DashboardIllustrations";
+
 import "../../styles/workItems.css";
 import "./EmployeeHome.css";
 
@@ -65,6 +81,26 @@ function getCurrentUserId() {
     return null;
   }
 }
+
+// ==========================================
+// THIS WEEK (for the Today calendar widget) --
+// real Date() math, Monday-start, no fake dates.
+// ==========================================
+
+function getCurrentWeek() {
+  const today = new Date();
+  const dayIndex = (today.getDay() + 6) % 7; // 0 = Monday
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - dayIndex);
+
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d;
+  });
+}
+
+const WEEKDAY_LETTERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function EmployeeHome() {
   // ==========================================
@@ -167,6 +203,18 @@ function EmployeeHome() {
     myLeaves,
     setMyLeaves,
   ] = useState([]);
+
+  // ==========================================
+  // MY WORK FILTER TAB (All / In Progress /
+  // Completed / Overdue) -- purely a client-side
+  // view over allTasks, already loaded below. No
+  // new API call.
+  // ==========================================
+
+  const [
+    workFilter,
+    setWorkFilter,
+  ] = useState("all");
 
   // ==========================================
   // FORMAT SECONDS
@@ -395,6 +443,13 @@ function EmployeeHome() {
         "closed"
     );
 
+  const inProgressTasks =
+    myTasks.filter(
+      (task) =>
+        task.status ===
+        "in_progress"
+    );
+
   const pendingTasks =
     getActiveTasks(allTasks, currentUserId);
 
@@ -414,13 +469,35 @@ function EmployeeHome() {
   // overdue first, then due soon, then everything
   // else currently active, capped at 6 rows so the
   // panel stays compact (matches "avoid clutter").
-  const myWorkTasks = [
+  const attentionTasks = [
     ...overdueTasks,
     ...dueSoonTasks.filter((task) => !overdueTasks.includes(task)),
     ...pendingTasks.filter(
       (task) => !overdueTasks.includes(task) && !dueSoonTasks.includes(task)
     ),
   ].slice(0, 6);
+
+  // ==========================================
+  // MY WORK FILTER TABS
+  // Each tab is a view over data already loaded
+  // above -- no new requests.
+  // ==========================================
+
+  const WORK_FILTERS = [
+    { key: "all", label: "All" },
+    { key: "in_progress", label: "In Progress" },
+    { key: "completed", label: "Completed" },
+    { key: "overdue", label: "Overdue" },
+  ];
+
+  const myWorkTasks =
+    workFilter === "in_progress"
+      ? inProgressTasks.slice(0, 6)
+      : workFilter === "completed"
+      ? completedTasks.slice(0, 6)
+      : workFilter === "overdue"
+      ? overdueTasks.slice(0, 6)
+      : attentionTasks;
 
   // ==========================================
   // LEAVE STATISTICS
@@ -805,6 +882,80 @@ function EmployeeHome() {
     };
 
   // ==========================================
+  // WELCOME-BANNER STATUS CHIP
+  // Short form of the same status already shown
+  // in the attendance panel below (hour:minute
+  // only -- the full formatTime's seconds are too
+  // noisy for this compact chip).
+  // ==========================================
+
+  const formatTimeShort = (date) => {
+    if (!date) {
+      return "--";
+    }
+
+    return new Date(date).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const onlineChipLabel =
+    !isOnline
+      ? "Offline"
+      : isOnBreak
+      ? "On Break"
+      : `Online Since ${formatTimeShort(attendance?.login_time)}`;
+
+  // ==========================================
+  // THIS WEEK (Today calendar widget)
+  // ==========================================
+
+  const thisWeek = getCurrentWeek();
+  const todayDateString = new Date().toDateString();
+
+  // ==========================================
+  // QUICK ACTIONS
+  // All four navigate to existing, real routes --
+  // no new pages. "View Reports" from the
+  // reference isn't available to standard
+  // employees (only Admin/Executive have a
+  // Reports route), so this tile points at My
+  // Tasks instead, which every employee has.
+  // ==========================================
+
+  const quickActions = [
+    {
+      key: "attendance",
+      label: "Mark Attendance",
+      icon: <FaPlay />,
+      tone: "green",
+      onClick: () => navigate("/employee/attendance"),
+    },
+    {
+      key: "schedule",
+      label: "View Schedule",
+      icon: <FaCalendarWeek />,
+      tone: "blue",
+      onClick: () => navigate("/employee/shift-schedule"),
+    },
+    {
+      key: "leave",
+      label: "Request Leave",
+      icon: <FaCalendarCheck />,
+      tone: "orange",
+      onClick: () => navigate("/employee/leave"),
+    },
+    {
+      key: "tasks",
+      label: "My Tasks",
+      icon: <FaChartBar />,
+      tone: "purple",
+      onClick: () => navigate("/employee/tasks"),
+    },
+  ];
+
+  // ==========================================
   // RENDER
   // ==========================================
 
@@ -819,23 +970,23 @@ function EmployeeHome() {
             DASHBOARD CONTENT
         ================================== */}
 
-        <div className="employee-page-content">
+        <div className="employee-page-content dash-v2">
 
           {/* ==================================
-              WELCOME
+              WELCOME BANNER
           ================================== */}
 
-          <section className="employee-welcome-card">
+          <section className="dash-welcome-banner">
 
-            <div>
+            <div className="dash-welcome-text">
 
               <span className="welcome-label">
                 Employee Workspace
               </span>
 
               <h2>
-                Hello,{" "}
-                {sessionUser?.fullName}
+                Hello, {sessionUser?.fullName}{" "}
+                <span className="dash-wave" role="img" aria-label="waving hand">👋</span>
               </h2>
 
               <p>
@@ -845,272 +996,369 @@ function EmployeeHome() {
                 WorkHub dashboard.
               </p>
 
+              <div className="dash-welcome-chips">
+
+                {sessionUser?.designation && (
+                  <div className="dash-chip">
+                    <span className="dash-chip-icon"><FaUserTie /></span>
+                    <span>{sessionUser.designation}</span>
+                  </div>
+                )}
+
+                <div className="dash-chip">
+                  <span className="dash-chip-icon"><FaIdBadge /></span>
+                  <div className="dash-chip-stack">
+                    <small>Employee ID</small>
+                    <strong>{sessionUser?.employeeId}</strong>
+                  </div>
+                </div>
+
+                <div className={`dash-chip dash-chip-status dash-status-${getStatusClass()}`}>
+                  <span className="status-dot" />
+                  <span>{onlineChipLabel}</span>
+                </div>
+
+              </div>
+
             </div>
 
- <div className="welcome-employee-id">
+            <div className="dash-welcome-visual">
 
-  
+              <WelcomeDeskIllustration />
 
-  <strong>{sessionUser?.employeeId}</strong>
+              <div className="dash-quote-bubble">
+                <FaQuoteLeft className="dash-quote-mark" />
+                <p>Consistent Progress Builds Great Things</p>
+              </div>
 
-</div>
+            </div>
 
           </section>
 
           {/* ==================================
-              STAT CARDS
+              MAIN GRID -- KPIs + My Work (left)
+              / Calendar + Quick Actions + Quote
+              (right)
           ================================== */}
 
-          <div className="employee-stats-grid">
+          <div className="dash-main-grid">
 
-            {/* TODAY WORK HOURS */}
+            <div className="dash-main-left">
 
-            <div className="employee-stat-card">
+              {/* STAT CARDS */}
 
-              <div className="employee-stat-icon">
+              <div className="employee-stats-grid dash-kpi-grid">
 
-                <FaClock />
+                {/* TODAY WORK HOURS */}
+
+                <div className="employee-stat-card dash-kpi-card">
+
+                  <div className="employee-stat-icon">
+                    <FaClock />
+                  </div>
+
+                  <div>
+                    <p>Today's Work Hours</p>
+                    <h3>{formatDuration(todayTotalSeconds)}</h3>
+                    <span>
+                      {isOnBreak
+                        ? "Work timer paused"
+                        : isOnline
+                        ? "Currently working"
+                        : "Total completed time"}
+                    </span>
+                  </div>
+
+                </div>
+
+                {/* COMPLETED TASKS */}
+
+                <div className="employee-stat-card dash-kpi-card">
+
+                  <div className="employee-stat-icon">
+                    <FaCheckCircle />
+                  </div>
+
+                  <div>
+                    <p>Tasks Completed</p>
+                    <h3>{completedTasks.length}</h3>
+                    <span>
+                      {completedTasks.length === 0
+                        ? "No completed tasks"
+                        : `${completedTasks.length} completed task${
+                            completedTasks.length > 1 ? "s" : ""
+                          }`}
+                    </span>
+                  </div>
+
+                </div>
+
+                {/* PENDING TASKS */}
+
+                <div className="employee-stat-card dash-kpi-card">
+
+                  <div className="employee-stat-icon">
+                    <FaTasks />
+                  </div>
+
+                  <div>
+                    <p>Pending Tasks</p>
+                    <h3>{pendingTasks.length}</h3>
+                    <span>
+                      {pendingTasks.length === 0
+                        ? "No pending tasks"
+                        : `${pendingTasks.length} task${
+                            pendingTasks.length > 1 ? "s" : ""
+                          } in progress`}
+                    </span>
+                  </div>
+
+                </div>
+
+                {/* LEAVE REQUESTS */}
+
+                <div className="employee-stat-card dash-kpi-card">
+
+                  <div className="employee-stat-icon">
+                    <FaCalendarAlt />
+                  </div>
+
+                  <div>
+                    <p>Leave Requests</p>
+                    <h3>{pendingLeaves.length}</h3>
+                    <span>
+                      {pendingLeaves.length === 0
+                        ? "No pending requests"
+                        : `${pendingLeaves.length} pending leave request${
+                            pendingLeaves.length > 1 ? "s" : ""
+                          }`}
+                    </span>
+                  </div>
+
+                </div>
 
               </div>
 
-              <div>
+              {/* ==================================
+                  MY WORK — active/overdue/due-soon
+                  tasks assigned to me, with status
+                  filter tabs. Clicking a row opens
+                  the real, unmodified Task
+                  Workspace; "View all" opens the
+                  real My Tasks page — no data or
+                  filtering logic is duplicated here.
+              ================================== */}
 
-                <p>
-                  Today's Work Hours
-                </p>
+              <section className="employee-panel employee-panel-wide dash-mywork-panel">
 
-                <h3>
-                  {formatDuration(
-                    todayTotalSeconds
-                  )}
-                </h3>
+                <div className="dash-mywork-header">
 
-                <span>
+                  <div className="dash-mywork-title">
+                    <span className="dash-mywork-icon"><FaClipboardList /></span>
+                    <div>
+                      <h3>My Work</h3>
+                      <span>Tasks needing your attention</span>
+                    </div>
+                  </div>
 
-                  {isOnBreak
-                    ? "Work timer paused"
-                    : isOnline
-                    ? "Currently working"
-                    : "Total completed time"}
+                  <div className="dash-mywork-filters">
+                    {WORK_FILTERS.map((filter) => (
+                      <button
+                        key={filter.key}
+                        type="button"
+                        className={
+                          workFilter === filter.key
+                            ? "dash-filter-tab active"
+                            : "dash-filter-tab"
+                        }
+                        onClick={() => setWorkFilter(filter.key)}
+                      >
+                        {filter.label}
+                      </button>
+                    ))}
+                  </div>
 
-                </span>
+                  <button
+                    type="button"
+                    className="dash-view-all-button"
+                    onClick={() => navigate("/employee/tasks")}
+                  >
+                    View all <FaChevronRight />
+                  </button>
 
-              </div>
+                </div>
+
+                {myWorkTasks.length === 0 ? (
+
+                  <div className="dash-empty-work">
+                    <EmptyWorkIllustration />
+                    <h4>Nothing needs your attention right now.</h4>
+                    <p>You're all caught up! New tasks assigned to you will appear here.</p>
+                    <button
+                      type="button"
+                      className="dash-add-task-button"
+                      onClick={() => navigate("/employee/tasks")}
+                    >
+                      <FaPlus /> Add New Task
+                    </button>
+                  </div>
+
+                ) : (
+
+                  <div className="wi-table-wrapper employee-work-table">
+                    <table className="wi-table">
+                      <tbody>
+                        {myWorkTasks.map((task) => {
+
+                          const isOverdue = overdueTasks.includes(task);
+                          const isDueSoon = !isOverdue && dueSoonTasks.includes(task);
+
+                          return (
+                            <tr
+                              key={task.id}
+                              onClick={() => navigate(`/employee/task-workspace/${task.id}`)}
+                            >
+                              <td>
+                                <div className="wi-table-task-cell">
+                                  <strong>{task.task_title}</strong>
+                                  {task.taskTags?.length > 0 && (
+                                    <TagChips tags={task.taskTags} max={3} />
+                                  )}
+                                </div>
+                              </td>
+                              <td>
+                                <span className={PRIORITY_CLASS[task.priority] || "priority-pill priority-medium"}>
+                                  {task.priority}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={TASK_STATUS_CLASS[task.status] || "status-pill status-neutral"}>
+                                  {TASK_STATUS_LABELS[task.status] || task.status}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={isOverdue ? "employee-due-overdue" : isDueSoon ? "employee-due-soon" : undefined}>
+                                  {isOverdue ? "Overdue " : ""}{formatDate(task.due_date)}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                )}
+
+              </section>
 
             </div>
 
-            {/* COMPLETED TASKS */}
+            {/* ==================================
+                RIGHT COLUMN -- Today / Quick
+                Actions / Quote
+            ================================== */}
 
-            <div className="employee-stat-card">
+            <aside className="dash-main-right">
 
-              <div className="employee-stat-icon">
+              {/* TODAY CALENDAR */}
 
-                <FaCheckCircle />
+              <section className="employee-panel dash-today-panel">
 
-              </div>
+                <div className="dash-today-header">
+                  <span className="dash-today-icon"><FaCalendarAlt /></span>
+                  <div>
+                    <strong>Today</strong>
+                    <span>
+                      {new Date().toLocaleDateString(undefined, {
+                        weekday: "short",
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                  <FaChevronRight className="dash-today-chevron" />
+                </div>
 
-              <div>
+                <div className="dash-week-strip">
+                  {thisWeek.map((day) => {
+                    const isToday = day.toDateString() === todayDateString;
+                    return (
+                      <div
+                        key={day.toISOString()}
+                        className={isToday ? "dash-week-day is-today" : "dash-week-day"}
+                      >
+                        <span>{WEEKDAY_LETTERS[(day.getDay() + 6) % 7].slice(0, 3)}</span>
+                        <strong>{day.getDate()}</strong>
+                      </div>
+                    );
+                  })}
+                </div>
 
-                <p>
-                  Tasks Completed
+              </section>
+
+              {/* QUICK ACTIONS */}
+
+              <section className="employee-panel dash-quick-actions-panel">
+
+                <div className="dash-panel-title-row">
+                  <span className="dash-bolt-icon"><FaBolt /></span>
+                  <h3>Quick Actions</h3>
+                </div>
+
+                <div className="dash-quick-actions-grid">
+                  {quickActions.map((action) => (
+                    <button
+                      key={action.key}
+                      type="button"
+                      className="dash-quick-action-tile"
+                      onClick={action.onClick}
+                    >
+                      <span className={`dash-quick-action-icon tone-${action.tone}`}>
+                        {action.icon}
+                      </span>
+                      <span className="dash-quick-action-label">
+                        {action.label}
+                        <FaChevronRight />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+              </section>
+
+              {/* TODAY'S QUOTE */}
+
+              <section className="employee-panel dash-quote-panel">
+
+                <div className="dash-panel-title-row">
+                  <span className="dash-quote-icon-small"><FaQuoteLeft /></span>
+                  <h3>Today's Quote</h3>
+                </div>
+
+                <p className="dash-quote-text">
+                  "Small steps <strong>every day</strong> lead to big results."
                 </p>
 
-                <h3>
-                  {
-                    completedTasks.length
-                  }
-                </h3>
+                <QuoteMountainIllustration />
 
-                <span>
+              </section>
 
-                  {completedTasks.length ===
-                  0
-                    ? "No completed tasks"
-                    : `${completedTasks.length} completed task${
-                        completedTasks.length >
-                        1
-                          ? "s"
-                          : ""
-                      }`}
-
-                </span>
-
-              </div>
-
-            </div>
-
-            {/* PENDING TASKS */}
-
-            <div className="employee-stat-card">
-
-              <div className="employee-stat-icon">
-
-                <FaTasks />
-
-              </div>
-
-              <div>
-
-                <p>
-                  Pending Tasks
-                </p>
-
-                <h3>
-                  {
-                    pendingTasks.length
-                  }
-                </h3>
-
-                <span>
-
-                  {pendingTasks.length ===
-                  0
-                    ? "No pending tasks"
-                    : `${pendingTasks.length} task${
-                        pendingTasks.length >
-                        1
-                          ? "s"
-                          : ""
-                      } in progress`}
-
-                </span>
-
-              </div>
-
-            </div>
-
-            {/* LEAVE REQUESTS */}
-
-            <div className="employee-stat-card">
-
-              <div className="employee-stat-icon">
-
-                <FaCalendarAlt />
-
-              </div>
-
-              <div>
-
-                <p>
-                  Leave Requests
-                </p>
-
-                <h3>
-                  {
-                    pendingLeaves.length
-                  }
-                </h3>
-
-                <span>
-
-                  {pendingLeaves.length ===
-                  0
-                    ? "No pending requests"
-                    : `${pendingLeaves.length} pending leave request${
-                        pendingLeaves.length >
-                        1
-                          ? "s"
-                          : ""
-                      }`}
-
-                </span>
-
-              </div>
-
-            </div>
+            </aside>
 
           </div>
 
           {/* ==================================
-              MY WORK — active/overdue/due-soon
-              tasks assigned to me, compact rows,
-              same table pattern already used by
-              AdminTasksList/BacklogTab. Clicking a
-              row opens the real, unmodified Task
-              Workspace; "View all" opens the real
-              My Tasks page — no data or filtering
-              logic is duplicated here. Full-width,
-              above the panel grid, since it's the
-              primary actionable widget.
+              ATTENDANCE / SPRINT / ACTIVITY
+              Not part of the new reference layout,
+              kept here (restyled to match the new
+              design system) so nothing that was
+              visible before is lost.
           ================================== */}
 
-          <section className="employee-panel employee-panel-wide">
-
-            <div className="employee-panel-header employee-panel-header-row">
-              <div>
-                <h3>My Work</h3>
-                <span>Tasks needing your attention</span>
-              </div>
-              <button
-                type="button"
-                className="employee-panel-link"
-                onClick={() => navigate("/employee/tasks")}
-              >
-                View all
-              </button>
-            </div>
-
-            {myWorkTasks.length === 0 ? (
-
-              <div className="employee-empty-state">
-                Nothing needs your attention right now.
-              </div>
-
-            ) : (
-
-              <div className="wi-table-wrapper employee-work-table">
-                <table className="wi-table">
-                  <tbody>
-                    {myWorkTasks.map((task) => {
-
-                      const isOverdue = overdueTasks.includes(task);
-                      const isDueSoon = !isOverdue && dueSoonTasks.includes(task);
-
-                      return (
-                        <tr
-                          key={task.id}
-                          onClick={() => navigate(`/employee/task-workspace/${task.id}`)}
-                        >
-                          <td>
-                            <div className="wi-table-task-cell">
-                              <strong>{task.task_title}</strong>
-                              {task.taskTags?.length > 0 && (
-                                <TagChips tags={task.taskTags} max={3} />
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <span className={PRIORITY_CLASS[task.priority] || "priority-pill priority-medium"}>
-                              {task.priority}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={TASK_STATUS_CLASS[task.status] || "status-pill status-neutral"}>
-                              {TASK_STATUS_LABELS[task.status] || task.status}
-                            </span>
-                          </td>
-                          <td>
-                            <span className={isOverdue ? "employee-due-overdue" : isDueSoon ? "employee-due-soon" : undefined}>
-                              {isOverdue ? "Overdue " : ""}{formatDate(task.due_date)}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-            )}
-
-          </section>
-
-          {/* ==================================
-              DASHBOARD PANELS
-          ================================== */}
-
-          <div className="employee-dashboard-panels">
+          <div className="employee-dashboard-panels dash-secondary-panels">
 
             {/* ==================================
                 ATTENDANCE
