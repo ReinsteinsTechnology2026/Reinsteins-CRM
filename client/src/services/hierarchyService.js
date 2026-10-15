@@ -15,3 +15,14 @@ export const getOrgChildren = async (employeeId) => {
     return data;
 
 };
+
+// Admin Hierarchy page only -- whole company in one call (see
+// server/controllers/organizationController.js getOrgChartFullTree).
+
+export const getOrgChartFullTree = async () => {
+
+    const { data } = await api.get("/organization/chart/full-tree");
+
+    return data;
+
+};

@@ -8,6 +8,7 @@ const {
     getDepartmentManagers,
     getOrgChartRoots,
     getOrgChartNodeChildren,
+    getOrgChartFullTree,
     searchOrgUsers,
     transferUser,
     setReportingManager,
@@ -39,6 +40,19 @@ router.get("/departments/:id/managers", protect, getDepartmentManagers);
 router.get("/chart/roots", protect, getOrgChartRoots);
 router.get("/chart/:id/children", protect, getOrgChartNodeChildren);
 router.get("/search", protect, searchOrgUsers);
+
+// Full-tree read for the Admin Hierarchy page specifically (not
+// self-scoped like the reads above) -- gated the same as the other
+// admin-only org reads below, since it returns the whole company's
+// reporting structure in one response rather than one branch at a
+// time.
+
+router.get(
+    "/chart/full-tree",
+    protect,
+    requireAccess("super_admin", "admin"),
+    getOrgChartFullTree
+);
 
 // Executive company-overview summary — Founder/Chairman (and
 // Super Admin/Admin) only, via the same requireAccess pattern used

@@ -76,6 +76,7 @@ import UserStoryDetail from "./pages/Projects/UserStoryDetail";
 import EpicDetail from "./pages/Projects/EpicDetail";
 import FeatureDetail from "./pages/Projects/FeatureDetail";
 import EmployeeHierarchy from "./pages/Employee/EmployeeHierarchy";
+import AdminHierarchyChart from "./pages/Admin/AdminHierarchyChart";
 
 // ==========================================
 // CHAT
@@ -164,7 +165,7 @@ const ADMIN_ROUTES = [
   { path: "user-stories/:id", Component: UserStoryDetail },
   { path: "epics/:id", Component: EpicDetail },
   { path: "features/:id", Component: FeatureDetail },
-  { path: "hierarchy", Component: EmployeeHierarchy },
+  { path: "hierarchy", Component: AdminHierarchyChart },
   { path: "leave", Component: AdminLeave },
   { path: "reports", Component: AdminReports },
   { path: "sops", Component: SopLibrary },

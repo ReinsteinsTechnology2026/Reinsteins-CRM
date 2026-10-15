@@ -1,0 +1,669 @@
+@import "../Employee/EmployeeHome.css";
+
+/* ==========================================
+   PAGE HEADER
+========================================== */
+
+.hchart-page {
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 82px);
+  box-sizing: border-box;
+}
+
+.hchart-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-shrink: 0;
+}
+
+.hchart-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.hchart-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: rgba(22, 166, 106, 0.14);
+  color: #16A66A;
+  font-size: 18px;
+}
+
+.hchart-header-title-row h2 {
+  margin: 0;
+  color: #17211D;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.hchart-header-title-row p {
+  margin: 3px 0 0;
+  color: #7A8780;
+  font-size: 13px;
+}
+
+.hchart-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 300px;
+  padding: 10px 14px;
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  border-radius: 10px;
+  color: #7A8780;
+}
+
+.hchart-search-box input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: #17211D;
+  background: transparent;
+}
+
+.hchart-search-box button {
+  display: flex;
+  border: none;
+  background: transparent;
+  color: #7A8780;
+  cursor: pointer;
+}
+
+.hchart-search-status {
+  margin-bottom: 10px;
+  color: #53615A;
+  font-size: 12.5px;
+  flex-shrink: 0;
+}
+
+/* ==========================================
+   TOOLBAR
+========================================== */
+
+.hchart-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+
+.hchart-total-count {
+  color: #53615A;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.hchart-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hchart-toolbar-actions button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid #E2E9E5;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #53615A;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hchart-toolbar-actions button:hover {
+  border-color: #16A66A;
+  color: #16A66A;
+}
+
+.hchart-zoom-level {
+  min-width: 40px;
+  text-align: center;
+  color: #7A8780;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ==========================================
+   STATE MESSAGES
+========================================== */
+
+.hchart-state-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: auto;
+  padding: 60px 20px;
+  text-align: center;
+  color: #7A8780;
+  font-size: 13px;
+}
+
+.hchart-state-message svg {
+  font-size: 30px;
+  color: #16A66A;
+}
+
+.hchart-state-message h3 {
+  margin: 6px 0 0;
+  color: #17211D;
+  font-size: 16px;
+}
+
+.hchart-state-message.hchart-error svg {
+  color: #D64545;
+}
+
+.hchart-retry-button {
+  margin-top: 8px;
+  padding: 10px 22px;
+  border: none;
+  border-radius: 10px;
+  background: #D64545;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ==========================================
+   VIEWPORT / CANVAS (pan + zoom)
+========================================== */
+
+.hchart-viewport {
+  position: relative;
+  flex: 1;
+  overflow: auto;
+  border: 1px solid #E2E9E5;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle, #EDF4F0 1px, transparent 1px) 0 0 / 22px 22px,
+    #FBFDFC;
+  cursor: grab;
+}
+
+.hchart-viewport:active {
+  cursor: grabbing;
+}
+
+.hchart-canvas {
+  display: inline-block;
+  min-width: 100%;
+  padding: 50px 60px 70px;
+  transform-origin: top center;
+  box-sizing: border-box;
+}
+
+/* ==========================================
+   TREE STRUCTURE + CONNECTORS
+   Classic nested-flex / border-top connector
+   technique -- no chart library needed.
+========================================== */
+
+.hchart-tree,
+.hchart-children {
+  display: flex;
+  justify-content: center;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hchart-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding: 0 18px;
+}
+
+.hchart-children {
+  position: relative;
+  padding-top: 36px;
+}
+
+/* vertical stem from a parent card down to the children row */
+.hchart-node > .hchart-children::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 36px;
+  background: #CFE0D8;
+}
+
+/* each child gets its own vertical stub up to the shared horizontal line */
+.hchart-children > .hchart-node {
+  padding-top: 36px;
+}
+
+.hchart-children > .hchart-node::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 36px;
+  background: #CFE0D8;
+}
+
+/* the shared horizontal line connecting siblings */
+.hchart-children > .hchart-node::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #CFE0D8;
+}
+
+.hchart-children > .hchart-node:first-child::before {
+  left: 50%;
+}
+
+.hchart-children > .hchart-node:last-child::before {
+  right: 50%;
+}
+
+.hchart-children > .hchart-node:only-child::before {
+  display: none;
+}
+
+/* ==========================================
+   EMPLOYEE CARD
+========================================== */
+
+.hchart-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  padding: 14px;
+  background: #FFFFFF;
+  border: 1px solid #E2E9E5;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.hchart-card:hover {
+  border-color: #16A66A;
+  box-shadow: 0 6px 18px rgba(22, 166, 106, 0.12);
+}
+
+.hchart-card.search-match {
+  border-color: #16A66A;
+  box-shadow: 0 0 0 3px rgba(22, 166, 106, 0.22);
+}
+
+.hchart-card-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.hchart-avatar {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.hchart-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hchart-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(22, 166, 106, 0.16);
+  color: #16A66A;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.hchart-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hchart-name {
+  overflow: hidden;
+  color: #17211D;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hchart-designation {
+  overflow: hidden;
+  color: #53615A;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hchart-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  color: #7A8780;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hchart-meta svg {
+  flex-shrink: 0;
+  font-size: 9px;
+}
+
+/* ==========================================
+   TIERS -- restrained, depth/designation-based,
+   never permission-based.
+========================================== */
+
+.hchart-card.tier-leadership {
+  width: 240px;
+  padding: 16px;
+  border: 1px solid rgba(22, 166, 106, 0.3);
+  background: linear-gradient(135deg, #F2FBF6 0%, #FFFFFF 70%);
+}
+
+.hchart-card.tier-leadership .hchart-avatar {
+  width: 52px;
+  height: 52px;
+}
+
+.hchart-card.tier-leadership .hchart-name {
+  font-size: 15px;
+}
+
+.hchart-card.tier-manager {
+  border-top: 3px solid #16A66A;
+}
+
+.hchart-card.tier-employee {
+  width: 200px;
+  padding: 11px;
+}
+
+.hchart-card.tier-employee .hchart-avatar {
+  width: 36px;
+  height: 36px;
+}
+
+/* ==========================================
+   WARNINGS (orphaned manager / circular ref)
+========================================== */
+
+.hchart-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: rgba(224, 163, 46, 0.14);
+  color: #B9821F;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.hchart-card.is-cycle .hchart-warning {
+  background: rgba(214, 69, 69, 0.14);
+  color: #D64545;
+}
+
+/* ==========================================
+   EXPAND/COLLAPSE TOGGLE
+========================================== */
+
+.hchart-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 1px solid #E2E9E5;
+  border-radius: 20px;
+  background: #F7FAF8;
+  color: #53615A;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  align-self: center;
+}
+
+.hchart-toggle:hover {
+  border-color: #16A66A;
+  color: #16A66A;
+}
+
+/* ==========================================
+   DETAIL PANEL
+========================================== */
+
+.hchart-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(23, 33, 29, 0.25);
+  z-index: 40;
+}
+
+.hchart-detail-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 340px;
+  max-width: 90vw;
+  height: 100vh;
+  background: #FFFFFF;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.12);
+  z-index: 41;
+  overflow-y: auto;
+}
+
+.hchart-detail-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: #17211D;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.hchart-detail-banner {
+  height: 140px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 20px;
+  background: linear-gradient(135deg, #16A66A 0%, #0E744A 100%);
+}
+
+.hchart-detail-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid #FFFFFF;
+  background: #E8F8F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: #16A66A;
+}
+
+.hchart-detail-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hchart-detail-body {
+  padding: 20px 22px;
+}
+
+.hchart-detail-body h3 {
+  margin: 0;
+  color: #17211D;
+  font-size: 18px;
+}
+
+.hchart-detail-designation {
+  margin: 4px 0 18px;
+  color: #53615A;
+  font-size: 13px;
+}
+
+.hchart-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #F7FAF8;
+}
+
+.hchart-detail-row span {
+  color: #7A8780;
+  font-size: 12px;
+}
+
+.hchart-detail-row strong {
+  color: #17211D;
+  font-size: 13px;
+  text-align: right;
+}
+
+.hchart-detail-note {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(224, 163, 46, 0.12);
+  color: #8A6414;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ==========================================
+   FLAGGED ROOTS SECTION
+   Orphaned (inactive-manager) and circular-
+   reference employees -- kept visually separate
+   from the real tree so neither confuses the
+   other's centering or reads as part of normal
+   structure.
+========================================== */
+
+.hchart-flagged-section {
+  margin-top: 50px;
+  padding-top: 24px;
+  border-top: 1px dashed #D7E4DD;
+}
+
+.hchart-flagged-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 20px;
+  color: #B9821F;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.hchart-flagged-roots .hchart-node::before,
+.hchart-flagged-roots .hchart-node::after {
+  display: none;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 1023px) {
+  .hchart-page {
+    height: auto;
+  }
+
+  .hchart-viewport {
+    height: 70vh;
+  }
+}
+
+@media (max-width: 768px) {
+  .hchart-page {
+    padding: 18px;
+  }
+
+  .hchart-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hchart-search-box {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .hchart-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .hchart-card {
+    width: 190px;
+  }
+
+  .hchart-card.tier-leadership {
+    width: 200px;
+  }
+
+  .hchart-card.tier-employee {
+    width: 170px;
+  }
+}

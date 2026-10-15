@@ -303,6 +303,63 @@ const getOrgChartNodeChildren = async (req, res) => {
     }
 };
 
+// ==========================================
+// FULL ORG TREE (Admin Hierarchy page)
+// Returns every active employee in ONE query, flat,
+// with reporting_manager_id and profile_photo
+// included so the whole tree can be built once
+// client-side (search, fit-to-screen and multi-
+// branch layout all need the full set up front --
+// walking it one manager at a time via
+// getOrgChartNodeChildren would mean a round trip
+// per manager node). No per-row correlated
+// subquery here (unlike fetchOrgNodes) -- direct
+// report counts are cheap to derive client-side
+// from this same flat list, so we don't pay for N
+// extra subqueries just to duplicate that.
+//
+// Admin-gated (see organizationRoutes.js) since
+// this is specifically the Admin Hierarchy page;
+// deliberately does NOT select is_system_administrator
+// or system_access -- organizational position must
+// never be derived from an application permission
+// role (see client-side tree builder).
+// ==========================================
+
+const getOrgChartFullTree = async (req, res) => {
+    try {
+
+        const [rows] = await pool.query(
+            `
+            SELECT
+                u.id,
+                u.employee_id,
+                u.full_name,
+                u.designation,
+                u.employment_type,
+                u.department_id,
+                d.name AS department_name,
+                u.reporting_manager_id,
+                u.profile_photo
+            FROM users u
+            LEFT JOIN departments d ON d.id = u.department_id
+            WHERE u.employment_status = 'active'
+            ORDER BY u.full_name
+            `
+        );
+
+        return res.status(200).json({ success: true, nodes: rows });
+
+    } catch (error) {
+        console.error("Get Org Chart Full Tree Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to load organization chart",
+        });
+    }
+};
+
 const MAX_HIERARCHY_DEPTH = 15;
 
 const getMyHierarchy = async (req, res) => {
@@ -1063,6 +1120,7 @@ module.exports = {
     getDepartmentManagers,
     getOrgChartRoots,
     getOrgChartNodeChildren,
+    getOrgChartFullTree,
     getMyHierarchy,
     searchOrgUsers,
     transferUser,
