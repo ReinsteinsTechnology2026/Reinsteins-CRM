@@ -11,9 +11,6 @@ import {
   FaChevronDown,
   FaChevronRight,
   FaUsers,
-  FaSearchPlus,
-  FaSearchMinus,
-  FaCompress,
   FaIdBadge,
   FaBuilding,
   FaExclamationTriangle,
@@ -30,9 +27,9 @@ import "./AdminHierarchyChart.css";
 
 // Mirrors the server's own MAX_HIERARCHY_DEPTH=15 precedent
 // (organizationController.js) -- used here only as a hard ceiling
-// while walking a single node's ancestor chain to pick a visual
-// tier; the actual anti-infinite-loop guard for rendering is the
-// per-path visited-set in buildRenderTree below, not this constant.
+// while walking a single node's ancestor chain (search auto-expand).
+// The anti-infinite-loop guard for rendering itself is the per-path
+// visited-set in buildRenderTree below, not this constant.
 const MAX_DEPTH_GUARD = 30;
 
 function buildPhotoUrl(photo) {
@@ -50,27 +47,12 @@ function buildPhotoUrl(photo) {
 }
 
 // ==========================================
-// TREE BUILDING
-// Pure function of the flat node list -- rebuilt
-// (useMemo) whenever the data reloads, never
-// mutated in place.
-//
-// Roots = reporting_manager_id is null, OR points
-// at a manager id that isn't in the active set
-// (resigned/terminated/missing manager -- handled
-// safely by treating them as a root rather than
-// dropping them or crashing).
-//
-// Circular relationships: guarded at RENDER-TREE
-// construction time via a per-path visited Set
-// (buildRenderTree), which makes infinite recursion
-// structurally impossible regardless of how a cycle
-// is shaped. Any node never reached from a real root
-// this way (i.e. exists only inside a pure cycle with
-// no external root pointing into it) is surfaced
-// afterward as its own flagged "Unreachable" root, so
-// nothing from the underlying data is ever silently
-// dropped.
+// TREE BUILDING (data layer -- unchanged: roots =
+// null or dangling reporting_manager_id, circular
+// chains guarded via a per-path visited Set so
+// rendering can never infinite-loop, unreachable
+// cycle members surfaced separately rather than
+// dropped).
 // ==========================================
 
 function useOrgTree(nodes) {
@@ -92,9 +74,6 @@ function useOrgTree(nodes) {
       if (!parentExists) {
 
         if (parentId != null) {
-          // Reporting manager was set, but isn't in the active set
-          // (resigned/terminated/deleted) -- keep the employee
-          // visible as a root instead of hiding them.
           orphanIds.add(n.id);
         }
 
@@ -115,9 +94,6 @@ function useOrgTree(nodes) {
     function buildRenderTree(node, visitedInPath) {
 
       if (visitedInPath.has(node.id)) {
-        // Would re-enter a node already on this exact path --
-        // circular reporting chain. Stop descending here instead
-        // of recursing forever; the card itself gets flagged.
         return null;
       }
 
@@ -137,10 +113,6 @@ function useOrgTree(nodes) {
 
     const renderRoots = roots.map((root) => buildRenderTree(root, new Set()));
 
-    // Anything never reached above exists only inside a pure cycle
-    // (every member has a valid parent pointer, so none of them
-    // qualified as a root) -- surface those too, flagged, rather
-    // than silently losing them from the chart.
     const reachedIds = new Set();
 
     function collectIds(node) {
@@ -154,11 +126,6 @@ function useOrgTree(nodes) {
       .filter((n) => !reachedIds.has(n.id))
       .map((n) => ({ ...n, children: [], isCycleMember: true }));
 
-    // Kept visually separate from the main tree (own section below)
-    // rather than mixed into the same centered row -- otherwise an
-    // orphan/cycle card sitting beside a large legitimate branch
-    // throws off that branch's own centering, and "needs attention"
-    // items read more clearly grouped together anyway.
     const mainRoots = renderRoots.filter((r) => !r.isOrphan);
     const flaggedRoots = [...renderRoots.filter((r) => r.isOrphan), ...unreachableRoots];
 
@@ -174,16 +141,10 @@ function useOrgTree(nodes) {
 }
 
 // ==========================================
-// VISUAL TIER
-// Derived from tree depth + the same Founder/
-// Chairman designation list already used elsewhere
-// in the app (client/src/utils/executiveAccess.js)
-// -- never from role/system_access/
-// is_system_administrator. A depth-0 root or a
-// Founder/Chairman anywhere gets the premium
-// leadership treatment; depth 1-2 reads as
-// department-head/manager level; deeper levels are
-// compact individual-contributor cards.
+// VISUAL TIER -- depth + the existing Founder/
+// Chairman designation list (client/src/utils/
+// executiveAccess.js), never role/system_access/
+// is_system_administrator.
 // ==========================================
 
 function getTier(node, depth) {
@@ -202,6 +163,9 @@ function getTier(node, depth) {
 
 // ==========================================
 // EMPLOYEE CARD
+// Fixed, viewport-responsive width (set in CSS,
+// not JS) -- never absolutely positioned, so it can
+// never be placed outside its container's bounds.
 // ==========================================
 
 function HierarchyCard({ node, depth, isCollapsed, onToggleCollapse, onSelect, isSearchMatch, cardRef }) {
@@ -244,16 +208,19 @@ function HierarchyCard({ node, depth, isCollapsed, onToggleCollapse, onSelect, i
         <div className="hchart-card-text">
           <strong className="hchart-name">{node.full_name}</strong>
           <span className="hchart-designation">{node.designation || "No designation set"}</span>
-          <span className="hchart-meta">
-            <FaIdBadge /> {node.employee_id}
-          </span>
-          {node.department_name && (
-            <span className="hchart-meta">
-              <FaBuilding /> {node.department_name}
-            </span>
-          )}
         </div>
 
+      </div>
+
+      <div className="hchart-card-meta-row">
+        <span className="hchart-meta">
+          <FaIdBadge /> {node.employee_id}
+        </span>
+        {node.department_name && (
+          <span className="hchart-meta">
+            <FaBuilding /> {node.department_name}
+          </span>
+        )}
       </div>
 
       {(node.isOrphan || node.isCycleMember) && (
@@ -289,20 +256,25 @@ function HierarchyCard({ node, depth, isCollapsed, onToggleCollapse, onSelect, i
 }
 
 // ==========================================
-// RECURSIVE BRANCH
+// TREE BRANCH -- vertical-first, wrap-based layout.
+// A manager's direct reports render in a flex-wrap
+// grid BELOW them, bounded to the available width;
+// when there are many reports they wrap onto extra
+// rows instead of pushing the chart wider. Each
+// child is its own recursive branch, so the whole
+// tree only ever grows DOWN, never sideways beyond
+// its container -- there is no absolute positioning
+// and nothing can be placed outside the viewport.
 // ==========================================
 
 function HierarchyBranch({ node, depth, collapsed, onToggleCollapse, onSelect, searchMatchIds, nodeRefs }) {
 
   const isCollapsed = collapsed.has(node.id);
-  const hasChildren = node.children && node.children.length > 0;
-
-  const setRef = (el) => {
-    nodeRefs.current[node.id] = el;
-  };
+  const children = node.children || [];
+  const showChildren = !isCollapsed && children.length > 0;
 
   return (
-    <li className="hchart-node">
+    <div className="hchart-node-block">
 
       <HierarchyCard
         node={node}
@@ -311,27 +283,30 @@ function HierarchyBranch({ node, depth, collapsed, onToggleCollapse, onSelect, s
         onToggleCollapse={onToggleCollapse}
         onSelect={onSelect}
         isSearchMatch={searchMatchIds.has(node.id)}
-        cardRef={setRef}
+        cardRef={(el) => { nodeRefs.current[node.id] = el; }}
       />
 
-      {hasChildren && !isCollapsed && (
-        <ul className="hchart-children">
-          {node.children.map((child) => (
-            <HierarchyBranch
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              collapsed={collapsed}
-              onToggleCollapse={onToggleCollapse}
-              onSelect={onSelect}
-              searchMatchIds={searchMatchIds}
-              nodeRefs={nodeRefs}
-            />
-          ))}
-        </ul>
+      {showChildren && (
+        <div className="hchart-branch-group">
+          <div className="hchart-branch-stem" />
+          <div className={`hchart-children-grid depth-${Math.min(depth + 1, 4)}`}>
+            {children.map((child) => (
+              <HierarchyBranch
+                key={child.id}
+                node={child}
+                depth={depth + 1}
+                collapsed={collapsed}
+                onToggleCollapse={onToggleCollapse}
+                onSelect={onSelect}
+                searchMatchIds={searchMatchIds}
+                nodeRefs={nodeRefs}
+              />
+            ))}
+          </div>
+        </div>
       )}
 
-    </li>
+    </div>
   );
 
 }
@@ -349,10 +324,6 @@ function AdminHierarchyChart() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedNode, setSelectedNode] = useState(null);
 
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const dragState = useRef(null);
-  const viewportRef = useRef(null);
   const nodeRefs = useRef({});
 
   const loadTree = async () => {
@@ -386,26 +357,12 @@ function AdminHierarchyChart() {
 
   const { roots, flaggedRoots, byId, totalCount } = useOrgTree(nodes);
 
-  // Center the first real root in the viewport once the tree first
-  // renders, instead of leaving the user at whatever the browser's
-  // default (top-left) scroll position happens to be for a canvas
-  // wider than the viewport.
-  useEffect(() => {
-
-    if (loading || roots.length === 0) return;
-
-    requestAnimationFrame(() => {
-      const el = nodeRefs.current[roots[0].id];
-      if (el) {
-        el.scrollIntoView({ behavior: "auto", block: "start", inline: "center" });
-      }
-    });
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, roots.length]);
-
   // ==========================================
   // SEARCH
+  // Auto-expands every ancestor of a match, then
+  // scrolls the match into view with the page's own
+  // native vertical scroll -- never horizontal, since
+  // the chart can never be wider than its container.
   // ==========================================
 
   const searchMatchIds = useMemo(() => {
@@ -426,8 +383,6 @@ function AdminHierarchyChart() {
 
   }, [searchTerm, nodes]);
 
-  // Auto-expand every ancestor of a match so it's actually visible,
-  // and scroll/center the first match into view.
   useEffect(() => {
 
     if (searchMatchIds.size === 0) return;
@@ -451,10 +406,7 @@ function AdminHierarchyChart() {
     const firstId = [...searchMatchIds][0];
 
     requestAnimationFrame(() => {
-      const el = nodeRefs.current[firstId];
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
-      }
+      nodeRefs.current[firstId]?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
     });
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -467,40 +419,6 @@ function AdminHierarchyChart() {
       else next.add(id);
       return next;
     });
-  };
-
-  // ==========================================
-  // PAN + ZOOM
-  // Plain CSS transform + pointer-drag -- no new
-  // dependency (see implementation report: nothing
-  // tree/chart-related was already installed, and a
-  // scrollable+scalable container covers panning,
-  // zooming and fit-to-screen without one).
-  // ==========================================
-
-  const handleResetView = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  };
-
-  const handleZoom = (delta) => {
-    setZoom((z) => Math.min(1.4, Math.max(0.4, Math.round((z + delta) * 100) / 100)));
-  };
-
-  const handlePointerDown = (e) => {
-    if (e.target.closest(".hchart-card")) return;
-    dragState.current = { startX: e.clientX, startY: e.clientY, originX: pan.x, originY: pan.y };
-  };
-
-  const handlePointerMove = (e) => {
-    if (!dragState.current) return;
-    const dx = e.clientX - dragState.current.startX;
-    const dy = e.clientY - dragState.current.startY;
-    setPan({ x: dragState.current.originX + dx, y: dragState.current.originY + dy });
-  };
-
-  const handlePointerUp = () => {
-    dragState.current = null;
   };
 
   // ==========================================
@@ -547,12 +465,6 @@ function AdminHierarchyChart() {
 
       <div className="hchart-toolbar">
         <span className="hchart-total-count">{totalCount} active employee{totalCount === 1 ? "" : "s"}</span>
-        <div className="hchart-toolbar-actions">
-          <button type="button" onClick={() => handleZoom(-0.1)} title="Zoom out"><FaSearchMinus /></button>
-          <span className="hchart-zoom-level">{Math.round(zoom * 100)}%</span>
-          <button type="button" onClick={() => handleZoom(0.1)} title="Zoom in"><FaSearchPlus /></button>
-          <button type="button" onClick={handleResetView} title="Fit to screen / reset view"><FaCompress /> Reset View</button>
-        </div>
       </div>
 
       {loading ? (
@@ -578,57 +490,47 @@ function AdminHierarchyChart() {
 
       ) : (
 
-        <div
-          className="hchart-viewport"
-          ref={viewportRef}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
-        >
-          <div
-            className="hchart-canvas"
-            style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
-          >
-            {roots.length > 0 && (
-              <ul className="hchart-tree hchart-roots">
-                {roots.map((root) => (
-                  <HierarchyBranch
-                    key={root.id}
-                    node={root}
+        <div className="hchart-viewport">
+
+          {roots.length > 0 && (
+            <div className="hchart-tree-canvas">
+              {roots.map((root) => (
+                <HierarchyBranch
+                  key={root.id}
+                  node={root}
+                  depth={0}
+                  collapsed={collapsed}
+                  onToggleCollapse={toggleCollapse}
+                  onSelect={setSelectedNode}
+                  searchMatchIds={searchMatchIds}
+                  nodeRefs={nodeRefs}
+                />
+              ))}
+            </div>
+          )}
+
+          {flaggedRoots.length > 0 && (
+            <div className="hchart-flagged-section">
+              <div className="hchart-flagged-heading">
+                <FaExclamationTriangle /> Needs attention -- not placeable under a manager
+              </div>
+              <div className="hchart-flagged-row">
+                {flaggedRoots.map((node) => (
+                  <HierarchyCard
+                    key={node.id}
+                    node={node}
                     depth={0}
-                    collapsed={collapsed}
+                    isCollapsed={false}
                     onToggleCollapse={toggleCollapse}
                     onSelect={setSelectedNode}
-                    searchMatchIds={searchMatchIds}
-                    nodeRefs={nodeRefs}
+                    isSearchMatch={searchMatchIds.has(node.id)}
+                    cardRef={(el) => { nodeRefs.current[node.id] = el; }}
                   />
                 ))}
-              </ul>
-            )}
-
-            {flaggedRoots.length > 0 && (
-              <div className="hchart-flagged-section">
-                <div className="hchart-flagged-heading">
-                  <FaExclamationTriangle /> Needs attention -- not placeable under a manager
-                </div>
-                <ul className="hchart-tree hchart-flagged-roots">
-                  {flaggedRoots.map((root) => (
-                    <HierarchyBranch
-                      key={root.id}
-                      node={root}
-                      depth={0}
-                      collapsed={collapsed}
-                      onToggleCollapse={toggleCollapse}
-                      onSelect={setSelectedNode}
-                      searchMatchIds={searchMatchIds}
-                      nodeRefs={nodeRefs}
-                    />
-                  ))}
-                </ul>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
         </div>
 
       )}

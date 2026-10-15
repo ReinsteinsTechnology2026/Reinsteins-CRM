@@ -6,10 +6,12 @@
 
 .hchart-page {
   padding: 30px;
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 82px);
   box-sizing: border-box;
+  /* No horizontal scrolling at the page level, ever --
+     belt-and-suspenders on top of the fact that nothing
+     inside this layout can grow wider than its container. */
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 .hchart-page-header {
@@ -19,7 +21,6 @@
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
-  flex-shrink: 0;
 }
 
 .hchart-header-title-row {
@@ -87,7 +88,6 @@
   margin-bottom: 10px;
   color: #53615A;
   font-size: 12.5px;
-  flex-shrink: 0;
 }
 
 /* ==========================================
@@ -97,48 +97,12 @@
 .hchart-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
   margin-bottom: 14px;
-  flex-shrink: 0;
 }
 
 .hchart-total-count {
   color: #53615A;
   font-size: 12.5px;
-  font-weight: 600;
-}
-
-.hchart-toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.hchart-toolbar-actions button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid #E2E9E5;
-  border-radius: 8px;
-  background: #FFFFFF;
-  color: #53615A;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.hchart-toolbar-actions button:hover {
-  border-color: #16A66A;
-  color: #16A66A;
-}
-
-.hchart-zoom-level {
-  min-width: 40px;
-  text-align: center;
-  color: #7A8780;
-  font-size: 12px;
   font-weight: 600;
 }
 
@@ -151,7 +115,6 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  margin: auto;
   padding: 60px 20px;
   text-align: center;
   color: #7A8780;
@@ -186,109 +149,106 @@
 }
 
 /* ==========================================
-   VIEWPORT / CANVAS (pan + zoom)
+   VIEWPORT / CANVAS
+   No fixed height, no internal clipping, no pan or
+   zoom transform -- this is plain document flow that
+   grows downward as the hierarchy grows. The page's
+   own scroll container (.admin-page-content, already
+   overflow-y:auto app-wide) handles vertical scrolling
+   naturally. Width is always bounded by this element's
+   own box, so nothing inside can ever be wider than the
+   available content area.
 ========================================== */
 
 .hchart-viewport {
   position: relative;
-  flex: 1;
-  overflow: auto;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
   border: 1px solid #E2E9E5;
   border-radius: 14px;
   background:
     radial-gradient(circle, #EDF4F0 1px, transparent 1px) 0 0 / 22px 22px,
     #FBFDFC;
-  cursor: grab;
+  padding: 36px 20px;
 }
 
-.hchart-viewport:active {
-  cursor: grabbing;
-}
-
-.hchart-canvas {
-  display: inline-block;
-  min-width: 100%;
-  padding: 50px 60px 70px;
-  transform-origin: top center;
+.hchart-tree-canvas {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 40px;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
   box-sizing: border-box;
 }
 
 /* ==========================================
-   TREE STRUCTURE + CONNECTORS
-   Classic nested-flex / border-top connector
-   technique -- no chart library needed.
+   TREE STRUCTURE -- vertical-first, wrap-based.
+   Each node renders its own card, then (if it has
+   visible children) a bordered "branch group" box
+   below it holding those children in a flex-wrap
+   grid. A manager with many reports wraps onto
+   extra rows within the SAME width instead of
+   pushing the chart wider -- the defining property
+   that makes horizontal overflow structurally
+   impossible here, not just visually unlikely.
 ========================================== */
 
-.hchart-tree,
-.hchart-children {
-  display: flex;
-  justify-content: center;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.hchart-node {
+.hchart-node-block {
+  /* Deliberately NOT width:100% -- each node-block must size to its own
+     natural content (its card, or its children-grid's natural width,
+     whichever is larger), never stretch to fill its parent. A width:100%
+     here would cascade upward through every ancestor node-block (each one
+     auto-width, each wrapping a width:100% child) and make EVERY node at
+     EVERY depth claim the full available width -- which is exactly what
+     silently broke sibling wrapping the first time this was tried:
+     Priya Nair's own (wide, deep) subtree forced her block to claim
+     nearly the whole row, leaving no room for Marcus Webb / Elena Ruiz to
+     sit beside her, so they wrapped below instead of next to her. */
   display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative;
-  padding: 0 18px;
+  max-width: 100%;
 }
 
-.hchart-children {
-  position: relative;
-  padding-top: 36px;
-}
-
-/* vertical stem from a parent card down to the children row */
-.hchart-node > .hchart-children::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 50%;
+.hchart-branch-stem {
   width: 2px;
-  height: 36px;
+  height: 22px;
   background: #CFE0D8;
+  flex-shrink: 0;
 }
 
-/* each child gets its own vertical stub up to the shared horizontal line */
-.hchart-children > .hchart-node {
-  padding-top: 36px;
+.hchart-branch-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 100%;
 }
 
-.hchart-children > .hchart-node::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 2px;
-  height: 36px;
-  background: #CFE0D8;
+.hchart-children-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 22px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 18px 16px 4px;
+  border-top: 2px solid #CFE0D8;
+  border-radius: 10px 10px 0 0;
 }
 
-/* the shared horizontal line connecting siblings */
-.hchart-children > .hchart-node::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #CFE0D8;
-}
-
-.hchart-children > .hchart-node:first-child::before {
-  left: 50%;
-}
-
-.hchart-children > .hchart-node:last-child::before {
-  right: 50%;
-}
-
-.hchart-children > .hchart-node:only-child::before {
-  display: none;
-}
+/* Alternating subtle tint by nesting depth keeps sibling
+   branch groups visually distinct from one another without
+   needing precise per-card connector lines through wrapped
+   rows (which a wrap-based grid can't represent faithfully). */
+.hchart-children-grid.depth-1 { background: rgba(22, 166, 106, 0.035); }
+.hchart-children-grid.depth-2 { background: rgba(22, 166, 106, 0.02); }
+.hchart-children-grid.depth-3,
+.hchart-children-grid.depth-4 { background: transparent; }
 
 /* ==========================================
    EMPLOYEE CARD
@@ -298,7 +258,9 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  width: 220px;
+  box-sizing: border-box;
+  width: 228px;
+  max-width: 100%;
   padding: 14px;
   background: #FFFFFF;
   border: 1px solid #E2E9E5;
@@ -359,20 +321,33 @@
 }
 
 .hchart-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
   color: #17211D;
   font-size: 13.5px;
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.28;
+  word-break: break-word;
 }
 
 .hchart-designation {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
   color: #53615A;
   font-size: 11.5px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.hchart-card-meta-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
 }
 
 .hchart-meta {
@@ -397,15 +372,13 @@
 ========================================== */
 
 .hchart-card.tier-leadership {
-  width: 240px;
-  padding: 16px;
   border: 1px solid rgba(22, 166, 106, 0.3);
   background: linear-gradient(135deg, #F2FBF6 0%, #FFFFFF 70%);
 }
 
 .hchart-card.tier-leadership .hchart-avatar {
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
 }
 
 .hchart-card.tier-leadership .hchart-name {
@@ -414,16 +387,6 @@
 
 .hchart-card.tier-manager {
   border-top: 3px solid #16A66A;
-}
-
-.hchart-card.tier-employee {
-  width: 200px;
-  padding: 11px;
-}
-
-.hchart-card.tier-employee .hchart-avatar {
-  width: 36px;
-  height: 36px;
 }
 
 /* ==========================================
@@ -482,7 +445,9 @@
   position: fixed;
   inset: 0;
   background: rgba(23, 33, 29, 0.25);
-  z-index: 40;
+  /* .admin-header is z-index:100 (AdminHeader.css) -- this overlay
+     must sit above it, not just above the chart canvas. */
+  z-index: 150;
 }
 
 .hchart-detail-panel {
@@ -494,7 +459,7 @@
   height: 100vh;
   background: #FFFFFF;
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.12);
-  z-index: 41;
+  z-index: 151;
   overflow-y: auto;
 }
 
@@ -594,15 +559,16 @@
    FLAGGED ROOTS SECTION
    Orphaned (inactive-manager) and circular-
    reference employees -- kept visually separate
-   from the real tree so neither confuses the
-   other's centering or reads as part of normal
-   structure.
+   from the real tree, below it, as a simple
+   flex-wrap row (they have no children by
+   construction, so they need no branch treatment).
 ========================================== */
 
 .hchart-flagged-section {
-  margin-top: 50px;
+  margin-top: 30px;
   padding-top: 24px;
   border-top: 1px dashed #D7E4DD;
+  box-sizing: border-box;
 }
 
 .hchart-flagged-heading {
@@ -616,22 +582,31 @@
   font-weight: 700;
 }
 
-.hchart-flagged-roots .hchart-node::before,
-.hchart-flagged-roots .hchart-node::after {
-  display: none;
+.hchart-flagged-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
 }
 
 /* ==========================================
    RESPONSIVE
+   Cards shrink a little at narrower widths so two
+   can still share a row on tablet before wrapping
+   to one-per-row on phones -- text stays at a
+   readable size throughout, it's the GRID that
+   adapts, never the text.
 ========================================== */
 
 @media (max-width: 1023px) {
-  .hchart-page {
-    height: auto;
+  .hchart-tree-canvas,
+  .hchart-children-grid,
+  .hchart-flagged-row {
+    gap: 18px;
   }
 
-  .hchart-viewport {
-    height: 70vh;
+  .hchart-card {
+    width: 206px;
   }
 }
 
@@ -651,19 +626,29 @@
     box-sizing: border-box;
   }
 
-  .hchart-toolbar {
-    flex-wrap: wrap;
+  .hchart-viewport {
+    padding: 28px 14px;
+    border-radius: 10px;
   }
 
   .hchart-card {
-    width: 190px;
+    width: 188px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hchart-viewport {
+    padding: 22px 10px;
   }
 
-  .hchart-card.tier-leadership {
-    width: 200px;
+  .hchart-tree-canvas,
+  .hchart-children-grid,
+  .hchart-flagged-row {
+    gap: 14px;
   }
 
-  .hchart-card.tier-employee {
-    width: 170px;
+  .hchart-card {
+    width: 100%;
+    max-width: 240px;
   }
 }
