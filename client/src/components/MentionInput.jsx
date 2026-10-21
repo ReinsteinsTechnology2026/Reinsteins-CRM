@@ -17,6 +17,8 @@ import "./MentionInput.css";
 
 function MentionInput({
 
+    taskId,
+
     value,
 
     onChange,
@@ -41,25 +43,33 @@ function MentionInput({
 
     useEffect(() => {
 
-        loadUsers();
+        let cancelled = false;
 
-    }, []);
+        async function loadUsers() {
 
-    async function loadUsers() {
+            try {
 
-        try {
+                const response = await getMentionableUsers(taskId);
 
-            const response = await getMentionableUsers();
+                if (!cancelled) {
+                    setUsers(response.users || []);
+                }
 
-            setUsers(response.users || []);
+            } catch (error) {
 
-        } catch (error) {
+                console.error("Unable to load mentionable users:", error);
 
-            console.error("Unable to load mentionable users:", error);
+            }
 
         }
 
-    }
+        loadUsers();
+
+        return () => {
+            cancelled = true;
+        };
+
+    }, [taskId]);
 
     // ==========================================
     // COMPUTE mentionedUserIds FROM CURRENT TEXT
@@ -69,8 +79,13 @@ function MentionInput({
 
     function emitChange(nextText, mentions) {
 
+        const hasMention = (fullName) => {
+            const escaped = fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return new RegExp(`(^|[^\\p{L}\\p{N}_@.])@${escaped}(?=$|[^\\p{L}\\p{N}_])`, 'u').test(nextText);
+        };
+
         const activeIds = mentions
-            .filter((mention) => nextText.includes(`@${mention.fullName}`))
+            .filter((mention) => hasMention(mention.fullName))
             .map((mention) => mention.id);
 
         onChange({

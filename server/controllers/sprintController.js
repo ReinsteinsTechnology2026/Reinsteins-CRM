@@ -19,6 +19,7 @@ const {
 const {
     createProjectLinkedTask
 } = require("../services/taskService");
+const { notifyTaskAssignment } = require('../services/notificationService');
 
 const {
     softDeleteSprint,
@@ -581,6 +582,8 @@ const createTaskInSprint = async (req, res) => {
             [],
             req.app.get("io")
         );
+
+        await notifyTaskAssignment(req, taskId, Number(assigned_to), req.user.id);
 
         return res.status(201).json({
             success: true,

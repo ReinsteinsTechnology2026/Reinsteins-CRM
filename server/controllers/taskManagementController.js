@@ -47,11 +47,9 @@ const {
     isEligibleProjectAssignee
 } = require("../services/projectPermissionService");
 
-const { createNotification, getUserFullName } = require("../services/notificationService");
+const { createNotification, getUserFullName, notifyTaskAssignment, notifyBestEffort, getUserRole } = require("../services/notificationService");
 
 const {
-    taskAssignedEmail,
-    taskReassignedEmail,
     taskTransferredEmail,
     taskSubmittedForReviewEmail,
     taskApprovedEmail,
@@ -360,13 +358,14 @@ const createTask = async (req, res) => {
             });
         }
 
-        await createTaskService({
+        const taskId = await createTaskService({
 
             ...req.body,
 
             assigned_by: req.user.id
 
         });
+        await notifyTaskAssignment(req, taskId, assignedTo, req.user.id);
 
         return res.json({
 
@@ -472,7 +471,7 @@ const updateTask = async (req, res) => {
 
         }
 
-        await updateTaskService(
+        const updateResult = await updateTaskService(
 
             req.params.id,
 
@@ -544,39 +543,14 @@ const updateTask = async (req, res) => {
                 `Assigned to: ${task.assigned_to_name || "Unassigned"} → ${newAssignee?.full_name || "Unassigned"}`
             );
 
-            // Same assign/reassign notification as the dedicated
-            // assignTask endpoint below -- this Edit-form save is a
-            // third path that can change assigned_to, and previously
-            // sent no notification at all for that change.
-            if (Number(req.body.assigned_to) !== Number(req.user.id)) {
+        }
 
-                const isReassignmentViaEdit = Boolean(task.assigned_to);
-
-                const editActorName = await getUserFullName(req.user.id);
-
-                const editAssignEmailData = {
-                    taskTitle: task.task_title,
-                    taskNumber: task.task_number || task.id,
-                    projectName: task.project_name,
-                    actorName: editActorName,
-                    taskId: task.id,
-                };
-
-                await createNotification({
-                    req,
-                    userId: Number(req.body.assigned_to),
-                    title: isReassignmentViaEdit ? "Task reassigned to you" : "Task assigned to you",
-                    message: `"${task.task_title}" has been ${isReassignmentViaEdit ? "reassigned" : "assigned"} to you.`,
-                    type: isReassignmentViaEdit ? "task_reassigned" : "task_assigned",
-                    referenceType: "task",
-                    referenceId: task.id,
-                    email: isReassignmentViaEdit
-                        ? taskReassignedEmail(editAssignEmailData)
-                        : taskAssignedEmail(editAssignEmailData),
-                });
-
-            }
-
+        // Notify only for the assignment transition the service actually
+        // persisted (decided under a row lock), not the pre-update read:
+        // of two competing edits only the one that changed the row notifies.
+        if (updateResult?.assignmentChanged) {
+            await notifyTaskAssignment(req, task.id, Number(req.body.assigned_to),
+                req.user.id, Boolean(updateResult.previousAssignee));
         }
 
         if (fieldChanges.length > 0) {
@@ -622,6 +596,7 @@ const updateTask = async (req, res) => {
                 Number(task.assigned_by) !== Number(req.user.id)
             ) {
 
+                await notifyBestEffort(async () => {
                 const submitterName = await getUserFullName(req.user.id);
 
                 await createNotification({
@@ -638,7 +613,9 @@ const updateTask = async (req, res) => {
                         projectName: task.project_name,
                         actorName: submitterName,
                         taskId: task.id,
+                        recipientRole: await getUserRole(task.assigned_by),
                     }),
+                });
                 });
 
             }
@@ -897,6 +874,7 @@ const assignTaskToSprint = async (req, res) => {
 
             const sprintChangeText = body.charAt(0).toLowerCase() + body.slice(1);
 
+            await notifyBestEffort(async () => {
             await createNotification({
                 req,
                 userId: task.assigned_to,
@@ -911,7 +889,9 @@ const assignTaskToSprint = async (req, res) => {
                     projectName: task.project_name,
                     sprintChangeText,
                     taskId: task.id,
+                    recipientRole: await getUserRole(task.assigned_to),
                 }),
+            });
             });
 
         }
@@ -1165,6 +1145,8 @@ const createProjectTask = async (req, res) => {
             req.app.get("io")
         );
 
+        await notifyTaskAssignment(req, taskId, Number(assigned_to), req.user.id);
+
         return res.status(201).json({
             success: true,
             message: "Task created successfully",
@@ -1275,12 +1257,15 @@ const transferTask = async (req, res) => {
             });
         }
 
-        await transferTaskService(
+        const transferred = await transferTaskService(
             req.params.id,
             req.user.id,
             proposedAssigneeId,
             remarks || ""
         );
+        if (!transferred) {
+            return res.status(409).json({ success: false, message: "Task assignment changed or was already applied" });
+        }
 
         await createActivity(
             req.params.id,
@@ -1293,6 +1278,7 @@ const transferTask = async (req, res) => {
             req.app.get("io")
         );
 
+        await notifyBestEffort(async () => {
         const transferActorName = await getUserFullName(req.user.id);
 
         await createNotification({
@@ -1307,9 +1293,17 @@ const transferTask = async (req, res) => {
                 taskTitle: task.task_title,
                 taskNumber: task.task_number || task.id,
                 projectName: task.project_name,
+                userStoryTitle: task.user_story_title,
+                featureTitle: task.feature_title,
+                epicTitle: task.epic_title,
+                status: task.status,
+                priority: task.priority,
+                dueDate: task.due_date,
                 actorName: transferActorName,
                 taskId: task.id,
+                recipientRole: assigneeRows[0].role,
             }),
+        });
         });
 
         return res.json({
@@ -1449,7 +1443,10 @@ const assignTask = async (req, res) => {
             });
         }
 
-        await assignTaskService(req.params.id, proposedAssigneeId, req.user.id);
+        const changed = await assignTaskService(req.params.id, proposedAssigneeId, req.user.id);
+        if (!changed) {
+            return res.status(409).json({ success: false, message: "Task assignment changed or was already applied" });
+        }
 
         const actionLabel = task.assigned_to ? "Reassigned" : "Assigned";
 
@@ -1466,30 +1463,8 @@ const assignTask = async (req, res) => {
             req.app.get("io")
         );
 
-        const isReassignment = Boolean(task.assigned_to);
-
-        const assignActorName = await getUserFullName(req.user.id);
-
-        const assignEmailData = {
-            taskTitle: task.task_title,
-            taskNumber: task.task_number || task.id,
-            projectName: task.project_name,
-            actorName: assignActorName,
-            taskId: task.id,
-        };
-
-        await createNotification({
-            req,
-            userId: proposedAssigneeId,
-            title: isReassignment ? "Task reassigned to you" : "Task assigned to you",
-            message: `"${task.task_title}" has been ${actionLabel.toLowerCase()} to you.`,
-            type: isReassignment ? "task_reassigned" : "task_assigned",
-            referenceType: "task",
-            referenceId: task.id,
-            email: isReassignment
-                ? taskReassignedEmail(assignEmailData)
-                : taskAssignedEmail(assignEmailData),
-        });
+        await notifyTaskAssignment(req, task.id, proposedAssigneeId,
+            req.user.id, Boolean(task.assigned_to));
 
         return res.json({
             success: true,
@@ -1599,6 +1574,7 @@ const approveTask = async (req, res) => {
 
         if (task.assigned_to) {
 
+            await notifyBestEffort(async () => {
             const approverName = await getUserFullName(req.user.id);
 
             await createNotification({
@@ -1615,7 +1591,9 @@ const approveTask = async (req, res) => {
                     projectName: task.project_name,
                     actorName: approverName,
                     taskId: task.id,
+                    recipientRole: await getUserRole(task.assigned_to),
                 }),
+            });
             });
 
         }
@@ -1707,6 +1685,7 @@ const sendBackTask = async (req, res) => {
 
         if (task.assigned_to) {
 
+            await notifyBestEffort(async () => {
             const senderBackName = await getUserFullName(req.user.id);
 
             await createNotification({
@@ -1723,7 +1702,9 @@ const sendBackTask = async (req, res) => {
                     projectName: task.project_name,
                     actorName: senderBackName,
                     taskId: task.id,
+                    recipientRole: await getUserRole(task.assigned_to),
                 }),
+            });
             });
 
         }

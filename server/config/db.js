@@ -49,6 +49,7 @@ const SPECIAL_PROPS = {
   __runWithTenantContext: runWithTenantContext,
   __getCurrentCompanySlug: getCurrentCompanySlug,
   __legacyPool: legacyPool,
+  __getActivePool: currentPool,
   __LEGACY_COMPANY_SLUG: LEGACY_COMPANY_SLUG,
 };
 

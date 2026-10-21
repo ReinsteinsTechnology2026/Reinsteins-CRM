@@ -27,7 +27,7 @@ const {
     createActivity
 } = require("../services/taskActivityService");
 
-const { createNotification } = require("../services/notificationService");
+const { createNotification, notifyTaskAssignment } = require("../services/notificationService");
 
 const pool = require("../config/db");
 
@@ -257,6 +257,8 @@ const createTask = async (req, res) => {
             [],
             req.app.get("io")
         );
+
+        await notifyTaskAssignment(req, taskId, Number(assigned_to), req.user.id);
 
         return res.status(201).json({
             success: true,

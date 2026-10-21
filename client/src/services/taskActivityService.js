@@ -107,11 +107,11 @@ export const postTaskActivity = async (taskId, activityData) => {
 // EDIT ACTIVITY ENTRY (author only)
 // ==========================================
 
-export const editTaskActivity = async (activityId, body) => {
+export const editTaskActivity = async (activityId, body, mentionedUserIds = []) => {
 
     const { data } = await api.put(
         `/task-activity/activity/${activityId}`,
-        { body }
+        { body, mentionedUserIds }
     );
 
     return data;
@@ -138,9 +138,9 @@ export const deleteTaskActivity = async (activityId) => {
 // (all active users except the current one).
 // ==========================================
 
-export const getMentionableUsers = async () => {
+export const getMentionableUsers = async (taskId) => {
 
-    const { data } = await api.get("/chat/users");
+    const { data } = await api.get(`/task-activity/${taskId}/mentionable-users`);
 
     return data;
 

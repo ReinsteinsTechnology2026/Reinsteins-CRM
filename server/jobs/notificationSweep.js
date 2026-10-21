@@ -84,7 +84,7 @@ async function runSweepOnce(io) {
         SELECT
             t.id, t.task_number, t.task_title, t.assigned_to, t.due_date, t.project_id,
             p.name AS project_name, p.status AS project_status,
-            u.employment_status AS assignee_status
+            u.employment_status AS assignee_status, u.role AS assignee_role
         FROM tasks t
         LEFT JOIN projects p ON p.id = t.project_id
         LEFT JOIN users u ON u.id = t.assigned_to
@@ -131,6 +131,7 @@ async function runSweepOnce(io) {
             continue;
         }
 
+        try {
         const dueDateLabel = formatDueDate(task.due_date);
 
         const emailBuilder = isOverdue ? taskOverdueEmail : taskDueSoonEmail;
@@ -141,6 +142,7 @@ async function runSweepOnce(io) {
             projectName: task.project_name,
             dueDateLabel,
             taskId: task.id,
+            recipientRole: task.assignee_role,
         });
 
         const title = isOverdue ? "Task overdue" : "Task due soon";
@@ -160,6 +162,12 @@ async function runSweepOnce(io) {
             referenceId: task.id,
             email,
         });
+        } catch (error) {
+            // One failing task must not stop the pass. Nothing was committed for it
+            // (notification + outbox row share a transaction), so the next sweep retries.
+            console.error(`[notificationSweep] Notification failed for task ${task.id}:`, error.code || error.name);
+            continue;
+        }
 
         if (isOverdue) {
             overdueCreated += 1;

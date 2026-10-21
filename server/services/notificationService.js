@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const emailService = require("./emailService");
+const { isOutboxAvailable, reportOutboxMissing, isEmailDeliveryEnabled } = require("./notificationEmailOutbox");
 const { currentUserRoom } = require("../utils/socketRooms");
 
 // ==========================================
@@ -26,12 +26,8 @@ const { currentUserRoom } = require("../utils/socketRooms");
 // request body, so there is no path by which a
 // client can choose who receives a notification.
 //
-// Email is opt-in per call: pass `email` (an
-// { subject, html, text } object, normally built
-// via emailTemplates.js) only for the event types
-// that are supposed to send one. Omitting it
-// preserves a call site's exact pre-existing
-// behavior (portal notification only).
+// Email is opt-in. An email request is persisted in the same tenant
+// transaction as its in-app notification, then sent by the worker.
 // ==========================================
 
 async function createNotification({
@@ -58,15 +54,39 @@ async function createNotification({
         return null;
     }
 
-    const [result] = await pool.query(
-        `
-        INSERT INTO notifications
-        (user_id, title, message, type, is_read, reference_type, reference_id)
-        VALUES (?, ?, ?, ?, FALSE, ?, ?)
-        RETURNING id
-        `,
-        [userId, title, message, type || "general", referenceType || null, referenceId || null]
-    );
+    // Without the outbox table the in-app notification must still be created;
+    // the email is dropped and the problem is reported, never reported as sent.
+    // Delivery switched off (see isEmailDeliveryEnabled): nothing is queued, in-app only.
+    let queueEmail = Boolean(email) && isEmailDeliveryEnabled();
+    if (queueEmail && !await isOutboxAvailable()) {
+        reportOutboxMissing();
+        queueEmail = false;
+    }
+    const connection = queueEmail ? await pool.getConnection() : null;
+    let result;
+    try {
+        if (connection) await connection.beginTransaction();
+        [result] = await (connection || pool).query(
+            `INSERT INTO notifications
+             (user_id, title, message, type, is_read, reference_type, reference_id)
+             VALUES (?, ?, ?, ?, FALSE, ?, ?) RETURNING id`,
+            [userId, title, message, type || "general", referenceType || null, referenceId || null]
+        );
+        if (queueEmail) {
+            await connection.query(
+                `INSERT INTO notification_email_outbox
+                 (notification_id, user_id, subject, html, plain_text)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [result[0].id, userId, email.subject, email.html, email.text]
+            );
+            await connection.commit();
+        }
+    } catch (error) {
+        if (connection) await connection.rollback();
+        throw error;
+    } finally {
+        if (connection) connection.release();
+    }
 
     const notificationId = result[0].id;
 
@@ -86,62 +106,7 @@ async function createNotification({
         });
     }
 
-    // ======================================
-    // EMAIL (best-effort, never throws)
-    //
-    // Awaited so tests/callers can rely on
-    // email_sent_at being set by the time this
-    // resolves, but any failure here is fully
-    // swallowed -- it can never surface as a
-    // rejected promise, and the notification row
-    // above has already been committed regardless
-    // of what happens next.
-    // ======================================
-
-    if (email) {
-        await dispatchEmail(notificationId, userId, email);
-    }
-
     return notificationId;
-
-}
-
-async function dispatchEmail(notificationId, userId, email) {
-
-    try {
-
-        const [[user]] = await pool.query(
-            `SELECT email FROM users WHERE id = ? LIMIT 1`,
-            [userId]
-        );
-
-        if (!user?.email) {
-            console.log(`[notificationService] Skipped email for notification ${notificationId} — recipient has no email on file.`);
-            return;
-        }
-
-        const result = await emailService.sendMail({
-            to: user.email,
-            subject: email.subject,
-            html: email.html,
-            text: email.text,
-        });
-
-        if (result.sent) {
-            await pool.query(
-                `UPDATE notifications SET email_sent_at = NOW() WHERE id = ?`,
-                [notificationId]
-            );
-        }
-
-    } catch (error) {
-
-        // Never let an email-side failure propagate -- the
-        // notification row (and, upstream, the task/leave/chat
-        // action that triggered it) is already committed.
-        console.error(`[notificationService] Email dispatch failed for notification ${notificationId}:`, error.message);
-
-    }
 
 }
 
@@ -170,7 +135,74 @@ async function getUserFullName(userId, fallback = "A team member") {
 
 }
 
+// Role of a recipient from the tenant database (never from the client),
+// used to pick the /admin or /employee link. Falls back to employee.
+async function getUserRole(userId) {
+    try {
+        const [[row]] = await pool.query(`SELECT role FROM users WHERE id = ? LIMIT 1`, [userId]);
+        return row?.role || 'employee';
+    } catch (_error) {
+        return 'employee';
+    }
+}
+
+// Runs a notification step AFTER the business operation has committed.
+// A failure is logged (code only) and swallowed so the caller can still
+// report the saved operation as successful instead of a misleading 500.
+async function notifyBestEffort(step) {
+    try {
+        return await step();
+    } catch (error) {
+        console.error('[notificationService] Post-commit notification failed:', error.code || error.name);
+        return null;
+    }
+}
+
+async function notifyTaskAssignmentUnsafe(req, taskId, assigneeId, actorId, reassigned = false) {
+    if (!assigneeId || Number(assigneeId) === Number(actorId)) return null;
+    const { getTaskDetailById } = require('./taskService');
+    const { taskAssignedEmail, taskReassignedEmail } = require('./emailTemplates');
+    const task = await getTaskDetailById(taskId);
+    if (!task || Number(task.assigned_to) !== Number(assigneeId)) return null;
+    const actorName = await getUserFullName(actorId);
+    const recipientName = await getUserFullName(assigneeId, '');
+    const [[recipient]] = await pool.query(
+        `SELECT role, status, employment_status FROM users WHERE id = ? LIMIT 1`, [assigneeId]
+    );
+    if (!recipient || recipient.status !== 'active' || recipient.employment_status !== 'active') return null;
+    const data = {
+        taskTitle: task.task_title, taskNumber: task.task_number || task.id,
+        projectName: task.project_name, userStoryTitle: task.user_story_title,
+        featureTitle: task.feature_title, epicTitle: task.epic_title,
+        status: task.status, priority: task.priority, dueDate: task.due_date,
+        actorName, recipientName, recipientRole: recipient.role, taskId: task.id,
+    };
+    return createNotification({
+        req, userId: assigneeId,
+        title: reassigned ? 'Task reassigned to you' : 'Task assigned to you',
+        message: `"${task.task_title}" has been ${reassigned ? 'reassigned' : 'assigned'} to you.`,
+        type: reassigned ? 'task_reassigned' : 'task_assigned',
+        referenceType: 'task', referenceId: task.id,
+        email: reassigned ? taskReassignedEmail(data) : taskAssignedEmail(data),
+    });
+}
+
+// The assignment itself is already committed when this runs, so a
+// notification/outbox failure must never turn the request into a 500
+// (which would invite a client retry and a duplicate task).
+async function notifyTaskAssignment(...args) {
+    try {
+        return await notifyTaskAssignmentUnsafe(...args);
+    } catch (error) {
+        console.error('[notificationService] Assignment notification failed:', error.code || error.name);
+        return null;
+    }
+}
+
 module.exports = {
     createNotification,
     getUserFullName,
+    notifyTaskAssignment,
+    notifyBestEffort,
+    getUserRole,
 };

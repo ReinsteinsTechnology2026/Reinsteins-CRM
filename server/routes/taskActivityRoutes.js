@@ -6,6 +6,7 @@ const taskUpload = require("../middleware/taskUploadMiddleware");
 
 const {
     getActivity,
+    getMentionableUsers,
     createActivity,
     updateActivity,
     deleteActivity
@@ -14,6 +15,8 @@ const {
 const {
     protect
 } = require("../middleware/authMiddleware");
+
+router.get('/:taskId/mentionable-users', protect, getMentionableUsers);
 
 // ==========================================
 // GET ACTIVITY FEED FOR A TASK
