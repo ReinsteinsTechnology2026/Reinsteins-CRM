@@ -166,6 +166,39 @@ const getActivity = async (req, res) => {
 
 };
 
+const getMentionableUsers = async (req, res) => {
+    try {
+        const task = await getTaskById(req.params.taskId);
+        if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
+        if (!await canAccessTask(req, task)) {
+            return res.status(403).json({ success: false, message: 'You do not have access to this task' });
+        }
+        const [users] = await pool.query(task.project_id
+            ? `SELECT u.id, u.full_name, u.role, u.project_access_level,
+                      u.is_system_administrator
+               FROM users u JOIN project_members pm ON pm.user_id = u.id
+               WHERE pm.project_id = ? AND u.status = 'active'
+               AND u.employment_status = 'active' AND u.id <> ? ORDER BY u.full_name`
+            : `SELECT id, full_name, role FROM users
+               WHERE status = 'active' AND employment_status = 'active'
+               AND id <> ? AND (role = 'admin' OR id IN (?, ?)) ORDER BY full_name`,
+            task.project_id ? [task.project_id, req.user.id]
+                : [req.user.id, task.assigned_to || 0, task.assigned_by || 0]);
+        const visible = [];
+        for (const user of users) {
+            if (!task.project_id || await hasProjectPermission({
+                id: user.id, accessLevel: user.project_access_level,
+                isSystemAdministrator: user.is_system_administrator === true,
+            }, task.project_id, 'TASK_VIEW')) {
+                visible.push({ id: user.id, full_name: user.full_name, role: user.role });
+            }
+        }
+        return res.json({ success: true, users: visible });
+    } catch (_error) {
+        return res.status(500).json({ success: false, message: 'Unable to load mentionable users' });
+    }
+};
+
 // ==========================================
 // CREATE ACTIVITY ENTRY
 // ==========================================
@@ -374,6 +407,7 @@ const deleteActivity = async (req, res) => {
 module.exports = {
 
     getActivity,
+    getMentionableUsers,
     createActivity,
     updateActivity,
     deleteActivity

@@ -1331,6 +1331,7 @@ function TaskWorkspace() {
                     </div>
 
                     <MentionInput
+                        taskId={taskId}
                         value={composerText}
                         onChange={({ text, mentionedUserIds }) => {
                             setComposerText(text);
@@ -1605,6 +1606,7 @@ function TaskWorkspace() {
                                             <div className="task-activity-edit-form">
 
                                                 <MentionInput
+                                                    taskId={taskId}
                                                     value={editingText}
                                                     onChange={({ text, mentionedUserIds }) => {
                                                         setEditingText(text);

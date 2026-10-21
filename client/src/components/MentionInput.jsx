@@ -17,6 +17,8 @@ import "./MentionInput.css";
 
 function MentionInput({
 
+    taskId,
+
     value,
 
     onChange,
@@ -41,25 +43,33 @@ function MentionInput({
 
     useEffect(() => {
 
-        loadUsers();
+        let cancelled = false;
 
-    }, []);
+        async function loadUsers() {
 
-    async function loadUsers() {
+            try {
 
-        try {
+                const response = await getMentionableUsers(taskId);
 
-            const response = await getMentionableUsers();
+                if (!cancelled) {
+                    setUsers(response.users || []);
+                }
 
-            setUsers(response.users || []);
+            } catch (error) {
 
-        } catch (error) {
+                console.error("Unable to load mentionable users:", error);
 
-            console.error("Unable to load mentionable users:", error);
+            }
 
         }
 
-    }
+        loadUsers();
+
+        return () => {
+            cancelled = true;
+        };
+
+    }, [taskId]);
 
     // ==========================================
     // COMPUTE mentionedUserIds FROM CURRENT TEXT

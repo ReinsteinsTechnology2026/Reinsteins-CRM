@@ -138,9 +138,9 @@ export const deleteTaskActivity = async (activityId) => {
 // (all active users except the current one).
 // ==========================================
 
-export const getMentionableUsers = async () => {
+export const getMentionableUsers = async (taskId) => {
 
-    const { data } = await api.get("/chat/users");
+    const { data } = await api.get(`/task-activity/${taskId}/mentionable-users`);
 
     return data;
 
