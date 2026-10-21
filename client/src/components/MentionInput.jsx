@@ -69,8 +69,13 @@ function MentionInput({
 
     function emitChange(nextText, mentions) {
 
+        const hasMention = (fullName) => {
+            const escaped = fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            return new RegExp(`(^|[^\\p{L}\\p{N}_@.])@${escaped}(?=$|[^\\p{L}\\p{N}_])`, 'u').test(nextText);
+        };
+
         const activeIds = mentions
-            .filter((mention) => nextText.includes(`@${mention.fullName}`))
+            .filter((mention) => hasMention(mention.fullName))
             .map((mention) => mention.id);
 
         onChange({

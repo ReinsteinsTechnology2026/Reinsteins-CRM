@@ -264,7 +264,9 @@ const updateActivity = async (req, res) => {
         const result = await editActivityService(
             req.params.activityId,
             req.user,
-            body.trim()
+            body.trim(),
+            Array.isArray(req.body.mentionedUserIds) ? req.body.mentionedUserIds : [],
+            req.app.get("io")
         );
 
         if (!result.success) {

@@ -224,6 +224,8 @@ function TaskWorkspace() {
 
     const [editingText, setEditingText] = useState("");
 
+    const [editingMentionIds, setEditingMentionIds] = useState([]);
+
     const [savingEdit, setSavingEdit] = useState(false);
 
     const [loading, setLoading] = useState(true);
@@ -974,6 +976,7 @@ function TaskWorkspace() {
     function handleCancelEdit() {
         setEditingActivityId(null);
         setEditingText("");
+        setEditingMentionIds([]);
     }
 
     async function handleSaveEdit(activityId) {
@@ -987,7 +990,7 @@ function TaskWorkspace() {
 
             setSavingEdit(true);
 
-            await editTaskActivity(activityId, editingText.trim());
+            await editTaskActivity(activityId, editingText.trim(), editingMentionIds);
 
             toast.success("Update edited");
 
@@ -1603,7 +1606,10 @@ function TaskWorkspace() {
 
                                                 <MentionInput
                                                     value={editingText}
-                                                    onChange={({ text }) => setEditingText(text)}
+                                                    onChange={({ text, mentionedUserIds }) => {
+                                                        setEditingText(text);
+                                                        setEditingMentionIds(mentionedUserIds || []);
+                                                    }}
                                                     placeholder="Edit your update..."
                                                     rows={3}
                                                     disabled={savingEdit}

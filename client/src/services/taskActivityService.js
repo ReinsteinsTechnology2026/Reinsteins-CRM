@@ -107,11 +107,11 @@ export const postTaskActivity = async (taskId, activityData) => {
 // EDIT ACTIVITY ENTRY (author only)
 // ==========================================
 
-export const editTaskActivity = async (activityId, body) => {
+export const editTaskActivity = async (activityId, body, mentionedUserIds = []) => {
 
     const { data } = await api.put(
         `/task-activity/activity/${activityId}`,
-        { body }
+        { body, mentionedUserIds }
     );
 
     return data;

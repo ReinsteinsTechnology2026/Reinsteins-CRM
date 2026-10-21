@@ -1833,6 +1833,7 @@ app.set(
 // ==========================================
 
 require("./jobs/notificationSweep").start(io);
+require("./jobs/notificationEmailWorker").start();
 
 // ==========================================
 // SUBSCRIPTION LIFECYCLE SWEEP (Phase 12C)

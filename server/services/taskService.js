@@ -288,6 +288,8 @@ const getTaskDetailById = async (id) => {
             u2.full_name AS assigned_by_name,
             p.name AS project_name,
             us.title AS user_story_title,
+            f.title AS feature_title,
+            e.title AS epic_title,
             sp.name AS sprint_name
         FROM tasks t
         LEFT JOIN users u1
@@ -298,6 +300,10 @@ const getTaskDetailById = async (id) => {
             ON p.id = t.project_id
         LEFT JOIN user_stories us
             ON us.id = t.user_story_id
+        LEFT JOIN features f
+            ON f.id = us.feature_id
+        LEFT JOIN epics e
+            ON e.id = f.epic_id
         LEFT JOIN sprints sp
             ON sp.id = t.sprint_id
         WHERE t.id = ?
@@ -395,7 +401,7 @@ switch ((status || "").toLowerCase()) {
     // INSERT TASK
     // ==========================================
 
-    await pool.query(
+    const [created] = await pool.query(
 
         `
         INSERT INTO tasks(
@@ -419,7 +425,7 @@ switch ((status || "").toLowerCase()) {
 
             ?,?,?,?,?,?,?,?,?,?,?,?
 
-        )
+        ) RETURNING id
         `,
 
         [
@@ -451,6 +457,8 @@ switch ((status || "").toLowerCase()) {
         ]
 
     );
+
+    return created[0].id;
 
 };
 
@@ -588,53 +596,73 @@ const updateTask = async (id, data, actorId) => {
 
     } = data;
 
-    const [[currentTask]] = await pool.query(
-        `SELECT assigned_to, assigned_by FROM tasks WHERE id=?`,
-        [id]
-    );
+    // The previous assignee is read under a row lock in the same transaction
+    // as the UPDATE, so the reported assignment transition is the one that
+    // was actually persisted -- never a stale pre-read. A competing
+    // request waits here and then sees the already-updated row.
+    const connection = await pool.getConnection();
+    let previousAssignee = null;
+    let assignmentChanged = false;
+    try {
+        await connection.beginTransaction();
+        const [[currentTask]] = await connection.query(
+            `SELECT assigned_to, assigned_by FROM tasks WHERE id=? FOR UPDATE`,
+            [id]
+        );
 
-    const assignedTo = resolvePreservedId(assigned_to, currentTask?.assigned_to);
+        const assignedTo = resolvePreservedId(assigned_to, currentTask?.assigned_to);
 
-    const assignedBy = resolveAssignedBy({
-        assignedTo,
-        currentAssignedTo: currentTask?.assigned_to,
-        currentAssignedBy: currentTask?.assigned_by,
-        actorId,
-    });
-
-    await pool.query(
-
-        `
-        UPDATE tasks
-        SET
-            task_title=?,
-            task_description=?,
-            assigned_to=?,
-            assigned_by=?,
-            priority=?,
-            status=?,
-            due_date=?,
-            estimated_hours=?,
-            tags=?
-        WHERE id=?
-        `,
-
-        [
-
-            title,
-            description,
+        const assignedBy = resolveAssignedBy({
             assignedTo,
-            assignedBy,
-            priority,
-            status,
-            normalizeDueDate(due_date),
-            estimated_hours || null,
-            tags || null,
-            id
+            currentAssignedTo: currentTask?.assigned_to,
+            currentAssignedBy: currentTask?.assigned_by,
+            actorId,
+        });
 
-        ]
+        previousAssignee = currentTask?.assigned_to ?? null;
+        assignmentChanged = Boolean(assignedTo) &&
+            Number(assignedTo) !== Number(previousAssignee);
 
-    );
+        await connection.query(
+
+            `
+            UPDATE tasks
+            SET
+                task_title=?,
+                task_description=?,
+                assigned_to=?,
+                assigned_by=?,
+                priority=?,
+                status=?,
+                due_date=?,
+                estimated_hours=?,
+                tags=?
+            WHERE id=?
+            `,
+
+            [
+
+                title,
+                description,
+                assignedTo,
+                assignedBy,
+                priority,
+                status,
+                normalizeDueDate(due_date),
+                estimated_hours || null,
+                tags || null,
+                id
+
+            ]
+
+        );
+        await connection.commit();
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
 
     // tagNames is only present when the Edit Task form actually
     // submitted it -- callers that update a task for an unrelated
@@ -645,6 +673,8 @@ const updateTask = async (id, data, actorId) => {
     if (tagNames !== undefined) {
         await setTaskTags(id, tagNames);
     }
+
+    return { assignmentChanged, previousAssignee };
 
 };
 
@@ -704,25 +734,13 @@ const transferTask = async (
 
 ) => {
 
-    await pool.query(
-
-        `
-        UPDATE tasks
-        SET assigned_to=?, assigned_by=?
-        WHERE id=?
-        `,
-
-        [
-
-            assignedTo,
-
-            assignedBy,
-
-            taskId
-
-        ]
-
+    const [updated] = await pool.query(
+        `UPDATE tasks SET assigned_to=?, assigned_by=?
+         WHERE id=? AND assigned_to IS DISTINCT FROM ? RETURNING id`,
+        [assignedTo, assignedBy, taskId, assignedTo]
     );
+
+    if (updated.length === 0) return false;
 
     await pool.query(
 
@@ -752,6 +770,8 @@ const transferTask = async (
         ]
 
     );
+
+    return true;
 
 };
 
@@ -820,10 +840,12 @@ const assignTask = async (taskId, assignedTo, actorId) => {
         actorId,
     });
 
-    await pool.query(
-        `UPDATE tasks SET assigned_to=?, assigned_by=? WHERE id=?`,
-        [assignedTo, assignedBy, taskId]
+    const [updated] = await pool.query(
+        `UPDATE tasks SET assigned_to=?, assigned_by=?
+         WHERE id=? AND assigned_to IS DISTINCT FROM ? RETURNING id`,
+        [assignedTo, assignedBy, taskId, assignedTo]
     );
+    return updated.length > 0;
 
 };
 
