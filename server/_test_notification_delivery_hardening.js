@@ -219,3 +219,57 @@ test('MOCKED: scoped diagnostics never include credentials', async () => {
     });
   } finally { fail.restore(); }
 });
+
+// ---- master switch: email queueing/sending fails closed ----
+const { isEmailDeliveryEnabled } = require('./services/notificationEmailOutbox');
+
+test('delivery switch fails closed: only explicit "true", or unset in development/test, enables it', () => {
+  const on = [
+    { NOTIFICATION_EMAIL_ENABLED: 'true' },
+    { NOTIFICATION_EMAIL_ENABLED: ' TRUE ', NODE_ENV: 'production' },
+    { NODE_ENV: 'development' },
+    { NODE_ENV: 'test' },
+    { NODE_ENV: 'Development', NOTIFICATION_EMAIL_ENABLED: '' },
+  ];
+  const off = [
+    {},
+    { NODE_ENV: 'production' },
+    { NODE_ENV: 'staging' },
+    { NODE_ENV: '' },
+    { NOTIFICATION_EMAIL_ENABLED: 'false', NODE_ENV: 'development' },
+    { NOTIFICATION_EMAIL_ENABLED: '1' },
+    { NOTIFICATION_EMAIL_ENABLED: 'yes', NODE_ENV: 'production' },
+    { NOTIFICATION_EMAIL_ENABLED: 'enabled', NODE_ENV: 'development' },
+  ];
+  for (const env of on) assert.equal(isEmailDeliveryEnabled(env), true, JSON.stringify(env));
+  for (const env of off) assert.equal(isEmailDeliveryEnabled(env), false, JSON.stringify(env));
+});
+
+test('MOCKED: with delivery disabled createNotification stores only the in-app notification (no outbox, no transaction)', async () => {
+  const notificationService = require('./services/notificationService');
+  const sqls = [];
+  const pool = {
+    query: async (sql) => { sqls.push(sql); return /INSERT INTO notifications/.test(sql) ? [[{ id: 9 }]] : [[]]; },
+    getConnection: async () => { throw new Error('must not open a transaction'); },
+  };
+  await withEnv({ NOTIFICATION_EMAIL_ENABLED: undefined, NODE_ENV: 'production' }, async () => {
+    const id = await db.__runWithTenantContext({ tenantPool: pool, companySlug: 'acme' }, () => notificationService.createNotification({
+      userId: 7, title: 't', message: 'm', type: 'task_assigned', email: { subject: 's', html: 'h', text: 't' } }));
+    assert.equal(id, 9);
+  });
+  assert.equal(sqls.some((q) => /notification_email_outbox|to_regclass/.test(q)), false);
+});
+
+test('worker.start() does nothing while delivery is disabled, and starts once it is explicitly enabled', async () => {
+  const w = require('./jobs/notificationEmailWorker');
+  const logs = [];
+  const original = console.log;
+  console.log = (...a) => logs.push(a.join(' '));
+  try {
+    await withEnv({ NOTIFICATION_EMAIL_ENABLED: undefined, NODE_ENV: 'production', SMTP_HOST: undefined }, () => w.start());
+    assert.ok(logs.some((l) => /Not started: email delivery is disabled/.test(l)));
+    logs.length = 0;
+    await withEnv({ NOTIFICATION_EMAIL_ENABLED: 'true', NODE_ENV: 'production', SMTP_HOST: undefined }, () => w.start());
+    assert.equal(logs.some((l) => /Not started/.test(l)), false);
+  } finally { console.log = original; w.stop(); }
+});

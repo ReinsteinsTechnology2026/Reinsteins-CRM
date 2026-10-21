@@ -46,6 +46,20 @@ function reportOutboxMissing(db = pool) {
     '_migrate_add_notification_email_outbox.js. Emails are NOT being queued or sent for this database.');
 }
 
+// Master switch for queueing AND sending notification emails. Fails closed:
+//   NOTIFICATION_EMAIL_ENABLED=true   -> enabled (explicit opt-in, any environment)
+//   NOTIFICATION_EMAIL_ENABLED=<other non-empty value, e.g. false> -> disabled
+//   unset                             -> enabled ONLY when NODE_ENV is development or test,
+//                                        so a server whose NODE_ENV is production, unset or
+//                                        anything else sends nothing until someone sets it.
+// While disabled no email is queued (so enabling later cannot release a backlog of
+// stale messages); the in-app notification is unaffected.
+function isEmailDeliveryEnabled(env = process.env) {
+  const flag = String(env.NOTIFICATION_EMAIL_ENABLED ?? '').trim().toLowerCase();
+  if (flag !== '') return flag === 'true';
+  return ['development', 'test'].includes(String(env.NODE_ENV ?? '').trim().toLowerCase());
+}
+
 // Same statement as the one in schemas/tenantSchema.postgresql.sql; a test compares both.
 const dueIndexSql = `CREATE INDEX IF NOT EXISTS "idx_notification_email_outbox_due"
   ON notification_email_outbox (status, next_attempt_at)`;
@@ -105,5 +119,5 @@ async function listOutboxTargets({ platformPool, legacyPool, resolveTenantPool, 
 }
 
 module.exports = {
-  isOutboxAvailable, reportOutboxMissing, schema, dueIndexSql, databaseIdentity, listOutboxTargets,
+  isOutboxAvailable, reportOutboxMissing, isEmailDeliveryEnabled, schema, dueIndexSql, databaseIdentity, listOutboxTargets,
 };

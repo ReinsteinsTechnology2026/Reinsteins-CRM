@@ -1,7 +1,7 @@
 const legacyPool = require('../config/db').__legacyPool;
 const platformPool = require('../config/platformDb');
 const { getTenantPoolForCompany } = require('../config/tenantConnectionManager');
-const { isOutboxAvailable, reportOutboxMissing, listOutboxTargets } = require('../services/notificationEmailOutbox');
+const { isOutboxAvailable, reportOutboxMissing, listOutboxTargets, isEmailDeliveryEnabled } = require('../services/notificationEmailOutbox');
 const emailService = require('../services/emailService');
 
 const MAX_ATTEMPTS = 4;
@@ -167,7 +167,12 @@ async function runOnce() {
 }
 
 function start() {
-  if (process.env.NOTIFICATION_EMAIL_ENABLED === 'false' || timer) return;
+  if (timer) return;
+  if (!isEmailDeliveryEnabled()) {
+    console.log('[notificationEmailWorker] Not started: email delivery is disabled ' +
+      '(set NOTIFICATION_EMAIL_ENABLED=true to enable; it is never on by default outside development/test).');
+    return;
+  }
   timer = setInterval(runOnce, INTERVAL_MS);
   timer.unref?.();
   setImmediate(runOnce);

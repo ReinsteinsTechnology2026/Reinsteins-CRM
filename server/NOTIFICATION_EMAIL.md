@@ -98,3 +98,31 @@ repeat with the same Message-ID, but this is not guaranteed and must not be reli
 
 Two workers never process the same pending row at the same time (`FOR UPDATE SKIP LOCKED`),
 and a worker that lost its claim skips the job instead of sending it.
+
+## Production rollout (nothing is sent until you explicitly enable it)
+
+Pushing to `main` runs `.github/workflows/deploy.yml`. For this feature that means:
+
+1. **Migration, then restart.** The workflow runs
+   `node server/_migrate_add_notification_email_outbox.js` after the other migrations and
+   before the client build and `systemctl restart`. The script creates the outbox table and
+   its due index (idempotent, additive) in the legacy database and in every registered
+   tenant database, and verifies both afterwards. It keeps going after a failing database,
+   migrates every reachable one, and exits 1 if any database failed; the workflow's `set -e`
+   then stops the deploy before the restart, so the old process keeps running. A tenant whose
+   registered database no longer exists therefore blocks deploys until its registry row is
+   fixed (same behavior as the other migration steps). The script loads `server/.env` by
+   explicit path and refuses to run when the database settings are missing.
+2. **Email stays off by default.** Queueing and sending are controlled by
+   `NOTIFICATION_EMAIL_ENABLED`: exactly `true` enables it in any environment; any other
+   non-empty value disables it; when unset it is enabled only if `NODE_ENV` is `development`
+   or `test`. A production server (or one with `NODE_ENV` unset) therefore sends and queues
+   nothing until the variable is set to `true`. While disabled the in-app notification is
+   still created, no email row is queued, so enabling later cannot release a backlog of old
+   messages, and the worker logs `Not started: email delivery is disabled` at startup.
+   Note this also covers the existing task-lifecycle and due-soon/overdue emails, which now
+   go through the same outbox.
+3. **Before setting `NOTIFICATION_EMAIL_ENABLED=true`:** confirm the migration reported
+   success for every database, `SMTP_HOST/PORT/USER/PASS/FROM` are correct, and
+   `APP_BASE_URL` is the real public origin (required with `NODE_ENV=production`).
+   Then restart the service.

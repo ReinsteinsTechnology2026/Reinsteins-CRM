@@ -5,6 +5,9 @@ const db = require('./config/db');
 const controller = require('./controllers/taskManagementController');
 const sweep = require('./jobs/notificationSweep');
 
+// These tests exercise the queueing path, which is off unless explicitly enabled outside development/test.
+process.env.NOTIFICATION_EMAIL_ENABLED = 'true';
+
 const TASK = {
   id: 3, task_number: 3, task_title: 'T', project_id: null, project_name: null,
   assigned_to: 7, assigned_by: 1, status: 'pending_review', due_date: '2020-01-01',

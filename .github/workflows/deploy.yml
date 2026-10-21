@@ -96,6 +96,19 @@ jobs:
           # restart steps run.
           node server/_migrate_add_workitem_assignment.js
 
+          # Additive, idempotent creation of notification_email_outbox (+ its
+          # due index) in the legacy database and in EVERY registered tenant
+          # database (CREATE ... IF NOT EXISTS; it never drops or modifies
+          # anything, and it verifies the table and index after creating
+          # them). It continues past a failing database so every reachable
+          # one is migrated, then exits non-zero if ANY database failed;
+          # `set -e` above then stops the deploy before the build/restart
+          # steps, so the new code is never restarted into a half-migrated
+          # estate. Emails are still not sent after this step unless
+          # NOTIFICATION_EMAIL_ENABLED=true is set on the server -- see
+          # server/NOTIFICATION_EMAIL.md ("Production rollout").
+          node server/_migrate_add_notification_email_outbox.js
+
           cd client
           npm ci
           VITE_API_URL=https://crm.zioventure.com npm run build

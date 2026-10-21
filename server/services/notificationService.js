@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { isOutboxAvailable, reportOutboxMissing } = require("./notificationEmailOutbox");
+const { isOutboxAvailable, reportOutboxMissing, isEmailDeliveryEnabled } = require("./notificationEmailOutbox");
 const { currentUserRoom } = require("../utils/socketRooms");
 
 // ==========================================
@@ -56,7 +56,8 @@ async function createNotification({
 
     // Without the outbox table the in-app notification must still be created;
     // the email is dropped and the problem is reported, never reported as sent.
-    let queueEmail = Boolean(email);
+    // Delivery switched off (see isEmailDeliveryEnabled): nothing is queued, in-app only.
+    let queueEmail = Boolean(email) && isEmailDeliveryEnabled();
     if (queueEmail && !await isOutboxAvailable()) {
         reportOutboxMissing();
         queueEmail = false;
