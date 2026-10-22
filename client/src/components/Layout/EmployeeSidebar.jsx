@@ -42,6 +42,7 @@ import socket, {
 
 import { isExecutiveDashboardUser } from "../../utils/executiveAccess";
 import { hasProjectAccess } from "../../utils/projectAccess";
+import { getShiftNavItem } from "../../utils/shiftAccess";
 
 function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) {
   const navigate =
@@ -130,6 +131,11 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
     "manager",
     "team_lead",
   ].includes(currentUser?.systemAccess);
+
+  // Shift entry for BOTH menus below: "Shift Management" for admin tier
+  // (role = admin, or system_access = admin / super_admin), otherwise
+  // "Shift Schedule". Role/system_access only - never designation.
+  const shiftNav = getShiftNavItem(currentUser, basePath);
 
   // ==========================================
   // EXECUTIVE DASHBOARD NAVIGATION
@@ -376,6 +382,9 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
       icon: <FaClipboardCheck />,
       path: `${basePath}/team/leave-approvals`,
     },
+    // Shift entry: decided by role/system_access only (utils/shiftAccess.js),
+    // identical to the standard menu's entry - never by designation.
+    { ...shiftNav, icon: <FaCalendarWeek /> },
     {
       name: "Chat",
       icon: <FaComments />,
@@ -421,12 +430,7 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
       path:
         `${basePath}/attendance`,
     },
-    {
-      name: "Shift Schedule",
-      icon: <FaCalendarWeek />,
-      path:
-        `${basePath}/shift-schedule`,
-    },
+    { ...shiftNav, icon: <FaCalendarWeek /> },
     {
       name: "My Tasks",
       icon: <FaTasks />,
