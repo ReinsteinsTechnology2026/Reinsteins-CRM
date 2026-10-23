@@ -197,3 +197,41 @@ export async function resolveOverrideTarget({ userId, shiftDate, shifts, selecte
         return { shift: null, lookupFailed: true };
     }
 }
+
+// ==========================================
+// SEARCH + DATE PICKER FOLLOW THE SELECTED VIEW
+// ==========================================
+
+export const VIEW_LABELS = { [VIEW_DAY]: "Day", [VIEW_WEEK]: "Week", [VIEW_MONTH]: "Month" };
+
+// The date picker sets the date the selected view is built around, so its
+// label says which range that date selects.
+export const PICKER_LABELS = {
+    [VIEW_DAY]: "Day",
+    [VIEW_WEEK]: "Any date in the week",
+    [VIEW_MONTH]: "Any date in the month",
+};
+
+// Picker value (YYYY-MM-DD) -> local Date, or null for an empty/invalid value
+// (a cleared picker must not move the range).
+export function anchorFromPickerValue(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return null;
+    const date = parseIsoDate(value);
+    return Number.isNaN(date.getTime()) || toIsoDate(date) !== value ? null : date;
+}
+
+// The search endpoint answers for ONE date, so per-day columns (status, times,
+// duration) only make sense in the Day view. Week/Month pick the employee and
+// the schedule table below shows their whole week/month.
+export function searchShowsDayDetail(view) {
+    return view === VIEW_DAY;
+}
+
+// One line saying exactly what is on screen, e.g.
+// "Week 19 Oct - 25 Oct: Asha Rao (EMP002)" / "Month October 2026: all employees".
+export function filterSummary(view, anchor, employee) {
+    const who = employee
+        ? `${employee.fullName}${employee.employeeId ? ` (${employee.employeeId})` : ""}`
+        : "all employees";
+    return `${VIEW_LABELS[view]} ${formatRangeLabel(view, anchor)}: ${who}`;
+}

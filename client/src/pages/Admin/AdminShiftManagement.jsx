@@ -35,6 +35,11 @@ import {
     needsServerLookup,
     overrideFormFromShift,
     resolveOverrideTarget,
+    VIEW_LABELS,
+    PICKER_LABELS,
+    anchorFromPickerValue,
+    searchShowsDayDetail,
+    filterSummary,
 } from "../../utils/shiftViews";
 
 import "./AdminShiftManagement.css";
@@ -579,10 +584,13 @@ function AdminShiftManagement() {
 
     // Keep the search results on the same date as the schedule: when the date
     // changes (date picker, Previous/Next, view switch) re-run the last search.
+    // Only the Day view shows per-day detail in the results, so only it needs
+    // the search re-run for a new date; Week/Month results are just the matched
+    // employees (the schedule below carries the range).
     useEffect(() => {
-        if (submittedQuery) runSearch(submittedQuery, searchDate);
+        if (submittedQuery && searchShowsDayDetail(view)) runSearch(submittedQuery, searchDate);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchDate]);
+    }, [searchDate, view]);
 
     const handleCopyPreviousWeekAllEmployees = async () => {
         try {
@@ -657,6 +665,9 @@ function AdminShiftManagement() {
 
             <section className="shift-search-panel">
                 <h3><FaSearch /> Search Employee (organization-wide)</h3>
+                <p className="shift-search-scope" data-testid="shift-search-scope">
+                    Follows the selected view: <strong>{VIEW_LABELS[view]}</strong> &middot; {formatRangeLabel(view, anchor)}
+                </p>
                 <form className="shift-search-input-row" onSubmit={handleSearch}>
                     <input
                         type="text"
@@ -665,14 +676,18 @@ function AdminShiftManagement() {
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
                     />
-                    <input
-                        type="date"
-                        className="shift-search-date-input"
-                        value={searchDate}
-                        onChange={(event) => {
-                            if (event.target.value) setAnchor(parseIsoDate(event.target.value));
-                        }}
-                    />
+                    <label className="shift-search-date-label">
+                        <span>{PICKER_LABELS[view]}</span>
+                        <input
+                            type="date"
+                            className="shift-search-date-input"
+                            value={searchDate}
+                            onChange={(event) => {
+                                const next = anchorFromPickerValue(event.target.value);
+                                if (next) setAnchor(next);
+                            }}
+                        />
+                    </label>
                     <button type="submit" className="shift-week-nav-button" disabled={searching}>
                         {searching ? "Searching..." : "Search"}
                     </button>
@@ -687,11 +702,15 @@ function AdminShiftManagement() {
                                 <thead>
                                     <tr>
                                         <th>Employee</th>
-                                        <th>Date</th>
-                                        <th>Status</th>
-                                        <th>Start</th>
-                                        <th>End</th>
-                                        <th>Duration</th>
+                                        {searchShowsDayDetail(view) && (
+                                            <>
+                                                <th>Date</th>
+                                                <th>Status</th>
+                                                <th>Start</th>
+                                                <th>End</th>
+                                                <th>Duration</th>
+                                            </>
+                                        )}
                                         <th>Schedule</th>
                                     </tr>
                                 </thead>
@@ -701,19 +720,23 @@ function AdminShiftManagement() {
                                             <td>
                                                 <EmployeeNameplate name={result.fullName} designation={[result.employeeId, result.departmentName ? `${result.designation || ""} · ${result.departmentName}` : result.designation].filter(Boolean).join(" · ")} size="sm" />
                                             </td>
-                                            <td>{new Date(`${result.shiftDate}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
-                                            <td>
-                                                {result.status ? (
-                                                    <span className={`shift-status-badge ${result.status}`}>
-                                                        {result.isDefaultOff ? "OFF" : result.status}
-                                                    </span>
-                                                ) : (
-                                                    <span className="shift-status-badge off">no entry</span>
-                                                )}
-                                            </td>
-                                            <td>{formatTime12h(result.startTime) || "—"}</td>
-                                            <td>{formatTime12h(result.endTime) || "—"}</td>
-                                            <td>{calculateShiftDuration(result.startTime, result.endTime) || "—"}</td>
+                                            {searchShowsDayDetail(view) && (
+                                                <>
+                                                <td>{new Date(`${result.shiftDate}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
+                                                <td>
+                                                    {result.status ? (
+                                                        <span className={`shift-status-badge ${result.status}`}>
+                                                            {result.isDefaultOff ? "OFF" : result.status}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="shift-status-badge off">no entry</span>
+                                                    )}
+                                                </td>
+                                                <td>{formatTime12h(result.startTime) || "—"}</td>
+                                                <td>{formatTime12h(result.endTime) || "—"}</td>
+                                                <td>{calculateShiftDuration(result.startTime, result.endTime) || "—"}</td>
+                                                </>
+                                            )}
                                             <td>
                                                 <button
                                                     type="button"
@@ -762,9 +785,8 @@ function AdminShiftManagement() {
 
             {selectedEmployee && (
                 <div className="shift-filter-chip" role="status">
-                    <span>
-                        Showing schedule for <strong>{selectedEmployee.fullName}</strong>
-                        {selectedEmployee.employeeId ? ` (${selectedEmployee.employeeId})` : ""}
+                    <span data-testid="shift-filter-summary">
+                        Showing <strong>{filterSummary(view, anchor, selectedEmployee)}</strong>
                     </span>
                     <button type="button" className="shift-week-nav-button" onClick={clearEmployeeFilter}>
                         <FaTimes /> Clear filter

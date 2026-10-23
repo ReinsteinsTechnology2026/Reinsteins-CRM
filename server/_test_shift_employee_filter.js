@@ -183,11 +183,11 @@ test('page wiring: the filter is state independent of the view; search, picker, 
     assert.match(page, /if \(!query\) \{[\s\S]*?clearEmployeeFilter\(\);/);
     // date picker == the same anchor that drives the range; search results follow the date
     assert.match(page, /const searchDate = toIsoDate\(anchor\)/);
-    assert.match(page, /if \(event\.target\.value\) setAnchor\(parseIsoDate\(event\.target\.value\)\)/);
-    assert.match(page, /if \(submittedQuery\) runSearch\(submittedQuery, searchDate\);/);
+    assert.match(page, /const next = anchorFromPickerValue\(event\.target\.value\);\s*if \(next\) setAnchor\(next\);/);
+    assert.match(page, /if \(submittedQuery && searchShowsDayDetail\(view\)\) runSearch\(submittedQuery, searchDate\);/);
     assert.ok(!/setSearchDate/.test(page), 'no second, independent date state');
     // chip
-    assert.match(page, /Showing schedule for/);
+    assert.match(page, /Showing <strong>\{filterSummary\(view, anchor, selectedEmployee\)\}<\/strong>/);
     assert.match(page, /Clear filter/);
     assert.match(css, /\.shift-filter-chip\{/);
 });
