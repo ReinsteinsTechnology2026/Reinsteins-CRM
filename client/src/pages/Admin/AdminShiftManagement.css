@@ -229,6 +229,22 @@
     color:var(--text);
 }
 
+/* ---------- SEARCH PANEL: scope line + labelled date picker ---------- */
+
+.shift-search-scope{
+    margin:0 0 10px;
+    font-size:12px;
+    color:var(--text-secondary);
+}
+
+.shift-search-date-label{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    font-size:11px;
+    color:var(--text-secondary);
+}
+
 /* ---------- MONTH TABLE: ~31 narrow columns, employee column pinned ---------- */
 
 .shift-table-month th,
