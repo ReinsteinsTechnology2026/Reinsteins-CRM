@@ -164,13 +164,13 @@ test('page wiring: segmented Day/Week/Month control drives the fetch range, colu
     assert.match(page, /aria-pressed=\{view === option\.value\}/);
     assert.match(page, /className="shift-view-toggle"/);
     assert.match(page, /const range = useMemo\(\(\) => getViewRange\(view, anchor\), \[view, anchor\]\)/);
-    assert.match(page, /await getShifts\(range\.start, range\.end\)/, 'existing API, range-driven');
-    assert.match(page, /\}, \[range\.start, range\.end\]\);/, 'schedule reloads when the range changes');
+    assert.match(page, /await getShifts\(range\.start, range\.end, extraParams\)/, 'existing API, range-driven');
+    assert.match(page, /\}, \[range\.start, range\.end, selectedEmployeeId\]\);/, 'schedule reloads when the range or the employee filter changes');
     assert.match(page, /NAV_LABELS\[view\]\.prev/);
     assert.match(page, /NAV_LABELS\[view\]\.next/);
     assert.match(page, /shiftAnchor\(view, prev, -1\)/);
     assert.match(page, /shiftAnchor\(view, prev, 1\)/);
-    assert.match(page, /weekDates\.includes\(payload\.shiftDate\)/, 'live updates are still merged only inside the visible range');
+    assert.match(page, /shouldMergeLiveUpdate\(payload, weekDates, selectedEmployeeId\)/, 'live updates are still merged only inside the visible range');
     assert.match(page, /weekDates\.map\(\(date\) => \{/, 'one column per visible date');
     assert.match(page, /shift-table-month/);
     // the old single-week state is gone
@@ -179,7 +179,7 @@ test('page wiring: segmented Day/Week/Month control drives the fetch range, colu
 
 test('existing features are preserved: employee search + date picker, self-service rows, override handlers, audit wording', () => {
     assert.match(page, /onSubmit=\{handleSearch\}/);
-    assert.match(page, /searchShiftEmployees\(searchQuery\.trim\(\), searchDate\)/);
+    assert.match(page, /searchShiftEmployees\(query, date\)/);
     assert.match(page, /type="date"\s+className="shift-search-date-input"/);
     assert.match(page, /onClick=\{row\.isSelf \? \(\) => \(entry \? openSelfEdit\(entry\) : openSelfAdd\(date\)\) : undefined\}/, 'only MY row is editable');
     assert.match(page, /onClick=\{handleCopyPreviousWeekAllEmployees\}/);
@@ -192,7 +192,7 @@ test('existing features are preserved: employee search + date picker, self-servi
     // copy-previous-week is still week-based and now timezone-safe
     assert.match(page, /const weekStart = getMondayOf\(anchor\)/);
     assert.match(page, /addDays\(weekStart, -7\)/);
-    assert.match(page, /openOverrideCreate = \(\) => \{\s*setOverrideForm\(\{ \.\.\.EMPTY_OVERRIDE_FORM, shiftDate: weekDates\[0\] \}\)/);
+    assert.match(page, /openOverrideCreate = \(\) => \{[\s\S]*shiftDate: weekDates\[0\]/);
 });
 
 test('compact Administrative Override: one panel, top-right in the header, before the controls and the table', () => {

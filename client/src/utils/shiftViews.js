@@ -114,3 +114,33 @@ export const NAV_LABELS = {
     [VIEW_WEEK]: { prev: "Previous Week", next: "Next Week" },
     [VIEW_MONTH]: { prev: "Previous Month", next: "Next Month" },
 };
+
+// ==========================================
+// EMPLOYEE FILTER (independent of the Day/Week/Month view)
+// ==========================================
+
+// Query for the existing shift API: the date range plus, when an employee is
+// selected, `userId` so the filtering happens server-side. No employee = all.
+export function buildShiftQuery(range, employeeId) {
+    const hasEmployee = employeeId !== null && employeeId !== undefined && employeeId !== "";
+    return {
+        startDate: range.start,
+        endDate: range.end,
+        extraParams: hasEmployee ? { userId: employeeId } : {},
+    };
+}
+
+// Table rows after the employee filter (no filter = every row, untouched).
+export function filterRowsByEmployee(rows, employeeId) {
+    if (employeeId === null || employeeId === undefined || employeeId === "") return rows;
+    return rows.filter((row) => Number(row.userId) === Number(employeeId));
+}
+
+// Should a live `shift:updated` payload be merged into what is on screen?
+// Only if its date is inside the visible range and, with an employee filter,
+// only if it belongs to that employee.
+export function shouldMergeLiveUpdate(payload, visibleDates, employeeId) {
+    if (!payload || !visibleDates.includes(payload.shiftDate)) return false;
+    if (employeeId === null || employeeId === undefined || employeeId === "") return true;
+    return Number(payload.userId) === Number(employeeId);
+}
