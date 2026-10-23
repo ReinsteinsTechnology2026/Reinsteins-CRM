@@ -227,3 +227,121 @@ test('header: page title follows the route, notification / avatar / logout contr
   assert.match(css, /white-space: normal;/);
   assert.match(rule(read('pages/Employee/EmployeeHome.css'), '.employee-header'), /padding:\s*6px 24px/);
 });
+
+// ---- 5. review fixes: distinguishable status colours, chart palette, mobile header, admin canvas, executive page ----
+const hex = (value) => { const m = String(value).match(/#[0-9a-fA-F]{6}/); assert.ok(m, `a hex colour in "${value}"`); return m[0].toUpperCase(); };
+const decl = (body, prop) => { const m = body.match(new RegExp(`(?:^|[;\\s])${prop}\\s*:\\s*([^;]+);`)); return m ? m[1].trim() : null; };
+
+test('task-report / attendance statuses: "completed" and "in progress / working" are distinguishable and readable (fill, outline and symbol - not hue alone)', () => {
+  const css = read('pages/Admin/AdminReports.css');
+  for (const [done, active] of [['.attendance-status.completed', '.attendance-status.working'], ['.task-report-status.completed', '.task-report-status.progress']]) {
+    const d = rule(css, done); const a = rule(css, active);
+    const [dBg, dFg, aBg, aFg] = [hex(decl(d, 'background')), hex(decl(d, 'color')), hex(decl(a, 'background')), hex(decl(a, 'color'))];
+    assert.notEqual(dBg, aBg, `${done} vs ${active}: different fills`);
+    assert.ok(contrast(dBg, aBg) >= 4, `${done}/${active} fills differ strongly (${contrast(dBg, aBg).toFixed(2)})`);
+    assert.ok(contrast(dFg, dBg) >= 4.5, `${done} text ${contrast(dFg, dBg).toFixed(2)}`);
+    assert.ok(contrast(aFg, aBg) >= 4.5, `${active} text ${contrast(aFg, aBg).toFixed(2)}`);
+    assert.ok(/inset 0 0 0 1px/.test(decl(d, 'box-shadow') || ''), `${done} has an outline`);
+  }
+  // a leading symbol differs too (check mark vs dot) -> not colour alone
+  assert.match(css, /\.attendance-status\.completed::before,\s*\.task-report-status\.completed::before \{\s*content: "\\2713"/);
+  assert.match(css, /\.attendance-status\.working::before,\s*\.task-report-status\.progress::before \{\s*content: "\\25CF"/);
+  // pending-review (amber) is still its own state
+  assert.match(rule(css, '.task-report-status.pending-review'), /#FFF5DD/i);
+});
+
+test('employee vs intern badges: different fill, border style, text colour and icon - green only, readable', () => {
+  const css = read('pages/Admin/Employees.css');
+  const e = rule(css, '.employment-type-badge.employee'); const i = rule(css, '.employment-type-badge.intern');
+  assert.notEqual(hex(decl(e, 'background')), hex(decl(i, 'background')));
+  assert.match(decl(e, 'border'), /^1px solid/);
+  assert.match(decl(i, 'border'), /^1px dashed/);
+  assert.ok(contrast(hex(decl(e, 'color')), hex(decl(e, 'background'))) >= 4.5, 'employee text');
+  assert.ok(contrast(hex(decl(i, 'color')), hex(decl(i, 'background'))) >= 4.5, 'intern text');
+  for (const rgb of [decl(e, 'background'), decl(i, 'background'), decl(e, 'color'), decl(i, 'color'), decl(e, 'border'), decl(i, 'border')]) {
+    const [r, g, b] = hexToRgb(hex(rgb));
+    assert.equal(isBlue(r, g, b), false, `${rgb} is not blue`);
+  }
+  const jsx = read('pages/Admin/Employees.jsx');
+  assert.match(jsx, /\? "employment-type-badge intern"\s*:\s*"employment-type-badge employee"/);
+  assert.match(jsx, /<FaGraduationCap \/>[\s\S]{0,80}<FaUserTie \/>/, 'icons differ as well');
+});
+
+test('project charts: palette is distinct, readable against the card, outlined, and every bar is labelled (axis label + count) - not colour alone', () => {
+  const src = read('pages/Employee/ProjectWorkspace.jsx');
+  const table = (name) => { const m = src.match(new RegExp(`const ${name} = \\{([^}]*)\\};`)); assert.ok(m, name); return [...m[1].matchAll(/["']?([A-Za-z ]+)["']?:\s*"(#[0-9A-Fa-f]{6})"/g)].map((x) => [x[1], x[2].toUpperCase()]); };
+  const outline = hex(src.match(/const CHART_OUTLINE = "([^"]+)"/)[1]);
+  assert.ok(contrast(outline, '#FFFFFF') >= 3, 'outline is visible on the card');
+  for (const name of ['STATUS_CHART_COLORS', 'PRIORITY_CHART_COLORS']) {
+    const entries = table(name);
+    assert.ok(entries.length >= 5, name);
+    assert.equal(new Set(entries.map(([, c]) => c)).size, entries.length, `${name}: every category has its own colour`);
+    for (const [key, color] of entries) {
+      const [r, g, b] = hexToRgb(color);
+      assert.equal(isBlue(r, g, b), false, `${name}.${key} ${color} is not blue`);
+      // light fills are allowed only because every bar is outlined in the deep green above
+      assert.ok(contrast(color, '#FFFFFF') >= 3 || contrast(outline, '#FFFFFF') >= 3, `${name}.${key}`);
+    }
+  }
+  // greens differ in lightness, not only hue
+  const greens = ['#BFE8D3', '#2F9E6E', '#0A5A38'];
+  for (let a = 0; a < greens.length; a++) for (let b = a + 1; b < greens.length; b++) assert.ok(contrast(greens[a], greens[b]) >= 1.5, `${greens[a]} vs ${greens[b]}`);
+  assert.equal((src.match(/<Cell key=\{entry\.key\} fill=\{[^}]+\} stroke=\{CHART_OUTLINE\} strokeWidth=\{1\} \/>/g) || []).length, 2, 'both charts outline their bars');
+  assert.equal((src.match(/<LabelList dataKey="value" position="top"/g) || []).length, 2, 'both charts print the count on every bar');
+  assert.equal((src.match(/<XAxis dataKey="label"/g) || []).length, 2, 'each bar sits under its own text label');
+  assert.match(src, /LabelList,\s*ResponsiveContainer,\s*\} from "recharts"/);
+});
+
+test('mobile header (320 / 360 / 390 px): smaller REAL controls so title, bell, avatar and logout cannot overlap', () => {
+  const css = read('components/Layout/EmployeeHeader.css');
+  const m = css.match(/@media \(max-width: 400px\) \{([\s\S]*?)\n\}/);
+  assert.ok(m, '<=400px block');
+  const block = m[1];
+  assert.match(block, /\.employee-main \.employee-header-title h1[\s\S]*?font-size: 15px;/);
+  assert.match(block, /\.employee-main \.mobile-nav-toggle \{\s*width: 36px;\s*height: 36px;/);
+  assert.match(block, /\.employee-main \.employee-notification-button,\s*\.employee-main \.employee-logout \{\s*width: 32px;\s*height: 32px;/);
+  assert.match(block, /\.employee-main \.employee-profile-avatar \{\s*width: 32px;\s*height: 32px;/, 'the avatar box itself shrinks (a transform would not free any space)');
+  assert.ok(!/transform: scale/.test(css), 'no layout-neutral transform hack');
+  // width budget at 320px: 15px scrollbar gutter worst case, side padding 2x12, toggle 36, gaps, 3 controls of 32, 2 gaps of 6
+  const budget = 320 - 15 - 24 - 36 - 8 - 6 - (32 + 6 + 32 + 6 + 32);
+  assert.ok(budget >= 120, `title column ${budget}px fits "Dashboard"/"Management" at 15px bold (~90px)`);
+  // two-class selectors beat the duplicated EmployeeHome.css rules whatever the load order
+  assert.match(read('pages/Employee/EmployeeHome.css'), /\.employee-profile-avatar \{\s*width: 40px;/);
+  assert.match(css, /\.employee-main \.employee-header \{\s*padding: 6px 12px;/);
+});
+
+test('admin portal uses the same light-green canvas: no leftover white page background from AdminLayout.css', () => {
+  const layout = read('components/Layout/AdminLayout.css');
+  for (const sel of ['.admin-layout', '.admin-main', '.admin-page-content']) assert.match(rule(layout, sel), /background:\s*var\(--canvas\)/, sel);
+  // no other stylesheet may repaint the admin shell white
+  const walk = (dir, out = []) => { for (const e of fs.readdirSync(dir, { withFileTypes: true })) { const f = path.join(dir, e.name); if (e.isDirectory()) walk(f, out); else if (f.endsWith('.css')) out.push(f); } return out; };
+  const offenders = [];
+  for (const file of walk(SRC)) {
+    const css = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+    for (const m of css.matchAll(/(^|\n)(\.admin-layout|\.admin-main)\s*\{([^}]*)\}/g)) if (/background:\s*(#fff(fff)?|white|var\(--background\))\b/i.test(m[3])) offenders.push(`${path.relative(SRC, file)} ${m[2]}`);
+  }
+  assert.deepEqual(offenders, []);
+  // cards / tables / modals keep their own surfaces
+  assert.match(theme, /--card:#FFFFFF;/);
+});
+
+test('executive dashboard: same tokens, shadow, spacing and wrapper approach as the redesigned dashboard; data, access and wiring untouched', () => {
+  const css = read('pages/Employee/ExecutiveDashboard.css');
+  assert.ok(!/#[0-9A-Fa-f]{6}\b/.test(css.replace(/\.exec-stat-icon\.warning[\s\S]*?\}/, '')), 'only the existing warning icon keeps literal colours');
+  assert.match(rule(css, '.exec-stat-card'), /background:\s*var\(--card\)/);
+  assert.match(rule(css, '.exec-stat-card'), /box-shadow:\s*var\(--shadow\)/);
+  assert.ok(!/15,\s*12,\s*10/.test(css), 'the old dark brown shadow is gone');
+  assert.match(css, /\.employee-page-content\.exec-dashboard \{\s*display: flex;\s*flex-direction: column;\s*gap: 16px;\s*padding: 0;/);
+  const jsx = read('pages/Employee/ExecutiveDashboard.jsx');
+  assert.equal((jsx.match(/className="employee-page-content exec-dashboard"/g) || []).length, 3, 'loading, error and loaded states');
+  assert.match(jsx, /api\.get\("\/organization\/executive-summary"\)/);
+  assert.match(jsx, /summary\.presentToday/);
+  assert.match(jsx, /summary\.pendingLeaveApprovals/);
+  assert.ok(!/systemAccess|\.role\b|isExecutive/.test(jsx), 'no access logic was added here');
+});
+
+test('dashboard wrapper no longer depends on stylesheet order (two-class selector, no bare .dash-v2 rule)', () => {
+  const css = read('pages/Employee/EmployeeHome.css');
+  assert.match(css, /\.employee-page-content\.dash-v2 \{\s*display: flex;\s*flex-direction: column;\s*gap: 16px;\s*padding: 0;/);
+  assert.ok(!/(^|\n)\.dash-v2 \{/.test(css), 'no single-class .dash-v2 rule left');
+});

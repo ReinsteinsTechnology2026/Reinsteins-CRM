@@ -963,17 +963,19 @@
     font-size:11px;
 
     font-weight:700;
-
+  border: 1px solid transparent;
 }
 
 .employment-type-badge.employee{
-    background:rgba(22, 166, 106,.12);
-    color:#16A66A;
+    background: #E3F6EC;
+    color: #0A5A38;
+  border: 1px solid #0E744A;
 }
 
 .employment-type-badge.intern{
-    background:rgba(22,166,106,.15);
-    color:var(--primary);
+    background: #FFFFFF;
+    color: #1A5F52;
+  border: 1px dashed #1F8F7A;
 }
 
 /* ==========================================

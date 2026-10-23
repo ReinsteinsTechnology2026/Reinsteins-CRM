@@ -740,13 +740,35 @@ max-height:calc(100vh - 170px);
     gap: 0;
   }
 
-  .employee-header-profile > :first-child {
-    transform: scale(.85);
-    transform-origin: center;
-  }
-
   .employee-header-title {
     min-width: 0;
     flex: 1;
+  }
+}
+
+/* very narrow phones (320-400px): real, smaller controls so title, bell, avatar and logout never overlap.
+   The two-class selectors win over EmployeeHome.css, which redeclares .employee-profile-avatar / .employee-header. */
+@media (max-width: 400px) {
+  .employee-main .employee-header-title h1,
+  .employee-main .employee-header-title h2 {
+    font-size: 15px;
+  }
+
+  .employee-main .mobile-nav-toggle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .employee-main .employee-notification-button,
+  .employee-main .employee-logout {
+    width: 32px;
+    height: 32px;
+    font-size: 15px;
+  }
+
+  .employee-main .employee-profile-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
   }
 }

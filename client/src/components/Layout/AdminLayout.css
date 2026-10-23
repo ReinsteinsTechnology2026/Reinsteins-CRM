@@ -6,7 +6,7 @@ ADMIN LAYOUT
     display:flex;
     width:100%;
     min-height:100vh;
-    background:var(--background);
+    background: var(--canvas);
 }
 /* ==========================================
 MAIN AREA
@@ -24,7 +24,7 @@ MAIN AREA
     overflow-y:auto;
     overflow-x:hidden;
 
-    background:var(--background);
+    background: var(--canvas);
 }
 
 /* ==========================================
@@ -69,7 +69,7 @@ PAGE CONTENT
 
     box-sizing:border-box;
 
-    background:var(--background);
+    background: var(--canvas);
 }
 
 /* ==========================================

@@ -85,7 +85,7 @@ function ExecutiveDashboard() {
 
   if (loading) {
     return (
-      <div className="employee-page-content">
+      <div className="employee-page-content exec-dashboard">
         <div className="my-team-card">
           <div className="my-team-empty">Loading dashboard...</div>
         </div>
@@ -95,7 +95,7 @@ function ExecutiveDashboard() {
 
   if (!summary) {
     return (
-      <div className="employee-page-content">
+      <div className="employee-page-content exec-dashboard">
         <div className="my-team-card">
           <div className="my-team-empty">Unable to load the dashboard right now.</div>
         </div>
@@ -105,7 +105,7 @@ function ExecutiveDashboard() {
 
   return (
 
-    <div className="employee-page-content">
+    <div className="employee-page-content exec-dashboard">
 
       <section className="my-team-card">
         <div className="my-team-header">

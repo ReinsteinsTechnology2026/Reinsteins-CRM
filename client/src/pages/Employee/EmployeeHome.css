@@ -819,11 +819,12 @@
    only, no decorative illustrations.
 ========================================== */
 
-.dash-v2 {
+.employee-page-content.dash-v2 {
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 0;
+  overflow: visible;
 }
 
 /* ---------- welcome ---------- */

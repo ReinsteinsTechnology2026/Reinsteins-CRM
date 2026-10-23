@@ -509,16 +509,19 @@
   font-size: 11px;
   font-weight: 600;
   text-transform: capitalize;
+  align-items: center;
+  gap: 5px;
 }
 
 .attendance-status.completed {
-  background: #E8F8F0;
-  color: #0E744A;
+  background: #E3F6EC;
+  color: #0A5A38;
+  box-shadow: inset 0 0 0 1px #0E744A;
 }
 
 .attendance-status.working {
-  background: #E8F8F0;
-  color: #0E744A;
+  background: #0E744A;
+  color: #FFFFFF;
 }
 
 /* ==========================================
@@ -567,16 +570,19 @@
   font-weight: 600;
   text-transform: capitalize;
   white-space: nowrap;
+  align-items: center;
+  gap: 5px;
 }
 
 .task-report-status.completed {
-  background: #E8F8F0;
-  color: #0E744A;
+  background: #E3F6EC;
+  color: #0A5A38;
+  box-shadow: inset 0 0 0 1px #0E744A;
 }
 
 .task-report-status.progress {
-  background: #E8F8F0;
-  color: #0E744A;
+  background: #0E744A;
+  color: #FFFFFF;
 }
 
 .task-report-status.pending-review {
@@ -662,4 +668,17 @@
   .admin-reports-filter-button {
     justify-content: center;
   }
+}
+
+/* The two green states differ by FILL (soft + outline vs solid) and by a leading symbol, never by colour alone */
+.attendance-status.completed::before,
+.task-report-status.completed::before {
+  content: "\2713";
+  font-weight: 700;
+}
+
+.attendance-status.working::before,
+.task-report-status.progress::before {
+  content: "\25CF";
+  font-size: 8px;
 }
