@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { FaCalendarWeek, FaChevronLeft, FaChevronRight, FaTrash, FaTimes, FaUserShield, FaCopy, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 
@@ -20,27 +20,30 @@ import {
     VIEW_WEEK,
     VIEW_MONTH,
     NAV_LABELS,
+    PICKER_LABELS,
     toIsoDate,
     parseIsoDate,
     addDays,
     getMondayOf,
     getViewRange,
-    shiftAnchor,
-    anchorForView,
     formatRangeLabel,
     weekdayLabel,
     buildShiftQuery,
-    filterRowsByEmployee,
     shouldMergeLiveUpdate,
     needsServerLookup,
     overrideFormFromShift,
     resolveOverrideTarget,
-    VIEW_LABELS,
-    PICKER_LABELS,
-    anchorFromPickerValue,
-    searchShowsDayDetail,
-    filterSummary,
 } from "../../utils/shiftViews";
+import {
+    initialScheduleState,
+    scheduleReducer,
+    createRequestGuard,
+    buildScheduleRows,
+    filterChipText,
+    employeeLabel,
+    employeeFromSearchResult,
+    showsDayDetail,
+} from "../../utils/shiftScheduleState";
 
 import "./AdminShiftManagement.css";
 
@@ -79,8 +82,12 @@ const EMPTY_OVERRIDE_FORM = { id: null, userId: "", shiftDate: "", status: "work
 function AdminShiftManagement() {
     const currentUser = useMemo(() => getCurrentUser(), []);
 
-    const [view, setView] = useState(VIEW_WEEK);
-    const [anchor, setAnchor] = useState(() => new Date());
+    // View (Day/Week/Month), selected date, employee filter and the search
+    // panel's open/closed state live in ONE reducer (utils/shiftScheduleState.js),
+    // so selecting/clearing an employee never resets the range and changing
+    // the view/date never drops the employee.
+    const [schedule, dispatch] = useReducer(scheduleReducer, undefined, () => initialScheduleState());
+    const { view, anchor, employee: selectedEmployee, searchOpen } = schedule;
     const [shifts, setShifts] = useState([]);
     const [defaultOffDates, setDefaultOffDates] = useState(() => new Set());
     const [employees, setEmployees] = useState([]);
@@ -116,45 +123,49 @@ function AdminShiftManagement() {
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState(null);
     const [searching, setSearching] = useState(false);
-    // The query last submitted (so results can be re-run when the date changes)
-    // and the employee the schedule is filtered to ({ userId, fullName,
-    // employeeId } or null = everyone). Independent of the Day/Week/Month view.
+    // The query last submitted (so the Day-view results can be refreshed when the
+    // date changes).
     const [submittedQuery, setSubmittedQuery] = useState("");
-    const [selectedEmployee, setSelectedEmployee] = useState(null);
+    // Latest-request-wins: an answer is applied only if no newer request began.
+    const scheduleGuardRef = useRef(createRequestGuard());
+    const searchGuardRef = useRef(createRequestGuard());
 
     // The visible date range (1 day, the Mon-Sun week, or the whole calendar
     // month) -- drives the fetch, the table columns and the live-update merge.
     const range = useMemo(() => getViewRange(view, anchor), [view, anchor]);
     const weekDates = range.dates;
-    // The date picker and the search results follow the same anchor date as
-    // the Day/Week/Month range, so they can never disagree.
-    const searchDate = toIsoDate(anchor);
     const selectedEmployeeId = selectedEmployee ? selectedEmployee.userId : null;
+    // Always the CURRENT range/employee, even when read from a handler that was
+    // created on an earlier render (e.g. the reload after a save).
+    const paramsRef = useRef(null);
+    paramsRef.current = { range, selectedEmployeeId };
 
-    const handleViewChange = (nextView) => {
-        if (nextView === view) return;
-        setAnchor(anchorForView(nextView, anchor, range, new Date()));
-        setView(nextView);
-    };
+    const handleViewChange = (nextView) => dispatch({ type: "setView", view: nextView, today: new Date() });
 
     const loadSchedule = async () => {
+        const requestId = scheduleGuardRef.current.begin();
+        const { range: wanted, selectedEmployeeId: wantedEmployeeId } = paramsRef.current;
+
         try {
             setLoading(true);
             setError("");
 
             // Server-side filtering: ?userId= (already supported by the shift API)
             // when an employee is selected, so only their rows are fetched.
-            const { extraParams } = buildShiftQuery(range, selectedEmployeeId);
-            const data = await getShifts(range.start, range.end, extraParams);
+            const { extraParams } = buildShiftQuery(wanted, wantedEmployeeId);
+            const data = await getShifts(wanted.start, wanted.end, extraParams);
+            if (!scheduleGuardRef.current.isCurrent(requestId)) return;
+
             setShifts(Array.isArray(data.shifts) ? data.shifts : []);
             setDefaultOffDates(new Set(Array.isArray(data.defaultOffDates) ? data.defaultOffDates : []));
 
         } catch (err) {
+            if (!scheduleGuardRef.current.isCurrent(requestId)) return;
             console.error("Load shift schedule error:", err);
             setShifts([]);
             setError(err.response?.data?.message || "Unable to load the shift schedule");
         } finally {
-            setLoading(false);
+            if (scheduleGuardRef.current.isCurrent(requestId)) setLoading(false);
         }
     };
 
@@ -232,42 +243,13 @@ function AdminShiftManagement() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [range.start, range.end, employees, selectedEmployeeId]);
 
-    // Company-wide view: every active employee gets a row (even with a
-    // blank week), my own row pinned to the top and highlighted.
-    const employeeRows = useMemo(() => {
-        const byUser = new Map();
-
-        for (const employee of employees) {
-            byUser.set(employee.id, {
-                userId: employee.id,
-                fullName: employee.full_name,
-                designation: employee.designation,
-                isSelf: currentUser?.id === employee.id,
-                days: {},
-            });
-        }
-
-        for (const shift of shifts) {
-            if (!byUser.has(shift.user_id)) {
-                byUser.set(shift.user_id, {
-                    userId: shift.user_id,
-                    fullName: shift.full_name,
-                    designation: shift.designation,
-                    isSelf: currentUser?.id === shift.user_id,
-                    days: {},
-                });
-            }
-            byUser.get(shift.user_id).days[shift.shift_date] = shift;
-        }
-
-        const rows = Array.from(byUser.values());
-        rows.sort((a, b) => {
-            if (a.isSelf) return -1;
-            if (b.isSelf) return 1;
-            return (a.fullName || "").localeCompare(b.fullName || "");
-        });
-        return filterRowsByEmployee(rows, selectedEmployeeId);
-    }, [shifts, employees, currentUser, selectedEmployeeId]);
+    // Company-wide view: every active employee gets a row (even with a blank
+    // range), my own row pinned to the top; with an employee filter only that
+    // employee (who always gets a row -- see buildScheduleRows).
+    const employeeRows = useMemo(
+        () => buildScheduleRows({ employees, shifts, currentUserId: currentUser?.id, selectedEmployee }),
+        [shifts, employees, currentUser, selectedEmployee]
+    );
 
     // ==========================================
     // MY SCHEDULE (self-service -- identical model to the employee page)
@@ -535,30 +517,50 @@ function AdminShiftManagement() {
     // EMPLOYEE SEARCH (organization-wide -- Admin/Super Admin)
     // ==========================================
 
-    // Runs the (name / employee ID) search for one date and returns the results.
+    // Runs the (name / employee ID) search for one date and returns the results,
+    // or null when a newer search has started meanwhile (stale answers are dropped).
     const runSearch = async (query, date) => {
+        const requestId = searchGuardRef.current.begin();
+
         try {
             setSearching(true);
             const data = await searchShiftEmployees(query, date);
+            if (!searchGuardRef.current.isCurrent(requestId)) return null;
             const results = Array.isArray(data.results) ? data.results : [];
             setSearchResults(results);
             return results;
         } catch (err) {
+            if (!searchGuardRef.current.isCurrent(requestId)) return null;
             console.error("Search shift employees error:", err);
             toast.error(err.response?.data?.message || "Unable to search employees");
             setSearchResults([]);
             return [];
         } finally {
-            setSearching(false);
+            if (searchGuardRef.current.isCurrent(requestId)) setSearching(false);
         }
     };
 
+    // Choosing an employee filters the schedule and dismisses the results.
     const selectEmployee = (result) => {
-        setSelectedEmployee({ userId: result.userId, fullName: result.fullName, employeeId: result.employeeId });
+        searchGuardRef.current.cancelAll();
+        setSearching(false);
+        setSearchResults(null);
+        setSearchQuery("");
+        setSubmittedQuery("");
+        dispatch({ type: "selectEmployee", employee: employeeFromSearchResult(result) });
     };
 
-    const clearEmployeeFilter = () => {
-        setSelectedEmployee(null);
+    // Everyone again, for the same view and date range.
+    const clearEmployeeFilter = () => dispatch({ type: "clearEmployee" });
+
+    const openSearch = () => dispatch({ type: "openSearch" });
+
+    const closeSearch = () => {
+        searchGuardRef.current.cancelAll();
+        setSearching(false);
+        setSearchResults(null);
+        setSubmittedQuery("");
+        dispatch({ type: "closeSearch" });
     };
 
     const handleSearch = async (event) => {
@@ -566,31 +568,28 @@ function AdminShiftManagement() {
 
         const query = searchQuery.trim();
 
-        // Clearing the search box clears the filter too: everyone again.
         if (!query) {
+            searchGuardRef.current.cancelAll();
+            setSearching(false);
             setSearchResults(null);
             setSubmittedQuery("");
-            clearEmployeeFilter();
             return;
         }
 
         setSubmittedQuery(query);
-        const results = await runSearch(query, searchDate);
+        const results = await runSearch(query, toIsoDate(anchor));
 
         // Exactly one match = the employee being looked for: filter to them.
-        // With several matches the user picks one with "View schedule".
-        if (results.length === 1) selectEmployee(results[0]);
+        // With several matches the user picks one from the list.
+        if (results && results.length === 1) selectEmployee(results[0]);
     };
 
-    // Keep the search results on the same date as the schedule: when the date
-    // changes (date picker, Previous/Next, view switch) re-run the last search.
-    // Only the Day view shows per-day detail in the results, so only it needs
-    // the search re-run for a new date; Week/Month results are just the matched
-    // employees (the schedule below carries the range).
+    // Day-view results show that day's status, so refresh them when the date
+    // changes; Week/Month results are just the matched employees.
     useEffect(() => {
-        if (submittedQuery && searchShowsDayDetail(view)) runSearch(submittedQuery, searchDate);
+        if (searchOpen && submittedQuery && showsDayDetail(view)) runSearch(submittedQuery, toIsoDate(anchor));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchDate, view]);
+    }, [anchor, view]);
 
     const handleCopyPreviousWeekAllEmployees = async () => {
         try {
@@ -631,13 +630,15 @@ function AdminShiftManagement() {
         }
     };
 
-    return (
-        <div className="admin-page-content">
+    const rangeLabel = formatRangeLabel(view, anchor);
 
-            <section className="shift-schedule-header shift-management-header">
+    return (
+        <div className="admin-page-content shift-page">
+
+            <header className="shift-page-header">
                 <div className="shift-management-title">
                     <h2>Shift Management</h2>
-                    <p>Company Schedule -- everyone's shifts are visible. Your own row (highlighted) is self-service, like any employee.</p>
+                    <p>Company schedule -- everyone's shifts. Your own row (highlighted) is self-service.</p>
                 </div>
 
                 {/* ADMINISTRATIVE OVERRIDE -- deliberately separated from the
@@ -661,145 +662,143 @@ function AdminShiftManagement() {
                         </button>
                     </div>
                 </section>
-            </section>
+            </header>
 
-            <section className="shift-search-panel">
-                <h3><FaSearch /> Search Employee (organization-wide)</h3>
-                <p className="shift-search-scope" data-testid="shift-search-scope">
-                    Follows the selected view: <strong>{VIEW_LABELS[view]}</strong> &middot; {formatRangeLabel(view, anchor)}
-                </p>
-                <form className="shift-search-input-row" onSubmit={handleSearch}>
-                    <input
-                        type="text"
-                        className="shift-search-input"
-                        placeholder="Search by name or employee ID..."
-                        value={searchQuery}
-                        onChange={(event) => setSearchQuery(event.target.value)}
-                    />
-                    <label className="shift-search-date-label">
+            <section className="shift-toolbar" aria-label="Schedule controls">
+                <div className="shift-toolbar-row">
+                    <div className="shift-view-toggle" role="group" aria-label="Schedule view">
+                        {VIEW_OPTIONS.map((option) => (
+                            <button
+                                key={option.value}
+                                type="button"
+                                className={`shift-view-toggle-button${view === option.value ? " active" : ""}`}
+                                aria-pressed={view === option.value}
+                                onClick={() => handleViewChange(option.value)}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="shift-view-nav">
+                        <button type="button" className="shift-week-nav-button" onClick={() => dispatch({ type: "step", direction: -1 })}>
+                            <FaChevronLeft /> {NAV_LABELS[view].prev}
+                        </button>
+                        <span className="shift-week-range" aria-live="polite">
+                            <FaCalendarWeek /> {rangeLabel}
+                        </span>
+                        <button type="button" className="shift-week-nav-button" onClick={() => dispatch({ type: "step", direction: 1 })}>
+                            {NAV_LABELS[view].next} <FaChevronRight />
+                        </button>
+                    </div>
+
+                    <label className="shift-date-field">
                         <span>{PICKER_LABELS[view]}</span>
                         <input
                             type="date"
-                            className="shift-search-date-input"
-                            value={searchDate}
-                            onChange={(event) => {
-                                const next = anchorFromPickerValue(event.target.value);
-                                if (next) setAnchor(next);
-                            }}
+                            className="shift-date-input"
+                            value={toIsoDate(anchor)}
+                            onChange={(event) => dispatch({ type: "pickDate", value: event.target.value })}
                         />
                     </label>
-                    <button type="submit" className="shift-week-nav-button" disabled={searching}>
-                        {searching ? "Searching..." : "Search"}
-                    </button>
-                </form>
 
-                {searchResults !== null && (
-                    searchResults.length === 0 ? (
-                        <div className="shift-search-empty">No matching employees found.</div>
-                    ) : (
-                        <div className="shift-search-results">
-                            <table className="shift-table">
-                                <thead>
-                                    <tr>
-                                        <th>Employee</th>
-                                        {searchShowsDayDetail(view) && (
-                                            <>
-                                                <th>Date</th>
-                                                <th>Status</th>
-                                                <th>Start</th>
-                                                <th>End</th>
-                                                <th>Duration</th>
-                                            </>
-                                        )}
-                                        <th>Schedule</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                    <button
+                        type="button"
+                        className="shift-week-nav-button shift-find-button"
+                        aria-expanded={searchOpen}
+                        aria-controls="shift-finder"
+                        onClick={searchOpen ? closeSearch : openSearch}
+                    >
+                        <FaSearch /> {selectedEmployee ? "Change employee" : "Find employee"}
+                    </button>
+                </div>
+
+                {selectedEmployee && (
+                    <div className="shift-filter-chip" role="status">
+                        <span className="shift-filter-chip-text" data-testid="shift-filter-summary">{filterChipText(selectedEmployee)}</span>
+                        <button
+                            type="button"
+                            className="shift-filter-chip-clear"
+                            aria-label={`Clear employee filter (${employeeLabel(selectedEmployee)})`}
+                            title="Clear filter"
+                            onClick={clearEmployeeFilter}
+                        >
+                            <FaTimes />
+                        </button>
+                    </div>
+                )}
+
+                {searchOpen && (
+                    <div id="shift-finder" className="shift-finder">
+                        <form className="shift-search-input-row" role="search" onSubmit={handleSearch}>
+                            <label className="shift-visually-hidden" htmlFor="shift-search-input">Search employees by name or employee ID</label>
+                            <input
+                                id="shift-search-input"
+                                type="search"
+                                className="shift-search-input"
+                                placeholder="Search by name or employee ID..."
+                                value={searchQuery}
+                                onChange={(event) => setSearchQuery(event.target.value)}
+                                autoFocus
+                            />
+                            <button type="submit" className="shift-week-nav-button">
+                                {searching ? "Searching..." : "Search"}
+                            </button>
+                            <button type="button" className="shift-week-nav-button" onClick={closeSearch} aria-label="Close search">
+                                <FaTimes />
+                            </button>
+                        </form>
+
+                        {searchResults !== null && (
+                            searchResults.length === 0 ? (
+                                <div className="shift-search-empty" role="status">No matching employees found.</div>
+                            ) : (
+                                <ul className="shift-finder-results" aria-label="Matching employees">
                                     {searchResults.map((result) => (
-                                        <tr key={result.userId}>
-                                            <td>
-                                                <EmployeeNameplate name={result.fullName} designation={[result.employeeId, result.departmentName ? `${result.designation || ""} · ${result.departmentName}` : result.designation].filter(Boolean).join(" · ")} size="sm" />
-                                            </td>
-                                            {searchShowsDayDetail(view) && (
-                                                <>
-                                                <td>{new Date(`${result.shiftDate}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
-                                                <td>
-                                                    {result.status ? (
-                                                        <span className={`shift-status-badge ${result.status}`}>
-                                                            {result.isDefaultOff ? "OFF" : result.status}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="shift-status-badge off">no entry</span>
-                                                    )}
-                                                </td>
-                                                <td>{formatTime12h(result.startTime) || "—"}</td>
-                                                <td>{formatTime12h(result.endTime) || "—"}</td>
-                                                <td>{calculateShiftDuration(result.startTime, result.endTime) || "—"}</td>
-                                                </>
-                                            )}
-                                            <td>
-                                                <button
-                                                    type="button"
-                                                    className="shift-week-nav-button"
-                                                    disabled={selectedEmployeeId === result.userId}
-                                                    onClick={() => selectEmployee(result)}
-                                                >
-                                                    {selectedEmployeeId === result.userId ? "Showing" : "View schedule"}
-                                                </button>
-                                            </td>
-                                        </tr>
+                                        <li key={result.userId}>
+                                            <button
+                                                type="button"
+                                                className="shift-finder-item"
+                                                onClick={() => selectEmployee(result)}
+                                            >
+                                                <span className="shift-finder-name">{employeeLabel(result)}</span>
+                                                <span className="shift-finder-meta">
+                                                    {[result.designation, result.departmentName].filter(Boolean).join(" · ")}
+                                                </span>
+                                                {showsDayDetail(view) && (
+                                                    <span className="shift-finder-day">
+                                                        {result.status ? (
+                                                            <span className={`shift-status-badge ${result.status}`}>
+                                                                {result.isDefaultOff ? "OFF" : result.status}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="shift-status-badge off">no entry</span>
+                                                        )}
+                                                        {" "}
+                                                        {result.startTime && result.endTime
+                                                            ? `${formatTime12h(result.startTime)} - ${formatTime12h(result.endTime)} (${calculateShiftDuration(result.startTime, result.endTime) || "—"})`
+                                                            : ""}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        </li>
                                     ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )
+                                </ul>
+                            )
+                        )}
+                    </div>
                 )}
             </section>
-
-            <section className="shift-schedule-week-nav shift-view-controls">
-                <div className="shift-view-toggle" role="group" aria-label="Schedule view">
-                    {VIEW_OPTIONS.map((option) => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            className={`shift-view-toggle-button${view === option.value ? " active" : ""}`}
-                            aria-pressed={view === option.value}
-                            onClick={() => handleViewChange(option.value)}
-                        >
-                            {option.label}
-                        </button>
-                    ))}
-                </div>
-                <div className="shift-view-nav">
-                    <button type="button" className="shift-week-nav-button" onClick={() => setAnchor((prev) => shiftAnchor(view, prev, -1))}>
-                        <FaChevronLeft /> {NAV_LABELS[view].prev}
-                    </button>
-                    <span className="shift-week-range">
-                        <FaCalendarWeek /> {formatRangeLabel(view, anchor)}
-                    </span>
-                    <button type="button" className="shift-week-nav-button" onClick={() => setAnchor((prev) => shiftAnchor(view, prev, 1))}>
-                        {NAV_LABELS[view].next} <FaChevronRight />
-                    </button>
-                </div>
-            </section>
-
-            {selectedEmployee && (
-                <div className="shift-filter-chip" role="status">
-                    <span data-testid="shift-filter-summary">
-                        Showing <strong>{filterSummary(view, anchor, selectedEmployee)}</strong>
-                    </span>
-                    <button type="button" className="shift-week-nav-button" onClick={clearEmployeeFilter}>
-                        <FaTimes /> Clear filter
-                    </button>
-                </div>
-            )}
 
             <section className="shift-schedule-card">
 
                 {loading ? (
-                    <div className="shift-schedule-loading">Loading shift schedule...</div>
+                    <div className="shift-schedule-loading" role="status">Loading shift schedule...</div>
                 ) : error ? (
-                    <div className="shift-schedule-error">{error}</div>
+                    <div className="shift-schedule-error" role="alert">
+                        {error}{" "}
+                        <button type="button" className="shift-week-nav-button" onClick={loadSchedule}>Retry</button>
+                    </div>
                 ) : employeeRows.length === 0 ? (
                     <div className="shift-schedule-empty">
                         <FaCalendarWeek />
@@ -808,12 +807,12 @@ function AdminShiftManagement() {
                     </div>
                 ) : (
                     <div className="shift-table-wrapper">
-                        <table className={`shift-table${view === VIEW_MONTH ? " shift-table-month" : ""}`}>
+                        <table className={`shift-table${view === VIEW_MONTH ? " shift-table-month" : ""}`} aria-label={`Shift schedule, ${rangeLabel}`}>
                             <thead>
                                 <tr>
                                     <th>Employee</th>
                                     {weekDates.map((date) => (
-                                        <th key={date}>
+                                        <th key={date} data-date={date}>
                                             {weekdayLabel(parseIsoDate(date))}
                                             <span className="shift-table-date">
                                                 {new Date(`${date}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
@@ -845,6 +844,7 @@ function AdminShiftManagement() {
                                             return (
                                                 <td
                                                     key={date}
+                                                    data-date={date}
                                                     className={cellClass}
                                                     onClick={row.isSelf ? () => (entry ? openSelfEdit(entry) : openSelfAdd(date)) : undefined}
                                                     role={row.isSelf ? "button" : undefined}
@@ -860,6 +860,12 @@ function AdminShiftManagement() {
                                 ))}
                             </tbody>
                         </table>
+                    </div>
+                )}
+
+                {selectedEmployee && !loading && !error && shifts.length === 0 && (
+                    <div className="shift-empty-note" role="status">
+                        No shifts are recorded for {employeeLabel(selectedEmployee)} in this {view}.
                     </div>
                 )}
 

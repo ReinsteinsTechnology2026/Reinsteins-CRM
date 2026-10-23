@@ -159,17 +159,18 @@ test('helper and page never build dates via toISOString (UTC shift) or hard-code
 });
 
 test('page wiring: segmented Day/Week/Month control drives the fetch range, columns and live merge', () => {
-    assert.match(page, /const \[view, setView\] = useState\(VIEW_WEEK\)/, 'Week is the default view');
+    assert.match(page, /const \[schedule, dispatch\] = useReducer\(scheduleReducer, undefined, \(\) => initialScheduleState\(\)\)/, 'one reducer owns view, date, employee and search state');
+    assert.match(read('client/src/utils/shiftScheduleState.js'), /view: VIEW_WEEK,/, 'Week is the default view');
     for (const label of ['Day', 'Week', 'Month']) assert.ok(page.includes(`label: "${label}"`), label);
     assert.match(page, /aria-pressed=\{view === option\.value\}/);
     assert.match(page, /className="shift-view-toggle"/);
     assert.match(page, /const range = useMemo\(\(\) => getViewRange\(view, anchor\), \[view, anchor\]\)/);
-    assert.match(page, /await getShifts\(range\.start, range\.end, extraParams\)/, 'existing API, range-driven');
+    assert.match(page, /await getShifts\(wanted\.start, wanted\.end, extraParams\)/, 'existing API, range-driven');
     assert.match(page, /\}, \[range\.start, range\.end, selectedEmployeeId\]\);/, 'schedule reloads when the range or the employee filter changes');
     assert.match(page, /NAV_LABELS\[view\]\.prev/);
     assert.match(page, /NAV_LABELS\[view\]\.next/);
-    assert.match(page, /shiftAnchor\(view, prev, -1\)/);
-    assert.match(page, /shiftAnchor\(view, prev, 1\)/);
+    assert.match(page, /dispatch\(\{ type: "step", direction: -1 \}\)/);
+    assert.match(page, /dispatch\(\{ type: "step", direction: 1 \}\)/);
     assert.match(page, /shouldMergeLiveUpdate\(payload, weekDates, selectedEmployeeId\)/, 'live updates are still merged only inside the visible range');
     assert.match(page, /weekDates\.map\(\(date\) => \{/, 'one column per visible date');
     assert.match(page, /shift-table-month/);
@@ -180,7 +181,7 @@ test('page wiring: segmented Day/Week/Month control drives the fetch range, colu
 test('existing features are preserved: employee search + date picker, self-service rows, override handlers, audit wording', () => {
     assert.match(page, /onSubmit=\{handleSearch\}/);
     assert.match(page, /searchShiftEmployees\(query, date\)/);
-    assert.match(page, /type="date"\s+className="shift-search-date-input"/);
+    assert.match(page, /type="date"\s+className="shift-date-input"/);
     assert.match(page, /onClick=\{row\.isSelf \? \(\) => \(entry \? openSelfEdit\(entry\) : openSelfAdd\(date\)\) : undefined\}/, 'only MY row is editable');
     assert.match(page, /onClick=\{handleCopyPreviousWeekAllEmployees\}/);
     assert.match(page, /onClick=\{openOverrideCreate\}/);
@@ -197,9 +198,9 @@ test('existing features are preserved: employee search + date picker, self-servi
 
 test('compact Administrative Override: one panel, top-right in the header, before the controls and the table', () => {
     assert.equal((page.match(/<section className="shift-override-panel/g) || []).length, 1, 'exactly one panel');
-    const header = page.indexOf('className="shift-schedule-header shift-management-header"');
+    const header = page.indexOf('<header className="shift-page-header">');
     const panel = page.indexOf('shift-override-panel shift-override-panel-compact');
-    const controls = page.indexOf('className="shift-schedule-week-nav shift-view-controls"');
+    const controls = page.indexOf('<section className="shift-toolbar"');
     const card = page.indexOf('<section className="shift-schedule-card">');
     assert.ok(header > 0 && panel > header && controls > panel && card > controls, 'order: header(panel) -> controls -> table');
     // the panel sits INSIDE the header section (after the title block, before the header closes)
@@ -207,11 +208,11 @@ test('compact Administrative Override: one panel, top-right in the header, befor
     assert.ok(headerBlock.includes('shift-management-title') && headerBlock.includes('shift-override-panel-compact'));
     assert.match(css, /\.shift-override-panel-compact\{[^}]*padding:10px 12px;/);
     assert.match(css, /\.shift-override-panel-compact\{[^}]*background:rgba\(245,158,11,0\.08\)/, 'subtle orange background');
-    assert.match(css, /\.shift-management-header\{[^}]*flex-wrap:wrap;/, 'wraps instead of overlapping');
+    assert.match(css, /\.shift-page-header\{[^}]*flex-wrap:wrap;/, 'wraps instead of overlapping');
     assert.match(css, /\.shift-override-panel-compact\{[^}]*max-width:100%;/);
     const mobile = css.slice(css.indexOf('@media (max-width: 768px)'));
-    assert.match(mobile, /\.shift-view-controls\{\s*flex-direction:column;/, 'controls stack on small screens');
-    assert.match(mobile, /\.shift-schedule-header\{\s*flex-direction:column;/, 'header (and panel) stack on small screens');
+    assert.match(mobile, /\.shift-toolbar-row\{\s*flex-direction:column;/, 'controls stack on small screens');
+    assert.match(mobile, /\.shift-page-header\{\s*flex-direction:column;/, 'header (and panel) stack on small screens');
 });
 
 test('access control unchanged: no new role logic, same API surface, route still guarded, server untouched by this feature', () => {

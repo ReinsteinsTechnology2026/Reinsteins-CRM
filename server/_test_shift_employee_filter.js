@@ -161,34 +161,30 @@ test('MOCKED validation unchanged: a non-numeric userId is rejected and filterin
 
 // ---- page wiring (static) ----
 test('page wiring: the filter is state independent of the view; search, picker, chip and table are all tied to it', () => {
-    assert.match(page, /const \[selectedEmployee, setSelectedEmployee\] = useState\(null\)/);
+    const state = read('client/src/utils/shiftScheduleState.js');
+    assert.match(page, /const \{ view, anchor, employee: selectedEmployee, searchOpen \} = schedule/);
     assert.match(page, /const selectedEmployeeId = selectedEmployee \? selectedEmployee\.userId : null/);
-    // view switching must not touch the filter
-    const viewHandler = page.slice(page.indexOf('const handleViewChange'), page.indexOf('const loadSchedule'));
-    assert.ok(!/setSelectedEmployee|clearEmployeeFilter/.test(viewHandler), 'switching view preserves the employee filter');
+    // view switching must not touch the filter (reducer: setView keeps `employee`)
+    const setView = state.slice(state.indexOf('case "setView"'), state.indexOf('case "step"'));
+    assert.ok(!/employee/.test(setView), 'switching view preserves the employee filter');
     // server-side filter through the existing API, refetched when the employee changes
-    assert.match(page, /buildShiftQuery\(range, selectedEmployeeId\)/);
-    assert.match(page, /getShifts\(range\.start, range\.end, extraParams\)/);
+    assert.match(page, /buildShiftQuery\(wanted, wantedEmployeeId\)/);
+    assert.match(page, /getShifts\(wanted\.start, wanted\.end, extraParams\)/);
     assert.match(page, /\[range\.start, range\.end, selectedEmployeeId\]/);
     // rows, live merge
-    assert.match(page, /return filterRowsByEmployee\(rows, selectedEmployeeId\)/);
+    assert.match(page, /buildScheduleRows\(\{ employees, shifts, currentUserId: currentUser\?\.id, selectedEmployee \}\)/);
     assert.match(page, /shouldMergeLiveUpdate\(payload, weekDates, selectedEmployeeId\)/);
-    // search by name or employee ID (existing endpoint) selects exactly-one matches; several matches get a button
+    // search by name or employee ID (existing endpoint) selects exactly-one matches; several matches are a list
     assert.match(page, /Search by name or employee ID/);
-    assert.match(page, /if \(results\.length === 1\) selectEmployee\(results\[0\]\)/);
+    assert.match(page, /if \(results && results\.length === 1\) selectEmployee\(results\[0\]\)/);
     assert.match(page, /onClick=\{\(\) => selectEmployee\(result\)\}/);
-    assert.match(page, /View schedule/);
-    // clearing: the Clear button and an empty search both remove the filter
+    // clearing: the chip's x clears; an empty search only clears the results
     assert.match(page, /onClick=\{clearEmployeeFilter\}/);
-    assert.match(page, /if \(!query\) \{[\s\S]*?clearEmployeeFilter\(\);/);
-    // date picker == the same anchor that drives the range; search results follow the date
-    assert.match(page, /const searchDate = toIsoDate\(anchor\)/);
-    assert.match(page, /const next = anchorFromPickerValue\(event\.target\.value\);\s*if \(next\) setAnchor\(next\);/);
-    assert.match(page, /if \(submittedQuery && searchShowsDayDetail\(view\)\) runSearch\(submittedQuery, searchDate\);/);
-    assert.ok(!/setSearchDate/.test(page), 'no second, independent date state');
+    // date picker == the shared anchor; Day-view results follow the date
+    assert.match(page, /dispatch\(\{ type: "pickDate", value: event\.target\.value \}\)/);
+    assert.match(page, /\[anchor, view\]\);/);
     // chip
-    assert.match(page, /Showing <strong>\{filterSummary\(view, anchor, selectedEmployee\)\}<\/strong>/);
-    assert.match(page, /Clear filter/);
+    assert.match(page, /filterChipText\(selectedEmployee\)/);
     assert.match(css, /\.shift-filter-chip\{/);
 });
 
@@ -201,7 +197,7 @@ test('permissions, self-service and override are untouched by the filter', () =>
     assert.match(page, /onClick=\{handleCopyPreviousWeekAllEmployees\}/);
     assert.match(page, /recorded in the audit history/);
     // Copy Previous Week stays an all-employees action: its fetch must not carry the filter
-    const copy = page.slice(page.indexOf('const handleCopyPreviousWeekAllEmployees'), page.indexOf('return (\n        <div className="admin-page-content">'));
+    const copy = page.slice(page.indexOf('const handleCopyPreviousWeekAllEmployees'), page.indexOf('const rangeLabel = formatRangeLabel'));
     assert.match(copy, /await getShifts\(toIsoDate\(previousMonday\), toIsoDate\(previousSunday\)\)/);
     assert.ok(!/selectedEmployee/.test(copy), 'copy-previous-week ignores the filter');
     // with a filter active the override starts on that employee and picks up their existing entry
@@ -209,7 +205,7 @@ test('permissions, self-service and override are untouched by the filter', () =>
     assert.match(page, /Number\(s\.user_id\) === Number\(selectedEmployeeId\) && s\.shift_date === weekDates\[0\]/);
     // the compact panel is still in the header
     assert.match(page, /shift-override-panel shift-override-panel-compact/);
-    assert.ok(page.indexOf('shift-override-panel-compact') < page.indexOf('className="shift-search-panel"'));
+    assert.ok(page.indexOf('shift-override-panel-compact') < page.indexOf('<section className="shift-toolbar"'));
 });
 
 // ---- REGRESSION: administrative override target while an employee filter hides other employees ----
@@ -299,8 +295,8 @@ test('override wiring: lookup on target change, stale answers dropped, pre-submi
     assert.match(submit, /await updateShift\(overrideForm\.id, payload\)/);
     // filtering, date navigation and live updates are not touched by the override form
     assert.match(page, /shouldMergeLiveUpdate\(payload, weekDates, selectedEmployeeId\)/);
-    assert.match(page, /buildShiftQuery\(range, selectedEmployeeId\)/);
-    assert.ok(!/setSelectedEmployee/.test(change + submit), 'changing the override target never changes the schedule filter');
+    assert.match(page, /buildShiftQuery\(wanted, wantedEmployeeId\)/);
+    assert.ok(!/selectEmployee|clearEmployee/.test(change + submit), 'changing the override target never changes the schedule filter');
     // no new endpoints, no access decisions
     const endpoints = [...page.matchAll(/api\.(get|post|put|patch|delete)\(\s*["'`]([^"'`]+)/g)].map((m) => `${m[1]} ${m[2]}`);
     assert.deepEqual(endpoints, ['get /employees']);
