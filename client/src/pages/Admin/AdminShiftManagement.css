@@ -120,21 +120,146 @@
     color:var(--warning);
 }
 
+/* ---------- HEADER: title left, compact override panel top-right ---------- */
+
+.shift-management-header{
+    gap:16px;
+    flex-wrap:wrap;
+}
+
+.shift-management-title{
+    flex:1 1 280px;
+    min-width:0;
+}
+
+.shift-override-panel-compact{
+    flex:0 1 560px;
+    max-width:100%;
+    margin:0;
+    padding:10px 12px;
+    gap:10px;
+    background:rgba(245,158,11,0.08);
+    border:1px solid rgba(245,158,11,0.35);
+    border-radius:12px;
+    flex-direction:column;
+    align-items:stretch;
+}
+
+.shift-override-panel-compact .shift-override-panel-text svg{
+    font-size:15px;
+}
+
+.shift-override-panel-compact .shift-override-panel-text strong{
+    font-size:13px;
+    margin-bottom:0;
+}
+
+.shift-override-panel-compact .shift-override-panel-text p{
+    font-size:11px;
+}
+
+.shift-override-panel-compact .shift-override-panel-actions{
+    gap:8px;
+}
+
+.shift-override-panel-compact .shift-secondary-button,
+.shift-override-panel-compact .shift-override-button{
+    padding:6px 12px;
+    font-size:12px;
+    border-radius:8px;
+}
+
+/* ---------- DAY / WEEK / MONTH CONTROLS ---------- */
+
+.shift-view-controls{
+    justify-content:space-between;
+}
+
+.shift-view-toggle{
+    display:inline-flex;
+    background:var(--card-light);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:3px;
+    gap:2px;
+}
+
+.shift-view-toggle-button{
+    background:transparent;
+    border:none;
+    border-radius:8px;
+    color:var(--text-secondary);
+    font-size:13px;
+    font-weight:600;
+    padding:6px 16px;
+    cursor:pointer;
+    transition:background 0.15s ease, color 0.15s ease;
+}
+
+.shift-view-toggle-button:hover{
+    background:var(--hover);
+}
+
+.shift-view-toggle-button.active{
+    background:var(--primary);
+    color:#fff;
+}
+
+.shift-view-nav{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+}
+
+/* ---------- MONTH TABLE: ~31 narrow columns, employee column pinned ---------- */
+
+.shift-table-month th,
+.shift-table-month td{
+    padding:8px 8px;
+    font-size:12px;
+}
+
+.shift-table-month th:first-child,
+.shift-table-month td:first-child{
+    position:sticky;
+    left:0;
+    z-index:1;
+    background:var(--card);
+    min-width:180px;
+}
+
+.shift-table-month thead th:first-child{
+    background:var(--card-light);
+}
+
 @media (max-width: 768px){
 
     .shift-schedule-header{
         flex-direction:column;
-        align-items:flex-start;
+        align-items:stretch;
         gap:12px;
     }
 
-    .shift-override-panel{
-        flex-direction:column;
-        align-items:stretch;
+    .shift-override-panel-compact{
+        flex:1 1 auto;
     }
 
     .shift-override-panel-actions{
         flex-direction:column;
+    }
+
+    .shift-view-controls{
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .shift-view-toggle{
+        align-self:flex-start;
+    }
+
+    .shift-view-nav{
+        justify-content:space-between;
     }
 
 }
