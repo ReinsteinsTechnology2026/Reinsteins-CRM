@@ -99,6 +99,7 @@ import MeetingLinkLanding from "./pages/Meetings/MeetingLinkLanding";
 // ==========================================
 
 import ProtectedRoute from "./routes/ProtectedRoute";
+import ShiftManagementRoute from "./routes/ShiftManagementRoute";
 
 // ==========================================
 // GROWORGS PLATFORM OWNER DASHBOARD (Phase 4)
@@ -183,6 +184,9 @@ const ADMIN_ROUTES = [
 const EMPLOYEE_ROUTES = [
   { path: "attendance", Component: EmployeeAttendance },
   { path: "shift-schedule", Component: EmployeeShiftSchedule },
+  // Admin-tier users (role/system_access, never designation) who use the employee portal;
+  // anyone else is redirected to shift-schedule. See routes/ShiftManagementRoute.jsx.
+  { path: "shift-management", Component: ShiftManagementRoute },
   { path: "tasks", Component: EmployeeTasks },
   { path: "task-workspace/:taskId", Component: TaskWorkspace },
   { path: "leave", Component: EmployeeLeave },
