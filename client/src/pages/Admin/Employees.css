@@ -244,7 +244,7 @@
   height: 36px;
   border: none;
   border-radius: 8px;
-  background: #f1f5f9;
+  background: #F3F7F5;
   cursor: pointer;
 }
 
@@ -503,7 +503,7 @@
 
   padding: 18px 28px 25px;
 
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid #E2E9E5;
 }
 
 /* ==========================================
@@ -831,7 +831,7 @@
 }
 
 .employment-status-badge.resigned{
-    background:#e2e8f0;
+    background:#E2E9E5;
     color:#475569;
 }
 
@@ -932,12 +932,12 @@
 }
 
 .organization-action-button{
-    background:rgba(40,120,216,.12);
-    color:#2878D8;
+    background:rgba(22, 166, 106,.12);
+    color:#16A66A;
 }
 
 .organization-action-button:hover{
-    background:#2878D8;
+    background:#16A66A;
     color:#fff;
 }
 
@@ -963,17 +963,19 @@
     font-size:11px;
 
     font-weight:700;
-
+  border: 1px solid transparent;
 }
 
 .employment-type-badge.employee{
-    background:rgba(40,120,216,.12);
-    color:#2878D8;
+    background: #E3F6EC;
+    color: #0A5A38;
+  border: 1px solid #0E744A;
 }
 
 .employment-type-badge.intern{
-    background:rgba(22,166,106,.15);
-    color:var(--primary);
+    background: #FFFFFF;
+    color: #1A5F52;
+  border: 1px dashed #1F8F7A;
 }
 
 /* ==========================================

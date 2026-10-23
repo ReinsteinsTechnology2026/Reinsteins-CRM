@@ -28,12 +28,12 @@
     align-items: center;
     justify-content: center;
 
-    border: 1px solid var(--border);
+    border: 1px solid var(--sidebar-border);
     border-radius: 10px;
 
-    background: var(--sidebar, var(--card, #fff));
+    background: var(--sidebar-bg);
 
-    color: var(--text-secondary, #7A8780);
+    color: #FFFFFF;
 
     font-size: 13px;
 
@@ -46,9 +46,9 @@
 }
 
 .sidebar-toggle-button:hover {
-    border-color: var(--primary);
-    background: var(--hover, rgba(22, 166, 106, .1));
-    color: var(--primary-hover, var(--text));
+    border-color: var(--sidebar-active);
+    background: var(--sidebar-active);
+    color: #FFFFFF;
     box-shadow: var(--shadow-hover, 0 4px 10px rgba(0, 0, 0, .22));
 }
 

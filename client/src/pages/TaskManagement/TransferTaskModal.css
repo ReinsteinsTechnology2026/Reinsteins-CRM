@@ -85,10 +85,10 @@
     border:none;
     border-radius:8px;
     cursor:pointer;
-    background:#2878D8;
+    background:#16A66A;
     color:white;
 }
 
 .transfer-btn:hover{
-    background:#1F5FA8;
+    background:#0E744A;
 }

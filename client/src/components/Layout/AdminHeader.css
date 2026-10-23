@@ -4,7 +4,7 @@
 
 .admin-header {
 
-  height: 82px;
+  height: 64px;
 
   display: flex;
 
@@ -12,7 +12,7 @@
 
   justify-content: space-between;
 
-  padding: 0 32px;
+  padding: 0 24px;
 
   border-bottom: 1px solid var(--border);
 
@@ -30,7 +30,7 @@
 
   color: var(--text);
 
-  font-size: 24px;
+  font-size: 20px;
 
 }
 
@@ -236,4 +236,10 @@
     display: none;
   }
 
+}
+
+/* keyboard focus */
+.admin-header button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }

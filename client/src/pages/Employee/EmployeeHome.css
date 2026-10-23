@@ -10,7 +10,7 @@
 
 .employee-layout {
   min-height: 100vh;
-  background: #FFFFFF;
+  background: var(--canvas);
 }
 
 
@@ -22,9 +22,9 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 28px 18px;
-  background: #FFFFFF;
-  color: #17211D;
+  padding: 22px 14px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
 }
 
 
@@ -108,7 +108,7 @@
 
 
 .employee-sidebar-footer span {
-  color: #7A8780;
+  color: #667168;
   font-size: 11px;
 }
 
@@ -131,13 +131,14 @@
 
 
 .employee-header {
-  height: 82px;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 32px;
+  padding: 6px 24px;
   border-bottom: 1px solid #E2E9E5;
   background: #FFFFFF;
+  min-height: 64px;
 }
 
 
@@ -256,7 +257,7 @@
 .welcome-employee-id span {
   display: block;
   margin-bottom: 6px;
-  color: #7A8780;
+  color: #667168;
   font-size: 12px;
 }
 
@@ -312,7 +313,7 @@
 
 
 .employee-stat-card span {
-  color: #7A8780;
+  color: #667168;
   font-size: 11px;
 }
 
@@ -347,7 +348,7 @@
 
 
 .employee-panel-header span {
-  color: #7A8780;
+  color: #667168;
   font-size: 12px;
 }
 
@@ -357,7 +358,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #7A8780;
+  color: #667168;
   font-size: 14px;
 }
 
@@ -449,7 +450,7 @@
 
 .attendance-details span {
   display: block;
-  color: #7A8780;
+  color: #667168;
   font-size: 11px;
 }
 
@@ -740,7 +741,7 @@
 }
 
 .employee-sprint-item-top span {
-  color: #7A8780;
+  color: #667168;
   font-size: 11.5px;
 }
 
@@ -761,7 +762,7 @@
 .employee-sprint-item-meta {
   display: block;
   margin-top: 6px;
-  color: #7A8780;
+  color: #667168;
   font-size: 11px;
 }
 
@@ -805,107 +806,124 @@
 }
 
 .employee-recent-item span:not(.status-pill) {
-  color: #7A8780;
+  color: #667168;
   font-size: 11.5px;
 }
 
 /* ==========================================
-   DASHBOARD REDESIGN (reference-matched)
-   Welcome banner, KPI row, My Work filters,
-   Today/Quick Actions/Quote sidebar. Reuses the
-   existing .employee-panel/.employee-stat-card
-   shells and color tokens above -- no parallel
-   design system introduced.
+   EMPLOYEE DASHBOARD
+   Welcome strip, KPI row, My Work + calendar /
+   quick actions. Reuses the .employee-panel and
+   .employee-stat-card shells above and the theme
+   tokens (--primary, --mint, --canvas ...): green
+   only, no decorative illustrations.
 ========================================== */
+
+.employee-page-content.dash-v2 {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+  overflow: visible;
+}
+
+/* ---------- welcome ---------- */
 
 .dash-welcome-banner {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 28px 32px;
-  border-radius: 20px;
-  background: linear-gradient(120deg, #E6F7EE 0%, #F4FBF7 55%, #FFFFFF 100%);
-  overflow: hidden;
+  gap: 16px 24px;
+  flex-wrap: wrap;
+  padding: 20px 24px;
+  border: 1px solid var(--mint-border);
+  border-radius: 16px;
+  background: linear-gradient(120deg, #E3F6EC 0%, #F3FBF7 60%, #FFFFFF 100%);
 }
 
 .dash-welcome-text {
-  flex: 1;
   min-width: 0;
 }
 
-.dash-welcome-text h2 {
-  margin: 8px 0;
-  color: #17211D;
-  font-size: 28px;
+.welcome-label {
+  color: var(--primary-dark);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
-.dash-wave {
-  display: inline-block;
+.dash-welcome-text h2 {
+  margin: 2px 0 4px;
+  color: var(--text);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .dash-welcome-text > p {
-  max-width: 560px;
-  color: #53615A;
-  line-height: 1.6;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
 }
 
 .dash-welcome-chips {
   display: flex;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 20px;
+  margin-top: 14px;
 }
 
 .dash-chip {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px;
+  min-height: 44px;
+  padding: 6px 14px 6px 8px;
+  border: 1px solid var(--mint-border);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(22, 166, 106, 0.18);
-  color: #17211D;
+  background: #FFFFFF;
+  color: var(--text);
   font-size: 13px;
   font-weight: 600;
 }
 
 .dash-chip-icon {
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(22, 166, 106, 0.16);
-  color: #16A66A;
-  font-size: 13px;
+  border-radius: 9px;
+  background: var(--mint);
+  color: var(--primary);
+  font-size: 14px;
 }
 
 .dash-chip-stack {
   display: flex;
   flex-direction: column;
-  gap: 1px;
   line-height: 1.2;
 }
 
 .dash-chip-stack small {
-  color: #7A8780;
-  font-size: 10px;
+  color: var(--text-muted);
+  font-size: 10.5px;
   font-weight: 600;
   text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.dash-chip-status {
+  padding-left: 14px;
 }
 
 .dash-chip-status .status-dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #16A66A;
-}
-
-.dash-status-online .status-dot,
-.dash-status-break .status-dot {
-  background: #16A66A;
+  background: var(--primary);
 }
 
 .dash-status-offline .status-dot {
@@ -913,216 +931,227 @@
 }
 
 .dash-status-offline {
-  color: #53615A;
+  color: var(--text-secondary);
 }
 
-.dash-welcome-visual {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: flex-end;
-  gap: 10px;
-  min-width: 300px;
-  max-width: 400px;
-}
-
-.dash-desk-illustration {
-  width: 100%;
-  height: auto;
-}
-
-.dash-quote-bubble {
-  max-width: 190px;
-  padding: 0 4px;
-  text-align: right;
-}
-
-.dash-quote-mark {
-  color: #16A66A;
-  font-size: 16px;
-  opacity: 0.7;
-}
-
-.dash-quote-bubble p {
-  margin-top: 6px;
-  color: #17211D;
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.3;
-}
-
-/* ==========================================
-   MAIN GRID
-========================================== */
-
-.dash-main-grid {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 20px;
-  align-items: start;
-  margin-top: 20px;
-}
-
-.dash-main-left {
-  min-width: 0;
-}
-
-.dash-main-right {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
+/* ---------- KPI row (full width, above the grid) ---------- */
 
 .dash-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
   margin-top: 0;
 }
 
-.dash-kpi-card {
-  position: relative;
+.dash-kpi-card.employee-stat-card {
+  gap: 14px;
+  padding: 16px 18px;
+  border-color: var(--border);
+  box-shadow: var(--shadow);
 }
 
-/* ==========================================
-   MY WORK PANEL
-========================================== */
-
-.dash-mywork-panel {
-  margin-top: 20px;
+.dash-kpi-card .employee-stat-icon {
+  min-width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--mint);
+  font-size: 18px;
 }
+
+.dash-kpi-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dash-kpi-card h3 {
+  margin: 2px 0;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.dash-kpi-card span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ---------- main grid ---------- */
+
+.dash-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 16px;
+  align-items: start;
+}
+
+.dash-main-left,
+.dash-main-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.dash-main-grid .employee-panel {
+  min-height: 0;
+  padding: 18px 20px;
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+/* ---------- My Work ---------- */
 
 .dash-mywork-header {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid #E2E9E5;
+  gap: 12px 16px;
+  flex-wrap: wrap;
 }
 
 .dash-mywork-title {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-right: auto;
 }
 
 .dash-mywork-icon {
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
   border-radius: 10px;
-  background: rgba(22, 166, 106, 0.14);
-  color: #16A66A;
-  font-size: 16px;
+  background: var(--mint);
+  color: var(--primary);
+  font-size: 15px;
 }
 
 .dash-mywork-title h3 {
-  color: #17211D;
-  font-size: 16px;
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
 }
 
 .dash-mywork-title span {
-  color: #7A8780;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
 .dash-mywork-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 4px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: #F7FAF8;
+  background: var(--card-light);
 }
 
 .dash-filter-tab {
-  padding: 8px 14px;
+  height: 30px;
+  padding: 0 14px;
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #53615A;
+  color: var(--text-secondary);
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
 }
 
+.dash-filter-tab:hover {
+  background: var(--hover);
+}
+
 .dash-filter-tab.active {
-  background: #16A66A;
+  background: var(--primary-dark);
   color: #FFFFFF;
 }
 
 .dash-view-all-button {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border: 1px solid #E2E9E5;
-  border-radius: 10px;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
   background: #FFFFFF;
-  color: #17211D;
+  color: var(--text);
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .dash-view-all-button:hover {
-  border-color: #16A66A;
-  color: #16A66A;
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+
+.dash-mywork-panel .employee-work-table {
+  margin-top: 14px;
+}
+
+/* the shared table keeps a 720px minimum; inside this panel it should fit the card instead of scrolling */
+.dash-mywork-panel .wi-table {
+  min-width: 0;
 }
 
 .dash-empty-work {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 36px 20px 10px;
+  padding: 28px 16px 12px;
   text-align: center;
 }
 
-.dash-empty-illustration {
-  width: 150px;
-  height: auto;
-  margin-bottom: 10px;
+.dash-empty-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--mint);
+  color: var(--primary);
+  font-size: 26px;
 }
 
 .dash-empty-work h4 {
-  color: #17211D;
-  font-size: 16px;
+  margin: 14px 0 4px;
+  color: var(--text);
+  font-size: 15px;
 }
 
 .dash-empty-work p {
-  max-width: 360px;
-  margin: 6px 0 20px;
-  color: #7A8780;
+  margin: 0 0 14px;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
 .dash-add-task-button {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 22px;
+  height: 38px;
+  padding: 0 16px;
   border: none;
   border-radius: 10px;
-  background: #16A66A;
+  background: var(--primary-dark);
   color: #FFFFFF;
-  font-size: 13.5px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .dash-add-task-button:hover {
-  background: #128957;
+  background: #0B6040;
 }
 
-/* ==========================================
-   TODAY (CALENDAR) WIDGET
-========================================== */
-
-.dash-today-panel {
-  min-height: 0;
-  padding: 20px;
-}
+/* ---------- calendar (today + current week) ---------- */
 
 .dash-today-header {
   display: flex;
@@ -1131,43 +1160,42 @@
 }
 
 .dash-today-icon {
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
-  background: rgba(22, 166, 106, 0.14);
-  color: #16A66A;
-  font-size: 14px;
+  border-radius: 10px;
+  background: var(--mint);
+  color: var(--primary);
+  font-size: 15px;
 }
 
 .dash-today-header > div {
-  flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .dash-today-header strong {
-  color: #17211D;
-  font-size: 14px;
+  color: var(--text);
+  font-size: 15px;
 }
 
 .dash-today-header span {
-  color: #7A8780;
-  font-size: 11px;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .dash-today-chevron {
-  color: #B9C3BD;
-  font-size: 12px;
+  display: none;
 }
 
 .dash-week-strip {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
-  margin-top: 18px;
+  margin-top: 14px;
 }
 
 .dash-week-day {
@@ -1175,14 +1203,16 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 6px 0;
+  padding: 8px 0;
   border-radius: 10px;
-  color: #53615A;
+  color: var(--text-secondary);
 }
 
 .dash-week-day span {
-  font-size: 10px;
-  color: #7A8780;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 .dash-week-day strong {
@@ -1190,139 +1220,123 @@
   font-weight: 700;
 }
 
+.dash-week-day.is-today {
+  background: var(--mint);
+}
+
 .dash-week-day.is-today strong {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: #16A66A;
+  background: var(--primary-dark);
   color: #FFFFFF;
 }
 
-/* ==========================================
-   QUICK ACTIONS
-========================================== */
-
-.dash-quick-actions-panel {
-  min-height: 0;
-  padding: 20px;
-}
+/* ---------- quick actions ---------- */
 
 .dash-panel-title-row {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-bottom: 12px;
 }
 
 .dash-panel-title-row h3 {
-  color: #17211D;
+  margin: 0;
+  color: var(--text);
   font-size: 15px;
+  font-weight: 700;
 }
 
-.dash-bolt-icon,
-.dash-quote-icon-small {
+.dash-bolt-icon {
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: rgba(22, 166, 106, 0.14);
-  color: #16A66A;
+  border-radius: 9px;
+  background: var(--mint);
+  color: var(--primary);
   font-size: 13px;
 }
 
 .dash-quick-actions-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  margin-top: 16px;
 }
 
 .dash-quick-action-tile {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 10px;
-  padding: 14px;
-  border: 1px solid #E2E9E5;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
   border-radius: 12px;
   background: #FFFFFF;
-  cursor: pointer;
+  color: var(--text);
   text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
 }
 
 .dash-quick-action-tile:hover {
-  border-color: #16A66A;
+  border-color: var(--primary);
+  background: var(--mint-light);
 }
 
 .dash-quick-action-icon {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  font-size: 13px;
+  border-radius: 10px;
+  background: var(--primary);
   color: #FFFFFF;
+  font-size: 14px;
 }
-
-.dash-quick-action-icon.tone-green { background: #16A66A; }
-.dash-quick-action-icon.tone-blue { background: #3B82C4; }
-.dash-quick-action-icon.tone-orange { background: #E08A2E; }
-.dash-quick-action-icon.tone-purple { background: #8457C9; }
 
 .dash-quick-action-label {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: #17211D;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .dash-quick-action-label svg {
-  color: #B9C3BD;
-  font-size: 11px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 10px;
 }
 
-/* ==========================================
-   TODAY'S QUOTE
-========================================== */
+/* ---------- keyboard focus ---------- */
 
-.dash-quote-panel {
-  min-height: 0;
-  padding: 20px;
+.dash-filter-tab:focus-visible,
+.dash-view-all-button:focus-visible,
+.dash-add-task-button:focus-visible,
+.dash-quick-action-tile:focus-visible,
+.dash-v2 .wi-table tbody tr:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
-.dash-quote-text {
-  margin: 14px 0 10px;
-  color: #53615A;
-  font-size: 13.5px;
-  line-height: 1.6;
-}
-
-.dash-quote-text strong {
-  color: #17211D;
-}
-
-.dash-quote-illustration {
-  width: 100%;
-  max-width: 140px;
-  height: auto;
-  margin-left: auto;
-  display: block;
-}
-
-/* ==========================================
-   SECONDARY (legacy) PANELS
-========================================== */
+/* ---------- secondary (attendance / leave / recent) panels ---------- */
 
 .dash-secondary-panels {
-  margin-top: 28px;
-  padding-top: 24px;
-  border-top: 1px dashed #E2E9E5;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border);
 }
 
 /* ==========================================
@@ -1331,73 +1345,46 @@
 
 @media (max-width: 1180px) {
   .dash-main-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .dash-main-right {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .dash-main-right > section {
-    flex: 1 1 240px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 860px) {
-  .dash-welcome-banner {
-    flex-direction: column;
-  }
-
-  .dash-welcome-visual {
-    min-width: 0;
-    max-width: none;
-  }
-
-  .dash-quote-bubble {
-    position: static;
-    max-width: none;
-    text-align: left;
-    padding: 14px 0 0;
-  }
-
   .dash-kpi-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .dash-main-right {
-    flex-direction: column;
-  }
-
-  .dash-main-right > section {
-    flex: initial;
-  }
-
-  .dash-mywork-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .dash-view-all-button {
-    align-self: flex-end;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (max-width: 600px) {
   .dash-welcome-banner {
-    padding: 22px 20px;
+    padding: 16px;
+  }
+
+  .dash-welcome-text h2 {
+    font-size: 22px;
   }
 
   .dash-kpi-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dash-quick-actions-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .dash-welcome-chips {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .dash-mywork-filters {
+    width: 100%;
+    overflow-x: auto;
   }
 }

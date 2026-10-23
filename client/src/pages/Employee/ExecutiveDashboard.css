@@ -8,7 +8,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 16px;
-  margin-bottom: 22px;
+  margin-bottom: 0;
 }
 
 .exec-stat-card {
@@ -17,9 +17,9 @@
   gap: 14px;
   padding: 18px;
   border-radius: 14px;
-  background: #FFFFFF;
-  border: 1px solid #E2E9E5;
-  box-shadow: 0 8px 30px rgba(15, 12, 10, 0.18);
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
 .exec-stat-icon {
@@ -30,8 +30,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 12px;
-  background: rgba(22,166,106,0.15);
-  color: #16A66A;
+  background: var(--mint);
+  color: var(--primary);
   font-size: 18px;
 }
 
@@ -42,13 +42,13 @@
 
 .exec-stat-card p {
   margin: 0 0 4px;
-  color: #53615A;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 
 .exec-stat-card h3 {
   margin: 0;
-  color: #17211D;
+  color: var(--text);
   font-size: 24px;
 }
 
@@ -70,17 +70,17 @@
   justify-content: space-between;
   padding: 12px 14px;
   border-radius: 10px;
-  background: #F7FAF8;
-  border: 1px solid #E2E9E5;
+  background: var(--card-light);
+  border: 1px solid var(--border);
 }
 
 .exec-status-row span {
-  color: #53615A;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
 .exec-status-row strong {
-  color: #17211D;
+  color: var(--text);
   font-size: 15px;
 }
 
@@ -96,23 +96,23 @@
   gap: 3px;
   padding: 12px 14px;
   border-radius: 10px;
-  background: #F7FAF8;
-  border: 1px solid #E2E9E5;
+  background: var(--card-light);
+  border: 1px solid var(--border);
 }
 
 .exec-activity-type {
-  color: #16A66A;
+  color: var(--primary);
   font-size: 12px;
   font-weight: 700;
 }
 
 .exec-activity-detail {
-  color: #17211D;
+  color: var(--text);
   font-size: 13px;
 }
 
 .exec-activity-meta {
-  color: #7A8780;
+  color: var(--text-muted);
   font-size: 11.5px;
 }
 
@@ -120,4 +120,18 @@
   .exec-stats-grid {
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
+}
+
+/* Same page rhythm as the redesigned employee dashboard: the wrapper is a flex column with a 16px gap
+   (a two-class selector, so it never depends on stylesheet order). */
+.employee-page-content.exec-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+  overflow: visible;
+}
+
+.exec-activity-type {
+  color: var(--primary-dark);
 }

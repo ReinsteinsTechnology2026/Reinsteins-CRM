@@ -78,7 +78,7 @@ function TaskDashboard() {
 
                 <div>
 
-                    <h1 style={{ color: "#1E293B" }}>
+                    <h1 style={{ color: "#17211D" }}>
   Task Management
 </h1>
 

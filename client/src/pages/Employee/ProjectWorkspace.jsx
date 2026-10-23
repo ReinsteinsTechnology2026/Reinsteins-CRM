@@ -36,6 +36,7 @@ import {
   CartesianGrid,
   Tooltip,
   Cell,
+  LabelList,
   ResponsiveContainer,
 } from "recharts";
 
@@ -152,19 +153,26 @@ const SPRINT_STATUS_LABELS = {
 // existing palette.
 // ==========================================
 
+// One light -> deep green ladder (plus amber / red / neutral grey) so the
+// categories differ in LIGHTNESS and not only hue. Every bar also has a deep-green
+// outline (CHART_OUTLINE), so even the lightest fill keeps 3:1 against the card,
+// sits under its own axis label, and shows its count on top (LabelList): colour is
+// never the only cue.
+const CHART_OUTLINE = "#0A5A38";
+
 const STATUS_CHART_COLORS = {
   backlog: "#7A8780",
-  todo: "#8ED9B7",
-  inProgress: "#2878D8",
-  pendingReview: "#D99A24",
-  closed: "#16A66A",
+  todo: "#BFE8D3",
+  inProgress: "#2F9E6E",
+  pendingReview: "#B4690E",
+  closed: "#0A5A38",
 };
 
 const PRIORITY_CHART_COLORS = {
-  Low: "#16A66A",
-  Medium: "#2878D8",
-  High: "#D99A24",
-  Critical: "#D64545",
+  Low: "#BFE8D3",
+  Medium: "#2F9E6E",
+  High: "#B4690E",
+  Critical: "#B83232",
   "Not set": "#7A8780",
 };
 
@@ -2392,7 +2400,7 @@ function AnalyticsTab({ sprints }) {
                 <div className="pw-analytics-chart-card">
                   <h4>Status Distribution</h4>
                   <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={statusChartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                    <BarChart data={statusChartData} margin={{ top: 24, right: 12, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="label" stroke="var(--text-secondary)" fontSize={12} />
                       <YAxis allowDecimals={false} stroke="var(--text-secondary)" fontSize={12} />
@@ -2401,8 +2409,9 @@ function AnalyticsTab({ sprints }) {
                       />
                       <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                         {statusChartData.map((entry) => (
-                          <Cell key={entry.key} fill={STATUS_CHART_COLORS[entry.key]} />
+                          <Cell key={entry.key} fill={STATUS_CHART_COLORS[entry.key]} stroke={CHART_OUTLINE} strokeWidth={1} />
                         ))}
+                        <LabelList dataKey="value" position="top" fill="var(--text)" fontSize={12} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -2411,7 +2420,7 @@ function AnalyticsTab({ sprints }) {
                 <div className="pw-analytics-chart-card">
                   <h4>Priority Distribution</h4>
                   <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={priorityChartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                    <BarChart data={priorityChartData} margin={{ top: 24, right: 12, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="label" stroke="var(--text-secondary)" fontSize={12} />
                       <YAxis allowDecimals={false} stroke="var(--text-secondary)" fontSize={12} />
@@ -2420,8 +2429,9 @@ function AnalyticsTab({ sprints }) {
                       />
                       <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                         {priorityChartData.map((entry) => (
-                          <Cell key={entry.key} fill={PRIORITY_CHART_COLORS[entry.key] || "var(--primary)"} />
+                          <Cell key={entry.key} fill={PRIORITY_CHART_COLORS[entry.key] || "var(--primary)"} stroke={CHART_OUTLINE} strokeWidth={1} />
                         ))}
+                        <LabelList dataKey="value" position="top" fill="var(--text)" fontSize={12} />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>

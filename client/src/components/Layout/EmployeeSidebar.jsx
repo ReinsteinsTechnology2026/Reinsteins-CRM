@@ -537,9 +537,19 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
       );
     }
 
-    return location.pathname.startsWith(
-      path
-    );
+    // Several items can match one URL by prefix (e.g. ".../team" and
+    // ".../team/leave-approvals"); only the most specific (longest) one
+    // is active, so two entries never highlight at once.
+    const longestMatch = menuItems
+      .map((item) => item.path)
+      .filter(
+        (candidate) =>
+          candidate !== basePath &&
+          location.pathname.startsWith(candidate)
+      )
+      .sort((a, b) => b.length - a.length)[0];
+
+    return path === longestMatch;
   };
 
   const sidebarClassName = [
