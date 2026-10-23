@@ -44,7 +44,7 @@
 
 .attendance-page-header h2 {
   margin: 0;
-  color: #1E293B !important;
+  color: #17211D !important;
   font-size: 24px;
   font-weight: 700;
 }
@@ -204,8 +204,8 @@
 }
 
 .attendance-summary-card.tone-blue .attendance-summary-card-icon {
-  background: rgba(59, 130, 196, 0.14);
-  color: #3B82C4;
+  background: rgba(31, 143, 122, 0.14);
+  color: #1F8F7A;
 }
 
 .attendance-summary-card.tone-green .attendance-summary-card-icon {
@@ -224,8 +224,8 @@
 }
 
 .attendance-summary-card.tone-indigo .attendance-summary-card-icon {
-  background: rgba(132, 87, 201, 0.14);
-  color: #8457C9;
+  background: rgba(14, 116, 74, 0.14);
+  color: #0E744A;
 }
 
 .attendance-summary-card-body {

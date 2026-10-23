@@ -16,15 +16,15 @@
   display: flex;
   flex-direction: column;
 
-  padding: 28px 18px;
+  padding: 22px 14px;
 
   box-sizing: border-box;
 
-  background: var(--sidebar);
+  background: var(--sidebar-bg);
 
-  color: var(--text);
+  color: var(--sidebar-text);
 
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--sidebar-border);
 
   z-index: 1000;
 
@@ -59,7 +59,7 @@
 
   gap: 13px;
 
-  padding: 0 10px 30px;
+  padding: 0 8px 22px;
 
   flex-shrink: 0;
 
@@ -91,9 +91,9 @@
 
   margin: 0;
 
-  color: var(--text);
+  color: #FFFFFF;
 
-  font-size: 19px;
+  font-size: 17px;
 
   font-weight: 700;
 
@@ -105,7 +105,7 @@
 
   margin-top: 3px;
 
-  color: var(--text-secondary);
+  color: var(--sidebar-text-muted);
 
   font-size: 12px;
 
@@ -121,7 +121,7 @@
 
   flex-direction: column;
 
-  gap: 6px;
+  gap: 3px;
 
   width: 100%;
 
@@ -137,7 +137,7 @@
 
   gap: 14px;
 
-  padding: 13px 15px;
+  padding: 10px 13px;
 
   box-sizing: border-box;
 
@@ -147,7 +147,7 @@
 
   background: transparent;
 
-  color: var(--text-secondary);
+  color: var(--sidebar-text);
 
   font-size: 14px;
 
@@ -164,7 +164,7 @@
     color .25s,
 
     transform .15s;
-
+  font-weight: 500;
 }
 
 .employee-sidebar-item svg {
@@ -189,17 +189,17 @@
 
 .employee-sidebar-item:hover {
 
-  background: var(--hover);
+  background: var(--sidebar-hover);
 
-  color: var(--text);
+  color: #FFFFFF;
 
 }
 
 .employee-sidebar-item.active {
 
-  background: var(--mint);
+  background: var(--sidebar-active);
 
-  color: var(--primary);
+  color: #FFFFFF;
 
   box-shadow: none;
 
@@ -207,7 +207,7 @@
 
 .employee-sidebar-item.active svg {
 
-  color: var(--primary);
+  color: #FFFFFF;
 
 }
 
@@ -225,7 +225,7 @@
 
   border-radius: 10px;
 
-  background: var(--border);
+  background: var(--sidebar-border);
 
 }
 
@@ -252,8 +252,8 @@
   .employee-sidebar,
   .employee-sidebar.collapsed {
     width: 260px !important;
-    padding: 28px 18px !important;
-    border-right: 1px solid var(--border) !important;
+    padding: 22px 14px !important;
+    border-right: 1px solid var(--sidebar-border) !important;
     transform: translateX(-100%);
     transition: transform .25s ease;
   }
@@ -344,4 +344,11 @@ color:var(--primary);
 
 box-shadow:none;
 
+}
+
+/* keyboard focus on the dark sidebar */
+.employee-sidebar-item:focus-visible,
+.sidebar-collapse-inline-button:focus-visible {
+  outline: 2px solid #FFFFFF;
+  outline-offset: 2px;
 }

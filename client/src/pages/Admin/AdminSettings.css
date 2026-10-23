@@ -81,7 +81,7 @@
 
 .admin-settings-card {
   padding: 26px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #E2E9E5;
   border-radius: 14px;
   background: #ffffff;
   box-shadow:
@@ -98,7 +98,7 @@
   align-items: flex-start;
   gap: 15px;
   padding-bottom: 22px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #E2E9E5;
 }
 
 .admin-settings-icon {
@@ -109,8 +109,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 11px;
-  background: #EAF3FF;
-  color: #2878D8;
+  background: #E8F8F0;
+  color: #16A66A;
   font-size: 18px;
 }
 
@@ -143,7 +143,7 @@
   justify-content: space-between;
   gap: 30px;
   padding: 22px 0;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #F3F7F5;
 }
 
 .admin-setting-option:last-child {
@@ -187,7 +187,7 @@
   position: absolute;
   inset: 0;
   border-radius: 25px;
-  background: #cbd5e1;
+  background: #CBD5CF;
   cursor: pointer;
   transition: 0.25s;
 }
@@ -210,7 +210,7 @@
 .admin-settings-switch
   input:checked
   + .admin-settings-slider {
-  background: #2878D8;
+  background: #16A66A;
 }
 
 .admin-settings-switch
@@ -232,7 +232,7 @@
   padding: 11px 18px;
   border: none;
   border-radius: 8px;
-  background: #2878D8;
+  background: #16A66A;
   color: #ffffff;
   font-size: 14px;
   font-weight: 600;
@@ -243,7 +243,7 @@
 }
 
 .admin-settings-save-button:hover {
-  background: #1F5FA8;
+  background: #0E744A;
 }
 
 .admin-settings-save-button:active {
@@ -270,7 +270,7 @@
   flex-direction: column;
   gap: 18px;
   padding: 22px 0;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #F3F7F5;
 }
 
 .admin-password-field label {
@@ -286,7 +286,7 @@
   height: 44px;
   padding: 0 14px;
   box-sizing: border-box;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #E2E9E5;
   border-radius: 8px;
   background: #ffffff;
   color: #0f172a;
@@ -295,8 +295,8 @@
 }
 
 .admin-password-field input:focus {
-  border-color: #2878D8;
-  box-shadow: 0 0 0 2px rgba(40, 120, 216, 0.12);
+  border-color: #16A66A;
+  box-shadow: 0 0 0 2px rgba(22, 166, 106, 0.12);
 }
 
 .admin-password-field input:disabled {
@@ -327,7 +327,7 @@
 .admin-security-info > svg {
   flex-shrink: 0;
   margin-top: 2px;
-  color: #2878D8;
+  color: #16A66A;
   font-size: 19px;
 }
 
@@ -404,7 +404,7 @@
 .admin-email-inline-form input,
 .admin-email-inline-form select {
   padding: 8px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #E2E9E5;
   border-radius: 8px;
   font-size: 13px;
   min-width: 160px;
@@ -414,7 +414,7 @@
   padding: 8px 14px;
   border: none;
   border-radius: 8px;
-  background: #2878D8;
+  background: #16A66A;
   color: #fff;
   font-size: 13px;
   font-weight: 600;
@@ -441,7 +441,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #E2E9E5;
   border-radius: 10px;
   font-size: 13px;
 }
@@ -455,7 +455,7 @@
 
 .admin-email-list button {
   padding: 6px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #E2E9E5;
   border-radius: 7px;
   background: #f8fafc;
   color: #334155;
@@ -511,7 +511,7 @@
 
 .admin-email-dns-box td {
   padding: 6px 8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #E2E9E5;
   vertical-align: top;
 }
 

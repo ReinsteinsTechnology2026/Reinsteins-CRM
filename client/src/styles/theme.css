@@ -55,7 +55,7 @@
 
     --text-secondary:#53615A;
 
-    --text-muted:#7A8780;
+    --text-muted:#667168;
 
     /* ===============================
        TEXT FOR LIGHT BACKGROUNDS
@@ -89,6 +89,24 @@
     --dark-border:#2B3833;
 
     /* ===============================
+       PORTAL CHROME (dark-green sidebar, very light
+       green canvas) -- shared by the employee and
+       admin layouts so both read as one product
+    =============================== */
+
+    --canvas:#F3FAF6;
+
+    --sidebar-bg:#0E4B35;
+    --sidebar-bg-deep:#0A3C2A;
+    --sidebar-text:#D5EBDF;
+    --sidebar-text-muted:#8FBBA4;
+    --sidebar-hover:rgba(255,255,255,.09);
+    --sidebar-active:#12805A;
+    --sidebar-border:rgba(255,255,255,.10);
+
+    --focus-ring:0 0 0 3px rgba(22,166,106,.35);
+
+    /* ===============================
        STATUS COLORS
     =============================== */
 
@@ -101,8 +119,9 @@
     --danger:#D64545;
     --danger-light:#FDECEC;
 
-    --info:#2878D8;
-    --info-light:#EAF3FF;
+    /* "info" is a muted teal-green, not blue: the portal is green-only */
+    --info:#1F8F7A;
+    --info-light:#E4F5F0;
 
     /* ===============================
        CHART ACCENTS

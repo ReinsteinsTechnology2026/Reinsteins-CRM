@@ -6,7 +6,7 @@
 
     min-height:100vh;
 
-    background:#ffffff;
+    background: var(--canvas);
 
 }
 
@@ -43,6 +43,6 @@
 
     overflow:auto;
 
-    padding:25px;
+    padding: 20px 24px 28px;
 
 }

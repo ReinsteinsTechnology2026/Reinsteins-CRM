@@ -31,7 +31,7 @@
     /* Deliberately --info, not --primary -- primary is now the same
        emerald family as --success, so reusing it here would make
        "in progress" and "closed" nearly indistinguishable. */
-    background: rgba(40, 120, 216, .16);
+    background: rgba(22, 166, 106, .16);
     color: var(--info);
 }
 
@@ -102,7 +102,7 @@
 
 .priority-pill.priority-medium {
     /* --info here too, same reasoning as status-in-progress above. */
-    background: rgba(40, 120, 216, .14);
+    background: rgba(22, 166, 106, .14);
     color: var(--info);
 }
 

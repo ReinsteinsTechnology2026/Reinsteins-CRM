@@ -15,8 +15,8 @@
 
   padding: 28px 18px;
 
-  background: var(--sidebar);
-  color: var(--text);
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
 
   box-sizing: border-box;
 
@@ -24,7 +24,7 @@
 
   overflow-y: auto;
 
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--sidebar-border);
 
   transition: width .25s ease, padding .25s ease;
 }
@@ -81,11 +81,11 @@
 
   font-size: 19px;
 
-  color: var(--text);
+  color: #FFFFFF;
 }
 
 .sidebar-brand span {
-  color: var(--text-secondary);
+  color: var(--sidebar-text-muted);
 
   font-size: 12px;
 }
@@ -118,7 +118,7 @@
 
   background: transparent;
 
-  color: var(--text-secondary);
+  color: var(--sidebar-text);
 
   font-size: 14px;
 
@@ -177,12 +177,12 @@
   width: 30px;
   height: 30px;
 
-  border: 1px solid var(--border);
+  border: 1px solid var(--sidebar-border);
   border-radius: 8px;
 
   background: transparent;
 
-  color: var(--text-secondary);
+  color: var(--sidebar-text);
 
   font-size: 12px;
 
@@ -193,24 +193,24 @@
 }
 
 .sidebar-collapse-inline-button:hover {
-  border-color: var(--primary);
-  background: var(--hover);
-  color: var(--primary-hover);
+  border-color: #FFFFFF;
+  background: var(--sidebar-hover);
+  color: #FFFFFF;
 }
 
 .sidebar-item:hover {
 
-  background: var(--hover);
+  background: var(--sidebar-hover);
 
-  color: var(--text);
+  color: #FFFFFF;
 
 }
 
 .sidebar-item.active {
 
-  background: var(--mint);
+  background: var(--sidebar-active);
 
-  color: var(--primary);
+  color: #FFFFFF;
 
   box-shadow: none;
 
@@ -251,12 +251,12 @@
   padding: 10px 15px;
 
   border: none;
-  border-left: 2px solid var(--border);
+  border-left: 2px solid var(--sidebar-border);
   border-radius: 0 9px 9px 0;
 
   background: transparent;
 
-  color: var(--text-secondary);
+  color: var(--sidebar-text);
 
   font-size: 13px;
 
@@ -271,14 +271,14 @@
 }
 
 .sidebar-subitem:hover {
-  background: var(--hover);
-  color: var(--text);
+  background: var(--sidebar-hover);
+  color: #FFFFFF;
   border-left-color: var(--primary);
 }
 
 .sidebar-subitem.active {
-  background: var(--hover);
-  color: var(--primary-hover);
+  background: var(--sidebar-hover);
+  color: #FFFFFF;
   border-left-color: var(--primary);
   font-weight: 600;
 }
@@ -293,7 +293,7 @@
 
   padding: 20px 10px 5px;
 
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--sidebar-border);
 
 }
 
@@ -301,7 +301,7 @@
 
   margin: 0 0 4px;
 
-  color: var(--text);
+  color: #FFFFFF;
 
   font-size: 13px;
 
@@ -311,7 +311,7 @@
 
 .sidebar-footer span {
 
-  color: var(--text-secondary);
+  color: var(--sidebar-text-muted);
 
   font-size: 11px;
 
@@ -372,7 +372,7 @@
 
   display: block !important;
 
-  background: var(--background);
+  background: var(--canvas);
 
   box-sizing: border-box;
 
@@ -405,7 +405,7 @@
   .admin-sidebar.collapsed {
     width: 260px !important;
     padding: 28px 18px !important;
-    border-right: 1px solid var(--border) !important;
+    border-right: 1px solid var(--sidebar-border) !important;
     overflow: visible;
     transform: translateX(-100%);
     transition: transform .25s ease;
@@ -494,4 +494,11 @@ color:var(--primary);
 
 box-shadow:none;
 
+}
+
+/* keyboard focus on the dark sidebar */
+.sidebar-item:focus-visible,
+.sidebar-subitem:focus-visible {
+  outline: 2px solid #FFFFFF;
+  outline-offset: 2px;
 }

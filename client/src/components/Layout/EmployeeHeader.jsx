@@ -5,6 +5,7 @@ import {
 } from "react";
 
 import {
+  useLocation,
   useNavigate,
   useParams,
 } from "react-router-dom";
@@ -33,9 +34,43 @@ import EmployeeProfileAvatar from "../EmployeeProfileAvatar";
 
 import "./EmployeeHeader.css";
 
+// Page title shown in the header, from the first path segment after
+// /employee (or /:companySlug/employee). Purely presentational -- it never
+// affects routing or permissions; unknown paths keep the dashboard title.
+const PAGE_TITLES = {
+  attendance: "Attendance",
+  "shift-schedule": "Shift Schedule",
+  "shift-management": "Shift Management",
+  tasks: "My Tasks",
+  "task-workspace": "Task Workspace",
+  leave: "My Leave",
+  profile: "My Profile",
+  team: "My Team",
+  "reporting-manager": "My Reporting Manager",
+  hierarchy: "Hierarchy",
+  projects: "Projects",
+  chat: "Chat",
+  email: "Email",
+  meetings: "Meetings",
+  sops: "SOPs",
+  settings: "Settings",
+  organization: "Organization",
+  reports: "Reports",
+};
+
+function getPageTitle(pathname) {
+  const segments = String(pathname || "").split("/").filter(Boolean);
+  const at = segments.indexOf("employee");
+  const [section, sub] = at === -1 ? [] : segments.slice(at + 1);
+  if (section === "team" && sub === "leave-approvals") return "Team Leave Approvals";
+  return PAGE_TITLES[section] || "My Dashboard";
+}
+
 function EmployeeHeader({ mobileNavOpen, onOpenMobileNav }) {
   const navigate =
     useNavigate();
+
+  const { pathname } = useLocation();
 
   // Phase 8 fix: notification navigation below previously hardcoded
   // the legacy "/employee" prefix, breaking in-app notification
@@ -671,7 +706,7 @@ function EmployeeHeader({ mobileNavOpen, onOpenMobileNav }) {
         <div className="employee-header-title">
 
           <h1>
-            My Dashboard
+            {getPageTitle(pathname)}
           </h1>
 
           <p>

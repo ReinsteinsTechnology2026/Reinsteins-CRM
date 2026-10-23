@@ -155,14 +155,14 @@ const SPRINT_STATUS_LABELS = {
 const STATUS_CHART_COLORS = {
   backlog: "#7A8780",
   todo: "#8ED9B7",
-  inProgress: "#2878D8",
+  inProgress: "#0E744A",
   pendingReview: "#D99A24",
   closed: "#16A66A",
 };
 
 const PRIORITY_CHART_COLORS = {
   Low: "#16A66A",
-  Medium: "#2878D8",
+  Medium: "#0E744A",
   High: "#D99A24",
   Critical: "#D64545",
   "Not set": "#7A8780",

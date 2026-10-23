@@ -15,7 +15,6 @@ import {
   FaUserTie,
   FaIdBadge,
   FaBolt,
-  FaQuoteLeft,
   FaChevronRight,
   FaPlus,
   FaCalendarWeek,
@@ -55,12 +54,6 @@ import {
 import ExecutiveDashboard from "./ExecutiveDashboard";
 import { isExecutiveDashboardUser } from "../../utils/executiveAccess";
 
-import {
-  WelcomeDeskIllustration,
-  EmptyWorkIllustration,
-  QuoteMountainIllustration,
-} from "./DashboardIllustrations";
-
 import "../../styles/workItems.css";
 import "./EmployeeHome.css";
 
@@ -86,6 +79,14 @@ function getCurrentUserId() {
 // THIS WEEK (for the Today calendar widget) --
 // real Date() math, Monday-start, no fake dates.
 // ==========================================
+
+// "Good Morning / Afternoon / Evening" from the local clock
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
+}
 
 function getCurrentWeek() {
   const today = new Date();
@@ -936,21 +937,21 @@ function EmployeeHome() {
       key: "schedule",
       label: "View Schedule",
       icon: <FaCalendarWeek />,
-      tone: "blue",
+      tone: "green",
       onClick: () => navigate("/employee/shift-schedule"),
     },
     {
       key: "leave",
       label: "Request Leave",
       icon: <FaCalendarCheck />,
-      tone: "orange",
+      tone: "green",
       onClick: () => navigate("/employee/leave"),
     },
     {
       key: "tasks",
       label: "My Tasks",
       icon: <FaChartBar />,
-      tone: "purple",
+      tone: "green",
       onClick: () => navigate("/employee/tasks"),
     },
   ];
@@ -985,16 +986,10 @@ function EmployeeHome() {
               </span>
 
               <h2>
-                Hello, {sessionUser?.fullName}{" "}
-                <span className="dash-wave" role="img" aria-label="waving hand">👋</span>
+                {getGreeting()}, {sessionUser?.fullName}
               </h2>
 
-              <p>
-                Manage your attendance,
-                assigned tasks and work
-                activities from your
-                WorkHub dashboard.
-              </p>
+              <p>Here's your work overview for today.</p>
 
               <div className="dash-welcome-chips">
 
@@ -1022,122 +1017,110 @@ function EmployeeHome() {
 
             </div>
 
-            <div className="dash-welcome-visual">
+          </section>
 
-              <WelcomeDeskIllustration />
+            {/* STAT CARDS */}
 
-              <div className="dash-quote-bubble">
-                <FaQuoteLeft className="dash-quote-mark" />
-                <p>Consistent Progress Builds Great Things</p>
+            <div className="employee-stats-grid dash-kpi-grid">
+
+              {/* TODAY WORK HOURS */}
+
+              <div className="employee-stat-card dash-kpi-card">
+
+                <div className="employee-stat-icon">
+                  <FaClock />
+                </div>
+
+                <div>
+                  <p>Today's Work Hours</p>
+                  <h3>{formatDuration(todayTotalSeconds)}</h3>
+                  <span>
+                    {isOnBreak
+                      ? "Work timer paused"
+                      : isOnline
+                      ? "Currently working"
+                      : "Total completed time"}
+                  </span>
+                </div>
+
+              </div>
+
+              {/* COMPLETED TASKS */}
+
+              <div className="employee-stat-card dash-kpi-card">
+
+                <div className="employee-stat-icon">
+                  <FaCheckCircle />
+                </div>
+
+                <div>
+                  <p>Tasks Completed</p>
+                  <h3>{completedTasks.length}</h3>
+                  <span>
+                    {completedTasks.length === 0
+                      ? "No completed tasks"
+                      : `${completedTasks.length} completed task${
+                          completedTasks.length > 1 ? "s" : ""
+                        }`}
+                  </span>
+                </div>
+
+              </div>
+
+              {/* PENDING TASKS */}
+
+              <div className="employee-stat-card dash-kpi-card">
+
+                <div className="employee-stat-icon">
+                  <FaTasks />
+                </div>
+
+                <div>
+                  <p>Pending Tasks</p>
+                  <h3>{pendingTasks.length}</h3>
+                  <span>
+                    {pendingTasks.length === 0
+                      ? "No pending tasks"
+                      : `${pendingTasks.length} task${
+                          pendingTasks.length > 1 ? "s" : ""
+                        } in progress`}
+                  </span>
+                </div>
+
+              </div>
+
+              {/* LEAVE REQUESTS */}
+
+              <div className="employee-stat-card dash-kpi-card">
+
+                <div className="employee-stat-icon">
+                  <FaCalendarAlt />
+                </div>
+
+                <div>
+                  <p>Leave Requests</p>
+                  <h3>{pendingLeaves.length}</h3>
+                  <span>
+                    {pendingLeaves.length === 0
+                      ? "No pending requests"
+                      : `${pendingLeaves.length} pending leave request${
+                          pendingLeaves.length > 1 ? "s" : ""
+                        }`}
+                  </span>
+                </div>
+
               </div>
 
             </div>
 
-          </section>
-
           {/* ==================================
-              MAIN GRID -- KPIs + My Work (left)
-              / Calendar + Quick Actions + Quote
-              (right)
+              MAIN GRID -- My Work (left) /
+              Calendar + Quick Actions (right)
           ================================== */}
 
           <div className="dash-main-grid">
 
             <div className="dash-main-left">
-
-              {/* STAT CARDS */}
-
-              <div className="employee-stats-grid dash-kpi-grid">
-
-                {/* TODAY WORK HOURS */}
-
-                <div className="employee-stat-card dash-kpi-card">
-
-                  <div className="employee-stat-icon">
-                    <FaClock />
-                  </div>
-
-                  <div>
-                    <p>Today's Work Hours</p>
-                    <h3>{formatDuration(todayTotalSeconds)}</h3>
-                    <span>
-                      {isOnBreak
-                        ? "Work timer paused"
-                        : isOnline
-                        ? "Currently working"
-                        : "Total completed time"}
-                    </span>
-                  </div>
-
-                </div>
-
-                {/* COMPLETED TASKS */}
-
-                <div className="employee-stat-card dash-kpi-card">
-
-                  <div className="employee-stat-icon">
-                    <FaCheckCircle />
-                  </div>
-
-                  <div>
-                    <p>Tasks Completed</p>
-                    <h3>{completedTasks.length}</h3>
-                    <span>
-                      {completedTasks.length === 0
-                        ? "No completed tasks"
-                        : `${completedTasks.length} completed task${
-                            completedTasks.length > 1 ? "s" : ""
-                          }`}
-                    </span>
-                  </div>
-
-                </div>
-
-                {/* PENDING TASKS */}
-
-                <div className="employee-stat-card dash-kpi-card">
-
-                  <div className="employee-stat-icon">
-                    <FaTasks />
-                  </div>
-
-                  <div>
-                    <p>Pending Tasks</p>
-                    <h3>{pendingTasks.length}</h3>
-                    <span>
-                      {pendingTasks.length === 0
-                        ? "No pending tasks"
-                        : `${pendingTasks.length} task${
-                            pendingTasks.length > 1 ? "s" : ""
-                          } in progress`}
-                    </span>
-                  </div>
-
-                </div>
-
-                {/* LEAVE REQUESTS */}
-
-                <div className="employee-stat-card dash-kpi-card">
-
-                  <div className="employee-stat-icon">
-                    <FaCalendarAlt />
-                  </div>
-
-                  <div>
-                    <p>Leave Requests</p>
-                    <h3>{pendingLeaves.length}</h3>
-                    <span>
-                      {pendingLeaves.length === 0
-                        ? "No pending requests"
-                        : `${pendingLeaves.length} pending leave request${
-                            pendingLeaves.length > 1 ? "s" : ""
-                          }`}
-                    </span>
-                  </div>
-
-                </div>
-
-              </div>
 
               {/* ==================================
                   MY WORK — active/overdue/due-soon
@@ -1191,7 +1174,7 @@ function EmployeeHome() {
                 {myWorkTasks.length === 0 ? (
 
                   <div className="dash-empty-work">
-                    <EmptyWorkIllustration />
+                    <span className="dash-empty-icon" aria-hidden="true"><FaCheckCircle /></span>
                     <h4>Nothing needs your attention right now.</h4>
                     <p>You're all caught up! New tasks assigned to you will appear here.</p>
                     <button
@@ -1257,7 +1240,7 @@ function EmployeeHome() {
 
             {/* ==================================
                 RIGHT COLUMN -- Today / Quick
-                Actions / Quote
+                Actions
             ================================== */}
 
             <aside className="dash-main-right">
@@ -1279,7 +1262,7 @@ function EmployeeHome() {
                       })}
                     </span>
                   </div>
-                  <FaChevronRight className="dash-today-chevron" />
+                  <FaChevronRight className="dash-today-chevron" aria-hidden="true" />
                 </div>
 
                 <div className="dash-week-strip">
@@ -1326,23 +1309,6 @@ function EmployeeHome() {
                     </button>
                   ))}
                 </div>
-
-              </section>
-
-              {/* TODAY'S QUOTE */}
-
-              <section className="employee-panel dash-quote-panel">
-
-                <div className="dash-panel-title-row">
-                  <span className="dash-quote-icon-small"><FaQuoteLeft /></span>
-                  <h3>Today's Quote</h3>
-                </div>
-
-                <p className="dash-quote-text">
-                  "Small steps <strong>every day</strong> lead to big results."
-                </p>
-
-                <QuoteMountainIllustration />
 
               </section>
 

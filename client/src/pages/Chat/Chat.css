@@ -68,7 +68,7 @@ border-right:1px solid #CBECDD;
   gap: 15px;
   padding: 18px 20px;
   box-sizing: border-box;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #F3F7F5;
 }
 
 .workhub-chat-sidebar-header h2 {
@@ -152,7 +152,7 @@ border-right:1px solid #CBECDD;
 .workhub-chat-search {
   position: relative;
   padding: 14px 16px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #F3F7F5;
 }
 
 .workhub-chat-search > svg {
@@ -169,7 +169,7 @@ border-right:1px solid #CBECDD;
   height: 42px;
   padding: 0 14px 0 38px;
   box-sizing: border-box;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #E2E9E5;
   border-radius: 10px;
   outline: none;
   background: #f8fafc;
@@ -182,9 +182,9 @@ border-right:1px solid #CBECDD;
 }
 
 .workhub-chat-search input:focus {
-  border-color: #8FB4E8;
+  border-color: #8ED9B7;
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(40, 120, 216, 0.07);
+  box-shadow: 0 0 0 3px rgba(22, 166, 106, 0.07);
 }
 
 /* ==========================================
@@ -195,7 +195,7 @@ border-right:1px solid #CBECDD;
   max-height: 250px;
   overflow-y: auto;
   padding: 10px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #E2E9E5;
   background: #ffffff;
 }
 
@@ -241,7 +241,7 @@ border-right:1px solid #CBECDD;
 .workhub-chat-person-info strong {
   display: block;
   overflow: visible;
-  color: #1e293b;
+  color: #17211D;
   font-size: 12px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -333,7 +333,7 @@ overflow: visible;
 
 .workhub-chat-conversation-area::-webkit-scrollbar-thumb {
   border-radius: 10px;
-  background: #cbd5e1;
+  background: #CBD5CF;
 }
 
 .workhub-chat-conversation {
@@ -358,8 +358,8 @@ overflow: visible;
 }
 
 .workhub-chat-conversation.active {
-  border-color: #EAF3FF;
-  background: #EAF3FF;
+  border-color: #E8F8F0;
+  background: #E8F8F0;
 }
 
 .workhub-chat-conversation-info {
@@ -376,7 +376,7 @@ overflow: visible;
 
 .workhub-chat-conversation-top strong {
  overflow: visible;
-  color: #1e293b;
+  color: #17211D;
   font-size: 12px;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -432,7 +432,7 @@ overflow: visible;
 
 .workhub-chat-sidebar-empty > svg {
   margin-bottom: 12px;
-  color: #cbd5e1;
+  color: #CBD5CF;
   font-size: 30px;
 }
 
@@ -489,7 +489,7 @@ overflow: visible;
 
 .workhub-chat-welcome h2 {
   margin: 0 0 8px;
-  color: #1e293b;
+  color: #17211D;
   font-size: 21px;
 }
 
@@ -525,7 +525,7 @@ overflow: visible;
 
     box-sizing:border-box;
 
-    border-bottom:1px solid #e2e8f0;
+    border-bottom:1px solid #E2E9E5;
 
    background:#F7FAF8;
 
@@ -533,7 +533,7 @@ overflow: visible;
 
 .workhub-active-chat-header h3 {
   margin: 0 0 4px;
-  color: #1e293b;
+  color: #17211D;
   font-size: 14px;
   font-weight: 700;
 }
@@ -561,7 +561,7 @@ overflow: visible;
 }
 
 .workhub-chat-group-status svg {
-  color: #7c3aed;
+  color: #0E744A;
   font-size: 8px;
 }
 
@@ -593,7 +593,7 @@ overflow: visible;
 
 .workhub-chat-messages::-webkit-scrollbar-thumb {
   border-radius: 10px;
-  background: #cbd5e1;
+  background: #CBD5CF;
 }
 
 .workhub-chat-loading {
@@ -615,7 +615,7 @@ overflow: visible;
 
 .workhub-chat-empty-conversation > svg {
   margin-bottom: 14px;
-  color: #cbd5e1;
+  color: #CBD5CF;
   font-size: 34px;
 }
 
@@ -654,7 +654,7 @@ overflow: visible;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: #e2e8f0;
+  background: #E2E9E5;
   color: #475569;
   font-size: 10px;
   font-weight: 700;
@@ -678,7 +678,7 @@ overflow: visible;
 
 .workhub-message-bubble {
   padding:8px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #E2E9E5;
  border-radius:16px;
   width:fit-content;
   background: #ffffff;
@@ -687,7 +687,7 @@ overflow: visible;
 
 .workhub-message-bubble.mine {
    padding:8px 12px;
-  border-color: #2878D8;
+  border-color: #16A66A;
   border-radius:16px;
  background:#16A66A;
     color:#ffffff;
@@ -865,7 +865,7 @@ color:#fff;
   max-width: 570px;
   max-height: calc(100vh - 48px);
   overflow: visible;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid rgba(226, 233, 229, 0.9);
   border-radius: 18px;
   background: #ffffff;
   box-shadow:
@@ -898,7 +898,7 @@ color:#fff;
   gap: 16px;
   padding: 18px 22px;
   box-sizing: border-box;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #F3F7F5;
   background: #ffffff;
 }
 
@@ -919,10 +919,10 @@ color:#fff;
   border-radius: 13px;
   background: linear-gradient(
     135deg,
-    #ede9fe,
-    #ddd6fe
+    #E8F8F0,
+    #CBECDD
   );
-  color: #7c3aed;
+  color: #0E744A;
   font-size: 18px;
 }
 
@@ -956,7 +956,7 @@ color:#fff;
 }
 
 .workhub-group-close-button:hover:not(:disabled) {
-  background: #f1f5f9;
+  background: #F3F7F5;
   color: #334155;
 }
 
@@ -977,7 +977,7 @@ color:#fff;
 
 .workhub-group-modal-body::-webkit-scrollbar-thumb {
   border-radius: 10px;
-  background: #cbd5e1;
+  background: #CBD5CF;
 }
 
 /* ==========================================
@@ -1001,7 +1001,7 @@ color:#fff;
   height: 46px;
   padding: 0 14px;
   box-sizing: border-box;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #E2E9E5;
   border-radius: 11px;
   outline: none;
   background: #f8fafc;
@@ -1010,9 +1010,9 @@ color:#fff;
 }
 
 .workhub-group-form-group input:focus {
-  border-color: #8FB4E8;
+  border-color: #8ED9B7;
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(40, 120, 216, 0.08);
+  box-shadow: 0 0 0 3px rgba(22, 166, 106, 0.08);
 }
 
 /* ==========================================
@@ -1074,7 +1074,7 @@ color:#fff;
   height: 43px;
   padding: 0 14px 0 39px;
   box-sizing: border-box;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #E2E9E5;
   border-radius: 10px;
   outline: none;
   background: #f8fafc;
@@ -1083,9 +1083,9 @@ color:#fff;
 }
 
 .workhub-group-search input:focus {
-  border-color: #8FB4E8;
+  border-color: #8ED9B7;
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(40, 120, 216, 0.08);
+  box-shadow: 0 0 0 3px rgba(22, 166, 106, 0.08);
 }
 
 /* ==========================================
@@ -1096,7 +1096,7 @@ color:#fff;
   max-height: 270px;
   overflow-y: auto;
   padding: 5px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #E2E9E5;
   border-radius: 12px;
   background: #f8fafc;
 }
@@ -1129,7 +1129,7 @@ color:#fff;
 
 .workhub-group-member-info strong {
   display: block;
-  color: #1e293b;
+  color: #17211D;
   font-size: 12px;
   font-weight: 600;
 }
@@ -1150,7 +1150,7 @@ color:#fff;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  border: 1.5px solid #cbd5e1;
+  border: 1.5px solid #CBD5CF;
   border-radius: 6px;
   background: #ffffff;
   color: #ffffff;
@@ -1194,7 +1194,7 @@ color:#fff;
   gap: 10px;
   padding: 13px 22px;
   box-sizing: border-box;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #F3F7F5;
   background: #ffffff;
 }
 
@@ -1213,7 +1213,7 @@ color:#fff;
 }
 
 .workhub-group-cancel-button {
-  border: 1px solid #e2e8f0;
+  border: 1px solid #E2E9E5;
   background: #ffffff;
   color: #475569;
 }
@@ -1225,12 +1225,12 @@ color:#fff;
 }
 
 .workhub-group-create-button:hover:not(:disabled) {
-  background: #1F5FA8;
+  background: #0E744A;
 }
 
 .workhub-group-create-button:disabled {
-  border-color: #cbd5e1;
-  background: #cbd5e1;
+  border-color: #CBD5CF;
+  background: #CBD5CF;
   cursor: not-allowed;
 }
 
@@ -1312,7 +1312,7 @@ color:#fff;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #E2E9E5;
   border-radius: 10px;
   background: #ffffff;
   color: #475569;
@@ -1628,7 +1628,7 @@ color:#fff;
   background:
     radial-gradient(
       circle at top,
-      #1e293b,
+      #17211D,
       #020617 75%
     );
 }
@@ -1668,8 +1668,8 @@ color:#fff;
   background:
     linear-gradient(
       135deg,
-      #3b82f6,
-      #6366f1
+      #16A66A,
+      #0E744A
     );
   color: #ffffff;
   font-size: 42px;
@@ -1710,7 +1710,7 @@ color:#fff;
   background:
     radial-gradient(
       circle at center,
-      rgba(30, 41, 59, 0.5),
+      rgba(23, 33, 29, 0.5),
       rgba(2, 6, 23, 0.88)
     );
   text-align: center;
@@ -1743,7 +1743,7 @@ color:#fff;
   border: 2px solid
     rgba(255, 255, 255, 0.7);
   border-radius: 16px;
-  background: #1e293b;
+  background: #17211D;
   box-shadow:
     0 15px 35px
     rgba(0, 0, 0, 0.35);
@@ -1765,8 +1765,8 @@ color:#fff;
   justify-content: center;
   flex-direction: column;
   gap: 7px;
-  background: #1e293b;
-  color: #cbd5e1;
+  background: #17211D;
+  color: #CBD5CF;
 }
 
 .workhub-local-camera-off svg {
@@ -1810,7 +1810,7 @@ color:#fff;
 .workhub-call-top-bar span {
   display: block;
   margin-top: 4px;
-  color: #cbd5e1;
+  color: #CBD5CF;
   font-size: 10px;
 }
 
@@ -1852,7 +1852,7 @@ color:#fff;
   gap: 6px;
   border: none;
   background: transparent;
-  color: #e2e8f0;
+  color: #E2E9E5;
   font-size: 9px;
   cursor: pointer;
 }
@@ -2036,7 +2036,7 @@ color:#fff;
 
     transition:.25s;
 
-    box-shadow:0 6px 16px rgba(40,120,216,.22);
+    box-shadow:0 6px 16px rgba(22, 166, 106,.22);
 }
 
 .workhub-chat-plus-button:hover{
@@ -2150,7 +2150,7 @@ color:#fff;
 
 .workhub-menu-icon.image{
 
-    background:#264dff;
+    background:#16A66A;
 }
 
 .workhub-menu-icon.file{
@@ -2236,11 +2236,11 @@ color:#fff;
 }
 
 .workhub-menu-icon.ai{
-    background:#7c3aed;
+    background:#0E744A;
 }
 
 .workhub-menu-icon.web{
-    background:#0891b2;
+    background:#1F8F7A;
 }
 
 .workhub-menu-item:hover .workhub-menu-icon{
@@ -2264,5 +2264,5 @@ color:#fff;
 .workhub-chat-input-wrapper:focus-within{
 color:#16A66A;
 
-    box-shadow:0 0 0 3px rgba(40,120,216,.10);
+    box-shadow:0 0 0 3px rgba(22, 166, 106,.10);
 }

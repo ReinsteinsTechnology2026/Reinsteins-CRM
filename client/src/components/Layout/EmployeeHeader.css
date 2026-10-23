@@ -3,16 +3,17 @@
 ========================================== */
 
 .employee-header{
-  height:70px;
+  height: auto;
   background:var(--card);
   border-bottom:1px solid var(--border);
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:0 30px;
+  padding: 6px 24px;
   position:relative;
   z-index:100;
   box-shadow:var(--shadow);
+  min-height: 64px;
 }
 
 /* ==========================================
@@ -24,6 +25,8 @@
   align-items:center;
   gap:14px;
   min-width:0;
+  flex: 1;
+  padding-right: 10px;
 }
 
 /* ==========================================
@@ -82,19 +85,23 @@
 .employee-header-title h2{
   margin:0;
   color:var(--text);
-  font-size:24px;
+  font-size: 19px;
   font-weight:700;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .employee-header-title p{
-  margin:5px 0 0;
+  margin: 2px 0 0;
   color:var(--text-secondary);
-  font-size:13px;
+  font-size: 12px;
 }
 
 .employee-header-designation{
-  display:block;
-  margin-top:2px;
+  display: none;
+  margin-top: 0;
   color:var(--text-muted);
   font-size:12px;
   font-weight:500;
@@ -119,8 +126,8 @@
 
 .employee-notification-button{
 
-  width:44px;
-  height:44px;
+  width: 40px;
+  height: 40px;
 
   border:1px solid var(--border);
 
@@ -139,7 +146,7 @@
   cursor:pointer;
 
   transition:.25s;
-
+  position: relative;
 }
 
 .employee-notification-button:hover{
@@ -688,4 +695,11 @@ max-height:calc(100vh - 170px);
 
 }
 
+}
+
+/* keyboard focus */
+.employee-notification-button:focus-visible,
+.mobile-nav-toggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
