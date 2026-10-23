@@ -15,39 +15,34 @@ import EmployeeNameplate from "../../components/EmployeeNameplate";
 import TimeInput12h from "../../components/TimeInput12h";
 import { formatTime12h, formatTimeRange12h, calculateShiftDuration } from "../../utils/timeFormat";
 import socket, { connectSocket } from "../../services/socket";
+import {
+    VIEW_DAY,
+    VIEW_WEEK,
+    VIEW_MONTH,
+    NAV_LABELS,
+    toIsoDate,
+    parseIsoDate,
+    addDays,
+    getMondayOf,
+    getViewRange,
+    shiftAnchor,
+    anchorForView,
+    formatRangeLabel,
+    weekdayLabel,
+} from "../../utils/shiftViews";
 
 import "./AdminShiftManagement.css";
 
 // ==========================================
-// DATE HELPERS (same conventions as EmployeeShiftSchedule.jsx)
+// DATE HELPERS -- Day/Week/Month range math lives in utils/shiftViews.js
+// (local-date based, never toISOString()).
 // ==========================================
 
-const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function toIsoDate(date) {
-    return date.toISOString().slice(0, 10);
-}
-
-function getMondayOf(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    d.setDate(d.getDate() + diff);
-    d.setHours(0, 0, 0, 0);
-    return d;
-}
-
-function addDays(date, amount) {
-    const d = new Date(date);
-    d.setDate(d.getDate() + amount);
-    return d;
-}
-
-function formatRangeLabel(monday) {
-    const sunday = addDays(monday, 6);
-    const opts = { day: "numeric", month: "short" };
-    return `${monday.toLocaleDateString("en-IN", opts)} - ${sunday.toLocaleDateString("en-IN", opts)}`;
-}
+const VIEW_OPTIONS = [
+    { value: VIEW_DAY, label: "Day" },
+    { value: VIEW_WEEK, label: "Week" },
+    { value: VIEW_MONTH, label: "Month" },
+];
 
 function shiftCellLabel(entry, isDefaultOffDay) {
     if (!entry) return isDefaultOffDay ? "OFF" : "—";
@@ -73,7 +68,8 @@ const EMPTY_OVERRIDE_FORM = { id: null, userId: "", shiftDate: "", status: "work
 function AdminShiftManagement() {
     const currentUser = useMemo(() => getCurrentUser(), []);
 
-    const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()));
+    const [view, setView] = useState(VIEW_WEEK);
+    const [anchor, setAnchor] = useState(() => new Date());
     const [shifts, setShifts] = useState([]);
     const [defaultOffDates, setDefaultOffDates] = useState(() => new Set());
     const [employees, setEmployees] = useState([]);
@@ -108,17 +104,23 @@ function AdminShiftManagement() {
     const [searchResults, setSearchResults] = useState(null);
     const [searching, setSearching] = useState(false);
 
-    const weekDates = useMemo(
-        () => Array.from({ length: 7 }, (_, i) => toIsoDate(addDays(weekStart, i))),
-        [weekStart]
-    );
+    // The visible date range (1 day, the Mon-Sun week, or the whole calendar
+    // month) -- drives the fetch, the table columns and the live-update merge.
+    const range = useMemo(() => getViewRange(view, anchor), [view, anchor]);
+    const weekDates = range.dates;
+
+    const handleViewChange = (nextView) => {
+        if (nextView === view) return;
+        setAnchor(anchorForView(nextView, anchor, range, new Date()));
+        setView(nextView);
+    };
 
     const loadSchedule = async () => {
         try {
             setLoading(true);
             setError("");
 
-            const data = await getShifts(weekDates[0], weekDates[6]);
+            const data = await getShifts(range.start, range.end);
             setShifts(Array.isArray(data.shifts) ? data.shifts : []);
             setDefaultOffDates(new Set(Array.isArray(data.defaultOffDates) ? data.defaultOffDates : []));
 
@@ -143,7 +145,7 @@ function AdminShiftManagement() {
     useEffect(() => {
         loadSchedule();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [weekStart]);
+    }, [range.start, range.end]);
 
     useEffect(() => {
         loadEmployees();
@@ -155,7 +157,7 @@ function AdminShiftManagement() {
     // admin-tier sockets always join the broad, tenant-wide shift
     // room (see app.js's connect-time room plan) -- the same
     // unrestricted access this tier already has over REST. So any
-    // change whose date falls in the currently-displayed week is
+    // change whose date falls in the currently-displayed range is
     // merged regardless of which employee it belongs to -- unlike the
     // narrower, authorization-filtered merge on
     // EmployeeShiftSchedule.jsx (reached by every other tier,
@@ -203,7 +205,7 @@ function AdminShiftManagement() {
             socket.off("connect", handleConnect);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [weekDates, employees]);
+    }, [range.start, range.end, employees]);
 
     // Company-wide view: every active employee gets a row (even with a
     // blank week), my own row pinned to the top and highlighted.
@@ -478,6 +480,9 @@ function AdminShiftManagement() {
         try {
             setCopying(true);
 
+            // "Previous Week" is relative to the week containing the current
+            // anchor, whichever view (Day/Week/Month) is showing.
+            const weekStart = getMondayOf(anchor);
             const previousMonday = addDays(weekStart, -7);
             const previousSunday = addDays(previousMonday, 6);
 
@@ -491,7 +496,7 @@ function AdminShiftManagement() {
 
             const shiftedEntries = previousShifts.map((entry) => ({
                 userId: entry.user_id,
-                shiftDate: toIsoDate(addDays(new Date(`${entry.shift_date}T00:00:00`), 7)),
+                shiftDate: toIsoDate(addDays(parseIsoDate(entry.shift_date), 7)),
                 status: entry.status,
                 startTime: entry.start_time,
                 endTime: entry.end_time,
@@ -513,11 +518,33 @@ function AdminShiftManagement() {
     return (
         <div className="admin-page-content">
 
-            <section className="shift-schedule-header">
-                <div>
+            <section className="shift-schedule-header shift-management-header">
+                <div className="shift-management-title">
                     <h2>Shift Management</h2>
                     <p>Company Schedule -- everyone's shifts are visible. Your own row (highlighted) is self-service, like any employee.</p>
                 </div>
+
+                {/* ADMINISTRATIVE OVERRIDE -- deliberately separated from the
+                    table's own self-service interaction, visually distinct
+                    (warning-toned), and always requires explicitly picking an
+                    employee. Never triggered by clicking someone else's row. */}
+                <section className="shift-override-panel shift-override-panel-compact" aria-label="Administrative Override">
+                    <div className="shift-override-panel-text">
+                        <FaUserShield />
+                        <div>
+                            <strong>Administrative Override</strong>
+                            <p>Acts on another employee's schedule. Every use is recorded in the audit history.</p>
+                        </div>
+                    </div>
+                    <div className="shift-override-panel-actions">
+                        <button type="button" className="shift-secondary-button" onClick={handleCopyPreviousWeekAllEmployees} disabled={copying}>
+                            <FaCopy /> {copying ? "Copying..." : "Copy Previous Week (All Employees)"}
+                        </button>
+                        <button type="button" className="shift-override-button" onClick={openOverrideCreate}>
+                            <FaUserShield /> Manage Employee Schedule
+                        </button>
+                    </div>
+                </section>
             </section>
 
             <section className="shift-search-panel">
@@ -585,36 +612,29 @@ function AdminShiftManagement() {
                 )}
             </section>
 
-            <section className="shift-schedule-week-nav">
-                <button type="button" className="shift-week-nav-button" onClick={() => setWeekStart((prev) => addDays(prev, -7))}>
-                    <FaChevronLeft /> Previous Week
-                </button>
-                <span className="shift-week-range">
-                    <FaCalendarWeek /> {formatRangeLabel(weekStart)}
-                </span>
-                <button type="button" className="shift-week-nav-button" onClick={() => setWeekStart((prev) => addDays(prev, 7))}>
-                    Next Week <FaChevronRight />
-                </button>
-            </section>
-
-            {/* ADMINISTRATIVE OVERRIDE -- deliberately separated from the
-                table's own self-service interaction, visually distinct
-                (warning-toned), and always requires explicitly picking an
-                employee. Never triggered by clicking someone else's row. */}
-            <section className="shift-override-panel">
-                <div className="shift-override-panel-text">
-                    <FaUserShield />
-                    <div>
-                        <strong>Administrative Override</strong>
-                        <p>Manage another employee's schedule on their behalf. Every use is recorded in the schedule's audit history.</p>
-                    </div>
+            <section className="shift-schedule-week-nav shift-view-controls">
+                <div className="shift-view-toggle" role="group" aria-label="Schedule view">
+                    {VIEW_OPTIONS.map((option) => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            className={`shift-view-toggle-button${view === option.value ? " active" : ""}`}
+                            aria-pressed={view === option.value}
+                            onClick={() => handleViewChange(option.value)}
+                        >
+                            {option.label}
+                        </button>
+                    ))}
                 </div>
-                <div className="shift-override-panel-actions">
-                    <button type="button" className="shift-secondary-button" onClick={handleCopyPreviousWeekAllEmployees} disabled={copying}>
-                        <FaCopy /> {copying ? "Copying..." : "Copy Previous Week (All Employees)"}
+                <div className="shift-view-nav">
+                    <button type="button" className="shift-week-nav-button" onClick={() => setAnchor((prev) => shiftAnchor(view, prev, -1))}>
+                        <FaChevronLeft /> {NAV_LABELS[view].prev}
                     </button>
-                    <button type="button" className="shift-override-button" onClick={openOverrideCreate}>
-                        <FaUserShield /> Manage Employee Schedule
+                    <span className="shift-week-range">
+                        <FaCalendarWeek /> {formatRangeLabel(view, anchor)}
+                    </span>
+                    <button type="button" className="shift-week-nav-button" onClick={() => setAnchor((prev) => shiftAnchor(view, prev, 1))}>
+                        {NAV_LABELS[view].next} <FaChevronRight />
                     </button>
                 </div>
             </section>
@@ -633,13 +653,13 @@ function AdminShiftManagement() {
                     </div>
                 ) : (
                     <div className="shift-table-wrapper">
-                        <table className="shift-table">
+                        <table className={`shift-table${view === VIEW_MONTH ? " shift-table-month" : ""}`}>
                             <thead>
                                 <tr>
                                     <th>Employee</th>
-                                    {weekDates.map((date, i) => (
+                                    {weekDates.map((date) => (
                                         <th key={date}>
-                                            {WEEKDAY_LABELS[i]}
+                                            {weekdayLabel(parseIsoDate(date))}
                                             <span className="shift-table-date">
                                                 {new Date(`${date}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                                             </span>
