@@ -87,7 +87,7 @@
 }
 
 
-.attendance-employee-badge span {
+.attendance-employee-badge div > span {
   display: block;
   color: #0E744A;
   font-size: 10px;

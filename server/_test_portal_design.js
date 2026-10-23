@@ -349,3 +349,94 @@ test('dashboard wrapper no longer depends on stylesheet order (two-class selecto
   assert.match(css, /\.employee-page-content\.dash-v2 \{\s*display: flex;\s*flex-direction: column;\s*gap: 16px;\s*padding: 0;/);
   assert.ok(!/(^|\n)\.dash-v2 \{/.test(css), 'no single-class .dash-v2 rule left');
 });
+
+// ---- 6. real-data preview findings: shared status / priority pills, sidebar active item, admin canvas wrapper, header titles, attendance badge ----
+function blendOnWhite(value) {
+  const rgba = String(value).match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?/);
+  if (rgba) {
+    const a = rgba[4] === undefined ? 1 : Number(rgba[4]);
+    const ch = [rgba[1], rgba[2], rgba[3]].map((v) => Math.round(Number(v) * a + 255 * (1 - a)));
+    return `#${ch.map((v) => v.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+  }
+  return hex(value);
+}
+const pillColours = (css, selector) => {
+  const body = rule(css, selector);
+  const bg = blendOnWhite(decl(body, 'background'));
+  const raw = decl(body, 'color');
+  const fg = /^var\(--(\w[\w-]*)\)$/.test(raw) ? token(`--${raw.match(/^var\(--(\w[\w-]*)\)$/)[1]}`) : raw;
+  return { bg, fg: hex(fg), shadow: decl(body, 'box-shadow') };
+};
+
+test('shared status / priority pills: every pill meets AA, and the all-green ones differ by fill, outline and symbol', () => {
+  const css = read('styles/workItems.css');
+  const all = ['.status-pill.status-neutral', '.status-pill.status-in-progress', '.status-pill.status-pending-review', '.status-pill.status-closed', '.status-pill.status-cancelled', '.status-pill.status-live',
+    '.priority-pill.priority-low', '.priority-pill.priority-medium', '.priority-pill.priority-high', '.priority-pill.priority-critical'];
+  for (const selector of all) {
+    const { bg, fg } = pillColours(css, selector);
+    assert.ok(contrast(fg, bg) >= 4.5, `${selector}: ${fg} on ${bg} = ${contrast(fg, bg).toFixed(2)}`);
+  }
+  // in progress vs closed: solid deep green + dot  vs  soft mint + outline + check
+  const inProgress = pillColours(css, '.status-pill.status-in-progress');
+  const closed = pillColours(css, '.status-pill.status-closed');
+  assert.ok(contrast(inProgress.bg, closed.bg) >= 4, 'fills clearly differ');
+  assert.match(closed.shadow || '', /inset 0 0 0 1px/);
+  assert.match(css, /\.status-pill\.status-in-progress::before \{\s*content: "\\25CF"/);
+  assert.match(css, /\.status-pill\.status-closed::before \{\s*content: "\\2713"/);
+  // low vs medium (and every priority) carry their own arrow / mark
+  const low = pillColours(css, '.priority-pill.priority-low');
+  const medium = pillColours(css, '.priority-pill.priority-medium');
+  assert.notEqual(low.bg, medium.bg);
+  assert.match(low.shadow || '', /inset 0 0 0 1px/);
+  for (const [cls, symbol] of [['low', '\\\\2193'], ['medium', '\\\\2192'], ['high', '\\\\2191'], ['critical', '!']]) {
+    assert.match(css, new RegExp(`\\.priority-pill\\.priority-${cls}::before \\{\\s*content: "${symbol}"`), `priority-${cls} symbol`);
+  }
+  // no blue anywhere in the pill palette
+  for (const selector of all) { const { bg, fg } = pillColours(css, selector); for (const c of [bg, fg]) assert.equal(isBlue(...hexToRgb(c)), false, `${selector} ${c}`); }
+});
+
+test('sidebar: only the most specific menu item is active (My Team vs Team Leave Approvals), and the check never loosens', () => {
+  const src = read('components/Layout/EmployeeSidebar.jsx');
+  assert.match(src, /const longestMatch = menuItems\s*\.map\(\(item\) => item\.path\)\s*\.filter\(/);
+  assert.match(src, /\.sort\(\(a, b\) => b\.length - a\.length\)\[0\];\s*return path === longestMatch;/);
+  // the dashboard keeps its exact-match rule
+  assert.match(src, /if \(\s*path ===\s*basePath\s*\) \{\s*return \(\s*location\.pathname ===\s*basePath/);
+  // the same rule, run for real over the actual route list
+  const paths = ['/employee', '/employee/attendance', '/employee/tasks', '/employee/team', '/employee/team/leave-approvals', '/employee/projects', '/employee/hierarchy'];
+  const active = (pathname) => {
+    const longest = paths.filter((c) => c !== '/employee' && pathname.startsWith(c)).sort((a, b) => b.length - a.length)[0];
+    return paths.filter((p) => (p === '/employee' ? pathname === '/employee' : p === longest));
+  };
+  assert.deepEqual(active('/employee/team'), ['/employee/team']);
+  assert.deepEqual(active('/employee/team/leave-approvals'), ['/employee/team/leave-approvals']);
+  assert.deepEqual(active('/employee/projects/12'), ['/employee/projects']);
+  assert.deepEqual(active('/employee'), ['/employee']);
+});
+
+test('admin portal: no white wrapper slab on the light-green canvas, and the header title follows the page', () => {
+  assert.match(rule(read('pages/Admin/AdminHome.css'), '.dashboard-content'), /background:\s*transparent/);
+  const header = read('components/Layout/AdminHeader.jsx');
+  assert.match(header, /\{getAdminPageTitle\(pathname\)\}/);
+  for (const [seg, title] of [['employees', 'Employees'], ['attendance', 'Attendance'], ['shift-management', 'Shift Management'], ['tasks', 'Tasks'], ['projects', 'TechOps'], ['leave', 'Leave Management'], ['reports', 'Reports'], ['settings', 'Settings'], ['organization', 'Organization']]) {
+    assert.ok(new RegExp(`"?${seg}"?: "${title}"`).test(header), `${seg} -> ${title}`);
+  }
+  assert.match(header, /return ADMIN_PAGE_TITLES\[section\] \|\| "Dashboard";/);
+  assert.match(header, /aria-label="Notifications"|Notifications/);
+});
+
+test('attendance header: the Employee ID label rule no longer hits the icon span (it lost its centring and white glyph)', () => {
+  const css = read('pages/Employee/EmployeeAttendance.css');
+  assert.ok(!/\.attendance-employee-badge span \{/.test(css), 'no bare descendant-span rule');
+  assert.match(css, /\.attendance-employee-badge div > span \{\s*display: block;/);
+  assert.match(rule(css, '.attendance-employee-badge-icon'), /display:\s*flex/);
+  assert.match(rule(css, '.attendance-employee-badge-icon'), /color:\s*#FFFFFF/);
+});
+
+test('keyboard focus: the global outline reset no longer leaves buttons without a focus indicator', () => {
+  const css = read('index.css');
+  assert.match(css, /input,\s*textarea,\s*select,\s*button\{\s*outline:none;\s*\}/, 'the reset itself is unchanged');
+  assert.match(css, /button:focus-visible,\s*select:focus-visible,\s*a:focus-visible,\s*summary:focus-visible,\s*\[role="button"\]:focus-visible\{\s*outline:2px solid var\(--primary, #16A66A\);\s*outline-offset:2px;\s*\}/);
+  assert.ok(!/button:focus\{/.test(css), 'only :focus-visible (keyboard), never a ring on every mouse click');
+  // the dark sidebars keep their own white ring (two-class selector beats the element rule)
+  assert.match(read('components/Layout/EmployeeSidebar.css'), /\.employee-sidebar-item:focus-visible[\s\S]*?outline: 2px solid #FFFFFF/);
+});
