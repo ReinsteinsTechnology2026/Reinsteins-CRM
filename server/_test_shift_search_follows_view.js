@@ -148,33 +148,26 @@ test('India/IST (and other zones): picker dates, ranges and the whole flow stay 
 });
 
 // ---- page wiring (static) ----
-test('page: one picker that sets the shared anchor; no independent single-day search state', () => {
-    assert.match(page, /const searchDate = toIsoDate\(anchor\)/);
-    assert.match(page, /const next = anchorFromPickerValue\(event\.target\.value\);\s*if \(next\) setAnchor\(next\);/);
-    assert.ok(!/setSearchDate/.test(page), 'no second date state');
-    assert.equal((page.match(/type="date"\s+className="shift-search-date-input"/g) || []).length, 1, 'exactly one picker in the search panel');
+test('page: ONE date picker in the toolbar that sets the shared date; no independent single-day search state', () => {
+    assert.equal((page.match(/type="date"/g) || []).length, 2, 'toolbar picker + the override form date');
+    assert.match(page, /type="date"\s+className="shift-date-input"\s+value=\{toIsoDate\(anchor\)\}\s+onChange=\{\(event\) => dispatch\(\{ type: "pickDate", value: event\.target\.value \}\)\}/);
+    assert.ok(!/setSearchDate|searchDate/.test(page), 'no second date state');
     assert.match(page, /<span>\{PICKER_LABELS\[view\]\}<\/span>/, 'the picker is labelled for the selected view');
-    assert.match(page, /Follows the selected view: <strong>\{VIEW_LABELS\[view\]\}<\/strong> &middot; \{formatRangeLabel\(view, anchor\)\}/);
-    assert.match(css, /\.shift-search-scope\{/);
-    assert.match(css, /\.shift-search-date-label\{/);
+    assert.match(css, /\.shift-date-field\{/);
+    assert.ok(!/shift-search-scope|shift-search-date-label/.test(css + page), 'the duplicate scope heading is gone');
 });
 
-test('page: search results adapt to the view, the chip states view + range, Clear filter restores everyone', () => {
-    assert.match(page, /\{searchShowsDayDetail\(view\) && \(\s*<>\s*<th>Date<\/th>/, 'day-only header columns');
-    assert.match(page, /\{searchShowsDayDetail\(view\) && \(\s*<>\s*<td>\{new Date\(/, 'day-only cells');
-    assert.match(page, /if \(submittedQuery && searchShowsDayDetail\(view\)\) runSearch\(submittedQuery, searchDate\);/);
-    assert.match(page, /\}, \[searchDate, view\]\);/);
-    assert.match(page, /data-testid="shift-filter-summary"/);
-    assert.match(page, /Showing <strong>\{filterSummary\(view, anchor, selectedEmployee\)\}<\/strong>/);
+test('page: search results adapt to the view, the chip names the employee, clearing restores everyone for the same range', () => {
+    assert.match(page, /\{showsDayDetail\(view\) && \(\s*<span className="shift-finder-day">/, 'day-only detail in results');
+    assert.ok(!/<th>Date<\/th>/.test(page.slice(page.indexOf('shift-finder'), page.indexOf('shift-schedule-card'))), 'no single-day result columns');
+    assert.match(page, /if \(searchOpen && submittedQuery && showsDayDetail\(view\)\) runSearch\(submittedQuery, toIsoDate\(anchor\)\);/);
+    assert.match(page, /\}, \[anchor, view\]\);/);
+    assert.match(page, /data-testid="shift-filter-summary">\{filterChipText\(selectedEmployee\)\}/);
+    assert.match(page, /const clearEmployeeFilter = \(\) => dispatch\(\{ type: "clearEmployee" \}\);/);
     assert.match(page, /onClick=\{clearEmployeeFilter\}/);
-    assert.match(page, /const clearEmployeeFilter = \(\) => \{\s*setSelectedEmployee\(null\);\s*\};/);
-    // switching view, date or Previous/Next never touches the selection
-    const viewHandler = page.slice(page.indexOf('const handleViewChange'), page.indexOf('const loadSchedule'));
-    assert.ok(!/setSelectedEmployee|clearEmployeeFilter/.test(viewHandler));
-    assert.ok(!/setSelectedEmployee/.test(page.slice(page.indexOf('className="shift-view-nav"'), page.indexOf('shift-filter-chip'))), 'Previous/Next keep the employee');
     // the schedule itself still follows the range + employee through the existing API
-    assert.match(page, /buildShiftQuery\(range, selectedEmployeeId\)/);
-    assert.match(page, /getShifts\(range\.start, range\.end, extraParams\)/);
+    assert.match(page, /buildShiftQuery\(wanted, wantedEmployeeId\)/);
+    assert.match(page, /getShifts\(wanted\.start, wanted\.end, extraParams\)/);
     assert.match(page, /\[range\.start, range\.end, selectedEmployeeId\]/);
 });
 
