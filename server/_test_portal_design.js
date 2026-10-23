@@ -163,12 +163,19 @@ test('dashboard: KPI row sits full width ABOVE the main grid (the old layout ove
 test('dashboard: My Work filters, task navigation, calendar week and quick actions keep working and all point at existing routes', () => {
   for (const label of ['All', 'In Progress', 'Completed', 'Overdue']) assert.ok(new RegExp(`label: "${label}"`).test(home), `filter ${label}`);
   assert.match(home, /setWorkFilter\(filter\.key\)/);
-  assert.match(home, /navigate\(`\/employee\/task-workspace\/\$\{task\.id\}`\)/);
-  assert.match(home, /onClick=\{\(\) => navigate\("\/employee\/tasks"\)\}/);
+  assert.match(home, /navigate\(`\$\{basePath\}\/task-workspace\/\$\{task\.id\}`\)/);
+  assert.match(home, /onClick=\{\(\) => navigate\(`\$\{basePath\}\/tasks`\)\}/);
   assert.match(home, /thisWeek\.map\(\(day\)/);
   assert.match(home, /dash-week-day is-today/);
-  const routes = [...home.matchAll(/onClick: \(\) => navigate\("([^"]+)"\)/g)].map((m) => m[1]);
-  assert.deepEqual(routes, ['/employee/attendance', '/employee/shift-schedule', '/employee/leave', '/employee/tasks']);
+  // every link is built from the same base path the sidebar uses (works under /:companySlug/employee too)
+  assert.match(home, /const basePath = companySlug \? `\/\$\{companySlug\}\/employee` : "\/employee";/);
+  const routes = [...home.matchAll(/onClick: \(\) => navigate\(`\$\{basePath\}\/([a-z-]+)`\)/g)].map((m) => m[1]);
+  assert.deepEqual(routes, ['attendance', 'leave', 'tasks']);
+  assert.ok(!/navigate\("\/employee\//.test(home), 'no hard-coded /employee links left');
+  // the schedule shortcut follows the sidebar's access rule (role / system_access, never designation)
+  assert.match(home, /const shiftNav = getShiftNavItem\(sessionUser, basePath\);/);
+  assert.match(home, /onClick: \(\) => navigate\(shiftNav\.path\)/);
+  assert.match(home, /label: shiftNav\.name === "Shift Management" \? "Shift Management" : "View Schedule"/);
   const app = read('App.jsx');
   for (const r of ['attendance', 'shift-schedule', 'leave', 'tasks']) assert.ok(app.includes(`path: "${r}"`), `route ${r} still exists`);
   // one accent colour for the quick actions
@@ -215,4 +222,8 @@ test('header: page title follows the route, notification / avatar / logout contr
   const css = read('components/Layout/EmployeeHeader.css');
   assert.match(rule(css, '.employee-header'), /min-height:\s*64px/);
   assert.match(rule(css, '.employee-notification-button'), /position:\s*relative/, 'unread badge sits on the bell');
+  // narrow phones: the title wraps instead of running under the bell, and the duplicated header rule in EmployeeHome.css agrees
+  assert.match(css, /@media \(max-width: 600px\) \{\s*\.employee-main \.employee-header \{\s*padding: 6px 12px;/);
+  assert.match(css, /white-space: normal;/);
+  assert.match(rule(read('pages/Employee/EmployeeHome.css'), '.employee-header'), /padding:\s*6px 24px/);
 });

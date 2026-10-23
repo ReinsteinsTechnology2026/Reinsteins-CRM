@@ -27,7 +27,7 @@ import {
   toast,
 } from "react-toastify";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import api from "../../services/api";
 
@@ -53,6 +53,7 @@ import {
 
 import ExecutiveDashboard from "./ExecutiveDashboard";
 import { isExecutiveDashboardUser } from "../../utils/executiveAccess";
+import { getShiftNavItem } from "../../utils/shiftAccess";
 
 import "../../styles/workItems.css";
 import "./EmployeeHome.css";
@@ -129,6 +130,11 @@ function EmployeeHome() {
   const showExecutiveDashboard = isExecutiveDashboardUser(sessionUser);
 
   const navigate = useNavigate();
+
+  // Same base path the sidebar uses, so every link on this page also works
+  // under a company-prefixed route (/:companySlug/employee/...).
+  const { companySlug } = useParams();
+  const basePath = companySlug ? `/${companySlug}/employee` : "/employee";
 
   const currentUserId = getCurrentUserId();
 
@@ -925,34 +931,36 @@ function EmployeeHome() {
   // Tasks instead, which every employee has.
   // ==========================================
 
+  const shiftNav = getShiftNavItem(sessionUser, basePath);
+
   const quickActions = [
     {
       key: "attendance",
       label: "Mark Attendance",
       icon: <FaPlay />,
       tone: "green",
-      onClick: () => navigate("/employee/attendance"),
+      onClick: () => navigate(`${basePath}/attendance`),
     },
     {
       key: "schedule",
-      label: "View Schedule",
+      label: shiftNav.name === "Shift Management" ? "Shift Management" : "View Schedule",
       icon: <FaCalendarWeek />,
       tone: "green",
-      onClick: () => navigate("/employee/shift-schedule"),
+      onClick: () => navigate(shiftNav.path),
     },
     {
       key: "leave",
       label: "Request Leave",
       icon: <FaCalendarCheck />,
       tone: "green",
-      onClick: () => navigate("/employee/leave"),
+      onClick: () => navigate(`${basePath}/leave`),
     },
     {
       key: "tasks",
       label: "My Tasks",
       icon: <FaChartBar />,
       tone: "green",
-      onClick: () => navigate("/employee/tasks"),
+      onClick: () => navigate(`${basePath}/tasks`),
     },
   ];
 
@@ -1164,7 +1172,7 @@ function EmployeeHome() {
                   <button
                     type="button"
                     className="dash-view-all-button"
-                    onClick={() => navigate("/employee/tasks")}
+                    onClick={() => navigate(`${basePath}/tasks`)}
                   >
                     View all <FaChevronRight />
                   </button>
@@ -1180,7 +1188,7 @@ function EmployeeHome() {
                     <button
                       type="button"
                       className="dash-add-task-button"
-                      onClick={() => navigate("/employee/tasks")}
+                      onClick={() => navigate(`${basePath}/tasks`)}
                     >
                       <FaPlus /> Add New Task
                     </button>
@@ -1199,7 +1207,7 @@ function EmployeeHome() {
                           return (
                             <tr
                               key={task.id}
-                              onClick={() => navigate(`/employee/task-workspace/${task.id}`)}
+                              onClick={() => navigate(`${basePath}/task-workspace/${task.id}`)}
                             >
                               <td>
                                 <div className="wi-table-task-cell">
@@ -1656,7 +1664,7 @@ function EmployeeHome() {
                     <div
                       key={task.id}
                       className="employee-recent-item"
-                      onClick={() => navigate(`/employee/task-workspace/${task.id}`)}
+                      onClick={() => navigate(`${basePath}/task-workspace/${task.id}`)}
                     >
                       <div>
                         <strong>{task.task_title}</strong>
@@ -1699,7 +1707,7 @@ function EmployeeHome() {
                     <div
                       key={task.id}
                       className="employee-recent-item"
-                      onClick={() => navigate(`/employee/task-workspace/${task.id}`)}
+                      onClick={() => navigate(`${basePath}/task-workspace/${task.id}`)}
                     >
                       <div>
                         <strong>{task.task_title}</strong>

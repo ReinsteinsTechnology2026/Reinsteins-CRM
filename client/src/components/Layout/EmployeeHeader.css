@@ -703,3 +703,50 @@ max-height:calc(100vh - 170px);
   outline: none;
   box-shadow: var(--focus-ring);
 }
+
+/* narrow phones: tighter header, and the page title may wrap to two lines instead of being cut off */
+@media (max-width: 600px) {
+  .employee-main .employee-header {
+    padding: 6px 12px;
+  }
+
+  .employee-header-left {
+    gap: 8px;
+    padding-right: 6px;
+  }
+
+  .employee-header-title h1,
+  .employee-header-title h2 {
+    font-size: 16px;
+    line-height: 1.2;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .employee-header-right,
+  .employee-header-actions {
+    gap: 6px;
+  }
+
+  .employee-notification-button,
+  .employee-logout {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  .employee-header-profile {
+    gap: 0;
+  }
+
+  .employee-header-profile > :first-child {
+    transform: scale(.85);
+    transform-origin: center;
+  }
+
+  .employee-header-title {
+    min-width: 0;
+    flex: 1;
+  }
+}
