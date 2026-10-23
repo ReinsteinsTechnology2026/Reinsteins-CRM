@@ -2400,7 +2400,7 @@ function AnalyticsTab({ sprints }) {
                 <div className="pw-analytics-chart-card">
                   <h4>Status Distribution</h4>
                   <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={statusChartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                    <BarChart data={statusChartData} margin={{ top: 24, right: 12, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="label" stroke="var(--text-secondary)" fontSize={12} />
                       <YAxis allowDecimals={false} stroke="var(--text-secondary)" fontSize={12} />
@@ -2420,7 +2420,7 @@ function AnalyticsTab({ sprints }) {
                 <div className="pw-analytics-chart-card">
                   <h4>Priority Distribution</h4>
                   <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={priorityChartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                    <BarChart data={priorityChartData} margin={{ top: 24, right: 12, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="label" stroke="var(--text-secondary)" fontSize={12} />
                       <YAxis allowDecimals={false} stroke="var(--text-secondary)" fontSize={12} />

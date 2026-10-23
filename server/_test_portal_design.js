@@ -290,6 +290,10 @@ test('project charts: palette is distinct, readable against the card, outlined, 
   assert.equal((src.match(/<LabelList dataKey="value" position="top"/g) || []).length, 2, 'both charts print the count on every bar');
   assert.equal((src.match(/<XAxis dataKey="label"/g) || []).length, 2, 'each bar sits under its own text label');
   assert.match(src, /LabelList,\s*ResponsiveContainer,\s*\} from "recharts"/);
+  // the count above a bar that reaches the y-axis maximum sits OUTSIDE the plot area: it needs head-room or it is clipped
+  const margins = [...src.matchAll(/<BarChart data=\{(?:status|priority)ChartData\} margin=\{\{ top: (\d+),/g)].map((m) => Number(m[1]));
+  assert.equal(margins.length, 2, 'both bar charts declare a top margin');
+  for (const top of margins) assert.ok(top >= 20, `top margin ${top}px leaves room for a 12px count label above the tallest bar`);
 });
 
 test('mobile header (320 / 360 / 390 px): smaller REAL controls so title, bell, avatar and logout cannot overlap', () => {
