@@ -212,6 +212,23 @@
     flex-wrap:wrap;
 }
 
+/* ---------- EMPLOYEE FILTER CHIP ---------- */
+
+.shift-filter-chip{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+    background:var(--card-light);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:8px 14px;
+    margin-bottom:16px;
+    font-size:13px;
+    color:var(--text);
+}
+
 /* ---------- MONTH TABLE: ~31 narrow columns, employee column pinned ---------- */
 
 .shift-table-month th,

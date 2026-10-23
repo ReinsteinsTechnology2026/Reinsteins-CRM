@@ -29,6 +29,12 @@ import {
     anchorForView,
     formatRangeLabel,
     weekdayLabel,
+    buildShiftQuery,
+    filterRowsByEmployee,
+    shouldMergeLiveUpdate,
+    needsServerLookup,
+    overrideFormFromShift,
+    resolveOverrideTarget,
 } from "../../utils/shiftViews";
 
 import "./AdminShiftManagement.css";
@@ -84,6 +90,9 @@ function AdminShiftManagement() {
     const overrideSaving = overrideSaveState !== "idle";
     const selfSubmittingRef = useRef(false);
     const overrideSubmittingRef = useRef(false);
+    // Latest override-target lookup, so a slow answer for an earlier
+    // employee/date can never overwrite the form for the current one.
+    const overrideLookupRef = useRef(0);
     const [copying, setCopying] = useState(false);
 
     // Two SEPARATE forms/modals -- self-service (no employee picker,
@@ -100,14 +109,22 @@ function AdminShiftManagement() {
     const [overrideForm, setOverrideForm] = useState(EMPTY_OVERRIDE_FORM);
 
     const [searchQuery, setSearchQuery] = useState("");
-    const [searchDate, setSearchDate] = useState(() => toIsoDate(new Date()));
     const [searchResults, setSearchResults] = useState(null);
     const [searching, setSearching] = useState(false);
+    // The query last submitted (so results can be re-run when the date changes)
+    // and the employee the schedule is filtered to ({ userId, fullName,
+    // employeeId } or null = everyone). Independent of the Day/Week/Month view.
+    const [submittedQuery, setSubmittedQuery] = useState("");
+    const [selectedEmployee, setSelectedEmployee] = useState(null);
 
     // The visible date range (1 day, the Mon-Sun week, or the whole calendar
     // month) -- drives the fetch, the table columns and the live-update merge.
     const range = useMemo(() => getViewRange(view, anchor), [view, anchor]);
     const weekDates = range.dates;
+    // The date picker and the search results follow the same anchor date as
+    // the Day/Week/Month range, so they can never disagree.
+    const searchDate = toIsoDate(anchor);
+    const selectedEmployeeId = selectedEmployee ? selectedEmployee.userId : null;
 
     const handleViewChange = (nextView) => {
         if (nextView === view) return;
@@ -120,7 +137,10 @@ function AdminShiftManagement() {
             setLoading(true);
             setError("");
 
-            const data = await getShifts(range.start, range.end);
+            // Server-side filtering: ?userId= (already supported by the shift API)
+            // when an employee is selected, so only their rows are fetched.
+            const { extraParams } = buildShiftQuery(range, selectedEmployeeId);
+            const data = await getShifts(range.start, range.end, extraParams);
             setShifts(Array.isArray(data.shifts) ? data.shifts : []);
             setDefaultOffDates(new Set(Array.isArray(data.defaultOffDates) ? data.defaultOffDates : []));
 
@@ -145,7 +165,7 @@ function AdminShiftManagement() {
     useEffect(() => {
         loadSchedule();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [range.start, range.end]);
+    }, [range.start, range.end, selectedEmployeeId]);
 
     useEffect(() => {
         loadEmployees();
@@ -170,7 +190,7 @@ function AdminShiftManagement() {
         connectSocket();
 
         const handleShiftUpdated = (payload) => {
-            if (!payload || !weekDates.includes(payload.shiftDate)) return;
+            if (!shouldMergeLiveUpdate(payload, weekDates, selectedEmployeeId)) return;
 
             setShifts((prev) => {
                 const withoutThisId = prev.filter((s) => s.id !== payload.id);
@@ -205,7 +225,7 @@ function AdminShiftManagement() {
             socket.off("connect", handleConnect);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [range.start, range.end, employees]);
+    }, [range.start, range.end, employees, selectedEmployeeId]);
 
     // Company-wide view: every active employee gets a row (even with a
     // blank week), my own row pinned to the top and highlighted.
@@ -241,8 +261,8 @@ function AdminShiftManagement() {
             if (b.isSelf) return 1;
             return (a.fullName || "").localeCompare(b.fullName || "");
         });
-        return rows;
-    }, [shifts, employees, currentUser]);
+        return filterRowsByEmployee(rows, selectedEmployeeId);
+    }, [shifts, employees, currentUser, selectedEmployeeId]);
 
     // ==========================================
     // MY SCHEDULE (self-service -- identical model to the employee page)
@@ -337,47 +357,88 @@ function AdminShiftManagement() {
     // ==========================================
 
     const openOverrideCreate = () => {
-        setOverrideForm({ ...EMPTY_OVERRIDE_FORM, shiftDate: weekDates[0] });
+        // With an employee filter active only that employee's shifts are loaded,
+        // so start the override on them (their existing entry is then found and
+        // edited in place instead of hitting the duplicate-entry 409).
+        const existing = selectedEmployeeId
+            ? shifts.find((s) => Number(s.user_id) === Number(selectedEmployeeId) && s.shift_date === weekDates[0])
+            : null;
+        setOverrideForm(existing
+            ? {
+                id: existing.id,
+                userId: String(selectedEmployeeId),
+                shiftDate: existing.shift_date,
+                status: existing.status,
+                startTime: existing.start_time || "09:00",
+                endTime: existing.end_time || "18:00",
+                notes: existing.notes || "",
+            }
+            : {
+                ...EMPTY_OVERRIDE_FORM,
+                shiftDate: weekDates[0],
+                userId: selectedEmployeeId ? String(selectedEmployeeId) : "",
+            });
         setShowOverrideForm(true);
     };
+
+    // Existing entry for an (employee, date): the loaded shifts first, then --
+    // when an employee filter is active or the date is outside the loaded
+    // range -- the existing shift API for just that employee and day.
+    const findOverrideTarget = (userId, shiftDate) =>
+        resolveOverrideTarget({
+            userId,
+            shiftDate,
+            shifts,
+            selectedEmployeeId,
+            rangeDates: weekDates,
+            fetchDay: (date, id) => getShifts(date, date, { userId: id }),
+        });
 
     const handleOverrideFieldChange = (event) => {
         const { name, value } = event.target;
 
-        setOverrideForm((prev) => {
-            const next = { ...prev, [name]: value };
+        if (name !== "userId" && name !== "shiftDate") {
+            setOverrideForm((prev) => ({ ...prev, [name]: value }));
+            return;
+        }
 
-            // Once both employee and date are chosen, auto-populate from
-            // an existing entry for that combination (within the
-            // currently loaded week) so picking an already-scheduled
-            // employee/date edits it in place instead of hitting the
-            // create endpoint's duplicate-entry 409.
-            if ((name === "userId" || name === "shiftDate") && next.userId && next.shiftDate) {
-                const existing = shifts.find(
-                    (s) => Number(s.user_id) === Number(next.userId) && s.shift_date === next.shiftDate
-                );
+        const next = { ...overrideForm, [name]: value };
 
-                if (existing) {
-                    return {
-                        id: existing.id,
-                        userId: next.userId,
-                        shiftDate: next.shiftDate,
-                        status: existing.status,
-                        startTime: existing.start_time || "09:00",
-                        endTime: existing.end_time || "18:00",
-                        notes: existing.notes || "",
-                    };
-                }
+        // Once both employee and date are chosen, auto-populate from an
+        // existing entry for that combination so picking an already-scheduled
+        // employee/date edits it in place instead of hitting the create
+        // endpoint's duplicate-entry 409.
+        if (!next.userId || !next.shiftDate) {
+            setOverrideForm(next);
+            return;
+        }
 
-                // No existing entry for this combination -- make sure a
-                // previously-populated id (from a prior selection that DID
-                // match) doesn't linger and turn this into an accidental
-                // update of the wrong row.
-                return { ...next, id: null };
-            }
+        const lookupId = ++overrideLookupRef.current;
+        const loaded = shifts.find(
+            (s) => Number(s.user_id) === Number(next.userId) && s.shift_date === next.shiftDate
+        );
 
-            return next;
-        });
+        if (loaded) {
+            setOverrideForm(overrideFormFromShift(loaded));
+            return;
+        }
+
+        // No loaded entry for this combination -- make sure a
+        // previously-populated id (from a prior selection that DID match)
+        // doesn't linger and turn this into an accidental update of the
+        // wrong row.
+        setOverrideForm({ ...next, id: null });
+
+        // With an employee filter active (or a date outside the loaded range)
+        // the entry may exist but not be loaded: ask the server for just that
+        // employee and day.
+        if (needsServerLookup({ userId: next.userId, shiftDate: next.shiftDate, selectedEmployeeId, rangeDates: weekDates })) {
+            findOverrideTarget(next.userId, next.shiftDate).then(({ shift, lookupFailed }) => {
+                if (lookupId !== overrideLookupRef.current) return;
+                if (shift) setOverrideForm(overrideFormFromShift(shift));
+                else if (lookupFailed) toast.error("Unable to check for an existing entry for this employee and date");
+            });
+        }
     };
 
     const handleOverrideSubmit = async (event) => {
@@ -394,6 +455,20 @@ function AdminShiftManagement() {
 
         if (overrideSubmittingRef.current) return;
         overrideSubmittingRef.current = true;
+
+        // Creating: if an entry already exists for this employee/date that the
+        // form has not shown yet (e.g. the lookup was still in flight, or an
+        // employee filter hid it), show it for review instead of saving over it
+        // or hitting the duplicate-entry error.
+        if (!overrideForm.id) {
+            const { shift: existing } = await findOverrideTarget(overrideForm.userId, overrideForm.shiftDate);
+            if (existing) {
+                setOverrideForm(overrideFormFromShift(existing));
+                toast.info("An entry already exists for this employee and date. Review it and save to update it.");
+                overrideSubmittingRef.current = false;
+                return;
+            }
+        }
 
         const payload = {
             userId: overrideForm.userId,
@@ -455,26 +530,59 @@ function AdminShiftManagement() {
     // EMPLOYEE SEARCH (organization-wide -- Admin/Super Admin)
     // ==========================================
 
-    const handleSearch = async (event) => {
-        event.preventDefault();
-
-        if (!searchQuery.trim()) {
-            setSearchResults(null);
-            return;
-        }
-
+    // Runs the (name / employee ID) search for one date and returns the results.
+    const runSearch = async (query, date) => {
         try {
             setSearching(true);
-            const data = await searchShiftEmployees(searchQuery.trim(), searchDate);
-            setSearchResults(Array.isArray(data.results) ? data.results : []);
+            const data = await searchShiftEmployees(query, date);
+            const results = Array.isArray(data.results) ? data.results : [];
+            setSearchResults(results);
+            return results;
         } catch (err) {
             console.error("Search shift employees error:", err);
             toast.error(err.response?.data?.message || "Unable to search employees");
             setSearchResults([]);
+            return [];
         } finally {
             setSearching(false);
         }
     };
+
+    const selectEmployee = (result) => {
+        setSelectedEmployee({ userId: result.userId, fullName: result.fullName, employeeId: result.employeeId });
+    };
+
+    const clearEmployeeFilter = () => {
+        setSelectedEmployee(null);
+    };
+
+    const handleSearch = async (event) => {
+        event.preventDefault();
+
+        const query = searchQuery.trim();
+
+        // Clearing the search box clears the filter too: everyone again.
+        if (!query) {
+            setSearchResults(null);
+            setSubmittedQuery("");
+            clearEmployeeFilter();
+            return;
+        }
+
+        setSubmittedQuery(query);
+        const results = await runSearch(query, searchDate);
+
+        // Exactly one match = the employee being looked for: filter to them.
+        // With several matches the user picks one with "View schedule".
+        if (results.length === 1) selectEmployee(results[0]);
+    };
+
+    // Keep the search results on the same date as the schedule: when the date
+    // changes (date picker, Previous/Next, view switch) re-run the last search.
+    useEffect(() => {
+        if (submittedQuery) runSearch(submittedQuery, searchDate);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchDate]);
 
     const handleCopyPreviousWeekAllEmployees = async () => {
         try {
@@ -561,7 +669,9 @@ function AdminShiftManagement() {
                         type="date"
                         className="shift-search-date-input"
                         value={searchDate}
-                        onChange={(event) => setSearchDate(event.target.value)}
+                        onChange={(event) => {
+                            if (event.target.value) setAnchor(parseIsoDate(event.target.value));
+                        }}
                     />
                     <button type="submit" className="shift-week-nav-button" disabled={searching}>
                         {searching ? "Searching..." : "Search"}
@@ -582,13 +692,14 @@ function AdminShiftManagement() {
                                         <th>Start</th>
                                         <th>End</th>
                                         <th>Duration</th>
+                                        <th>Schedule</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {searchResults.map((result) => (
                                         <tr key={result.userId}>
                                             <td>
-                                                <EmployeeNameplate name={result.fullName} designation={result.departmentName ? `${result.designation || ""} · ${result.departmentName}` : result.designation} size="sm" />
+                                                <EmployeeNameplate name={result.fullName} designation={[result.employeeId, result.departmentName ? `${result.designation || ""} · ${result.departmentName}` : result.designation].filter(Boolean).join(" · ")} size="sm" />
                                             </td>
                                             <td>{new Date(`${result.shiftDate}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
                                             <td>
@@ -603,6 +714,16 @@ function AdminShiftManagement() {
                                             <td>{formatTime12h(result.startTime) || "—"}</td>
                                             <td>{formatTime12h(result.endTime) || "—"}</td>
                                             <td>{calculateShiftDuration(result.startTime, result.endTime) || "—"}</td>
+                                            <td>
+                                                <button
+                                                    type="button"
+                                                    className="shift-week-nav-button"
+                                                    disabled={selectedEmployeeId === result.userId}
+                                                    onClick={() => selectEmployee(result)}
+                                                >
+                                                    {selectedEmployeeId === result.userId ? "Showing" : "View schedule"}
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -638,6 +759,18 @@ function AdminShiftManagement() {
                     </button>
                 </div>
             </section>
+
+            {selectedEmployee && (
+                <div className="shift-filter-chip" role="status">
+                    <span>
+                        Showing schedule for <strong>{selectedEmployee.fullName}</strong>
+                        {selectedEmployee.employeeId ? ` (${selectedEmployee.employeeId})` : ""}
+                    </span>
+                    <button type="button" className="shift-week-nav-button" onClick={clearEmployeeFilter}>
+                        <FaTimes /> Clear filter
+                    </button>
+                </div>
+            )}
 
             <section className="shift-schedule-card">
 
