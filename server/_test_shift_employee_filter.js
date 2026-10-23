@@ -211,3 +211,98 @@ test('permissions, self-service and override are untouched by the filter', () =>
     assert.match(page, /shift-override-panel shift-override-panel-compact/);
     assert.ok(page.indexOf('shift-override-panel-compact') < page.indexOf('className="shift-search-panel"'));
 });
+
+// ---- REGRESSION: administrative override target while an employee filter hides other employees ----
+const RANGE = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25'];
+const shiftRow = (id, userId, date) => ({ id, user_id: userId, shift_date: date, status: 'working', start_time: '10:00', end_time: '19:00', notes: 'n' });
+
+test('override regression: filtered to employee 2, picking employee 3 who ALREADY has an entry finds it (no duplicate-entry create)', async () => {
+    const { resolveOverrideTarget, overrideFormFromShift } = await helper();
+    // the page only loaded employee 2 (server-side ?userId=2); employee 3's entry exists on the server
+    const loaded = [shiftRow(11, 2, '2026-10-21')];
+    const server = [shiftRow(11, 2, '2026-10-21'), shiftRow(22, 3, '2026-10-21')];
+    const calls = [];
+    const fetchDay = async (date, userId) => { calls.push([date, userId]); return { shifts: server.filter((s) => s.shift_date === date && s.user_id === Number(userId)) }; };
+
+    // what the OLD local-only lookup did: nothing found -> create -> 409
+    assert.equal(loaded.find((s) => s.user_id === 3 && s.shift_date === '2026-10-21'), undefined, 'old behaviour missed the entry');
+
+    const { shift, lookupFailed } = await resolveOverrideTarget({ userId: '3', shiftDate: '2026-10-21', shifts: loaded, selectedEmployeeId: 2, rangeDates: RANGE, fetchDay });
+    assert.equal(lookupFailed, false);
+    assert.equal(shift.id, 22, 'existing entry of the OTHER employee is found');
+    assert.deepEqual(calls, [['2026-10-21', '3']], 'one single-day, single-employee request to the existing API');
+    const form = overrideFormFromShift(shift);
+    assert.equal(form.id, 22, 'form edits in place (update), it does not create');
+    assert.equal(form.userId, '3');
+    assert.equal(form.shiftDate, '2026-10-21');
+    assert.equal(form.startTime, '10:00');
+});
+
+test('override regression: filtered to 2, picking employee 3 with NO entry -> null (a genuine create is allowed), still one lookup', async () => {
+    const { resolveOverrideTarget } = await helper();
+    const calls = [];
+    const fetchDay = async (date, userId) => { calls.push([date, userId]); return { shifts: [] }; };
+    const r = await resolveOverrideTarget({ userId: '3', shiftDate: '2026-10-22', shifts: [], selectedEmployeeId: 2, rangeDates: RANGE, fetchDay });
+    assert.deepEqual(r, { shift: null, lookupFailed: false });
+    assert.equal(calls.length, 1);
+});
+
+test('override regression: changing the target repeatedly while filtering always re-resolves from the server, never reuses a stale answer', async () => {
+    const { resolveOverrideTarget } = await helper();
+    const server = [shiftRow(31, 3, '2026-10-20'), shiftRow(41, 4, '2026-10-20')];
+    const fetchDay = async (date, userId) => ({ shifts: server.filter((s) => s.shift_date === date && s.user_id === Number(userId)) });
+    const base = { shifts: [], selectedEmployeeId: 2, rangeDates: RANGE, fetchDay };
+    assert.equal((await resolveOverrideTarget({ ...base, userId: '3', shiftDate: '2026-10-20' })).shift.id, 31);
+    assert.equal((await resolveOverrideTarget({ ...base, userId: '4', shiftDate: '2026-10-20' })).shift.id, 41);
+    assert.equal((await resolveOverrideTarget({ ...base, userId: '3', shiftDate: '2026-10-21' })).shift, null);
+});
+
+test('override: no needless requests -- loaded entry, same employee as the filter, or no filter inside the range', async () => {
+    const { resolveOverrideTarget, needsServerLookup } = await helper();
+    let fetched = 0;
+    const fetchDay = async () => { fetched++; return { shifts: [] }; };
+    const loaded = [shiftRow(11, 2, '2026-10-21'), shiftRow(22, 3, '2026-10-21')];
+
+    // loaded entry wins, even for another employee (no filter)
+    assert.equal((await resolveOverrideTarget({ userId: '3', shiftDate: '2026-10-21', shifts: loaded, selectedEmployeeId: null, rangeDates: RANGE, fetchDay })).shift.id, 22);
+    // filtered employee's own day: everything for them is loaded -> no request
+    assert.equal((await resolveOverrideTarget({ userId: '2', shiftDate: '2026-10-22', shifts: loaded, selectedEmployeeId: 2, rangeDates: RANGE, fetchDay })).shift, null);
+    // no filter, date inside the (complete) loaded range -> no request
+    assert.equal((await resolveOverrideTarget({ userId: '4', shiftDate: '2026-10-22', shifts: loaded, selectedEmployeeId: null, rangeDates: RANGE, fetchDay })).shift, null);
+    assert.equal(fetched, 0);
+
+    assert.equal(needsServerLookup({ userId: '3', shiftDate: '2026-10-22', selectedEmployeeId: 2, rangeDates: RANGE }), true);
+    assert.equal(needsServerLookup({ userId: '2', shiftDate: '2026-10-22', selectedEmployeeId: 2, rangeDates: RANGE }), false);
+    assert.equal(needsServerLookup({ userId: '3', shiftDate: '2026-10-22', selectedEmployeeId: null, rangeDates: RANGE }), false);
+    assert.equal(needsServerLookup({ userId: '3', shiftDate: '2026-12-01', selectedEmployeeId: null, rangeDates: RANGE }), true, 'a date outside the loaded range was a pre-existing gap too');
+});
+
+test('override: a failed lookup never throws and never fabricates an entry; the server duplicate check stays the safety net', async () => {
+    const { resolveOverrideTarget } = await helper();
+    const r = await resolveOverrideTarget({ userId: '3', shiftDate: '2026-10-21', shifts: [], selectedEmployeeId: 2, rangeDates: RANGE, fetchDay: async () => { throw new Error('network'); } });
+    assert.deepEqual(r, { shift: null, lookupFailed: true });
+    // ignores rows of a different employee/date in the answer
+    const wrong = await resolveOverrideTarget({ userId: '3', shiftDate: '2026-10-21', shifts: [], selectedEmployeeId: 2, rangeDates: RANGE, fetchDay: async () => ({ shifts: [shiftRow(1, 9, '2026-10-21'), shiftRow(2, 3, '2026-10-20')] }) });
+    assert.equal(wrong.shift, null);
+});
+
+test('override wiring: lookup on target change, stale answers dropped, pre-submit check, existing API only, permissions untouched', () => {
+    const change = page.slice(page.indexOf('const handleOverrideFieldChange'), page.indexOf('const handleOverrideSubmit'));
+    assert.match(change, /needsServerLookup\(\{ userId: next\.userId, shiftDate: next\.shiftDate, selectedEmployeeId, rangeDates: weekDates \}\)/);
+    assert.match(change, /lookupId !== overrideLookupRef\.current\) return;/, 'stale lookup results are dropped');
+    assert.match(change, /setOverrideForm\(\{ \.\.\.next, id: null \}\)/, 'a previously-populated id never lingers');
+    assert.match(page, /fetchDay: \(date, id\) => getShifts\(date, date, \{ userId: id \}\)/, 'existing shift API, one day, one employee');
+    const submit = page.slice(page.indexOf('const handleOverrideSubmit'), page.indexOf('const handleOverrideDelete'));
+    assert.match(submit, /if \(!overrideForm\.id\) \{[\s\S]*?findOverrideTarget\(overrideForm\.userId, overrideForm\.shiftDate\)/, 'create re-checks for an existing entry first');
+    assert.match(submit, /overrideSubmittingRef\.current = false;\s*return;/, 'the submit lock is released when the review path returns');
+    assert.match(submit, /await createShift\(payload\)/, 'the real create/update calls are unchanged');
+    assert.match(submit, /await updateShift\(overrideForm\.id, payload\)/);
+    // filtering, date navigation and live updates are not touched by the override form
+    assert.match(page, /shouldMergeLiveUpdate\(payload, weekDates, selectedEmployeeId\)/);
+    assert.match(page, /buildShiftQuery\(range, selectedEmployeeId\)/);
+    assert.ok(!/setSelectedEmployee/.test(change + submit), 'changing the override target never changes the schedule filter');
+    // no new endpoints, no access decisions
+    const endpoints = [...page.matchAll(/api\.(get|post|put|patch|delete)\(\s*["'`]([^"'`]+)/g)].map((m) => `${m[1]} ${m[2]}`);
+    assert.deepEqual(endpoints, ['get /employees']);
+    assert.ok(!/systemAccess|system_access|\.role\b|isAdmin/.test(page));
+});

@@ -144,3 +144,56 @@ export function shouldMergeLiveUpdate(payload, visibleDates, employeeId) {
     if (employeeId === null || employeeId === undefined || employeeId === "") return true;
     return Number(payload.userId) === Number(employeeId);
 }
+
+// ==========================================
+// ADMINISTRATIVE OVERRIDE TARGET LOOKUP
+// With an employee filter active (or a date outside the loaded range) the
+// page has NOT loaded the chosen employee's shift for the chosen date, so a
+// local lookup alone would miss an existing entry and the create call would
+// hit the duplicate-entry 409. These helpers decide when to ask the server
+// and how to turn an existing entry into the override form.
+// ==========================================
+
+const hasValue = (v) => v !== null && v !== undefined && v !== "";
+
+// Is the (employee, date) pair possibly missing from what is loaded?
+export function needsServerLookup({ userId, shiftDate, selectedEmployeeId, rangeDates }) {
+    if (!rangeDates.includes(shiftDate)) return true;
+    return hasValue(selectedEmployeeId) && Number(userId) !== Number(selectedEmployeeId);
+}
+
+export function overrideFormFromShift(shift, defaults = {}) {
+    return {
+        id: shift.id,
+        userId: String(shift.user_id),
+        shiftDate: shift.shift_date,
+        status: shift.status,
+        startTime: shift.start_time || defaults.startTime || "09:00",
+        endTime: shift.end_time || defaults.endTime || "18:00",
+        notes: shift.notes || "",
+    };
+}
+
+// Finds the existing entry for (userId, shiftDate): the loaded shifts first,
+// then -- only when they cannot be complete for that pair -- the existing
+// shift API for that single day and employee (`fetchDay(shiftDate, userId)`
+// resolves to the API response). Never throws: a failed lookup is reported so
+// the caller can still rely on the server's own duplicate-entry check.
+export async function resolveOverrideTarget({ userId, shiftDate, shifts, selectedEmployeeId, rangeDates, fetchDay }) {
+    const matches = (s) => Number(s.user_id) === Number(userId) && s.shift_date === shiftDate;
+
+    const local = shifts.find(matches);
+    if (local) return { shift: local, lookupFailed: false };
+
+    if (!needsServerLookup({ userId, shiftDate, selectedEmployeeId, rangeDates })) {
+        return { shift: null, lookupFailed: false };
+    }
+
+    try {
+        const data = await fetchDay(shiftDate, userId);
+        const found = (Array.isArray(data?.shifts) ? data.shifts : []).find(matches);
+        return { shift: found || null, lookupFailed: false };
+    } catch {
+        return { shift: null, lookupFailed: true };
+    }
+}

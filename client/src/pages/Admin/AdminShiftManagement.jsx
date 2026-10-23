@@ -32,6 +32,9 @@ import {
     buildShiftQuery,
     filterRowsByEmployee,
     shouldMergeLiveUpdate,
+    needsServerLookup,
+    overrideFormFromShift,
+    resolveOverrideTarget,
 } from "../../utils/shiftViews";
 
 import "./AdminShiftManagement.css";
@@ -87,6 +90,9 @@ function AdminShiftManagement() {
     const overrideSaving = overrideSaveState !== "idle";
     const selfSubmittingRef = useRef(false);
     const overrideSubmittingRef = useRef(false);
+    // Latest override-target lookup, so a slow answer for an earlier
+    // employee/date can never overwrite the form for the current one.
+    const overrideLookupRef = useRef(0);
     const [copying, setCopying] = useState(false);
 
     // Two SEPARATE forms/modals -- self-service (no employee picker,
@@ -375,43 +381,64 @@ function AdminShiftManagement() {
         setShowOverrideForm(true);
     };
 
+    // Existing entry for an (employee, date): the loaded shifts first, then --
+    // when an employee filter is active or the date is outside the loaded
+    // range -- the existing shift API for just that employee and day.
+    const findOverrideTarget = (userId, shiftDate) =>
+        resolveOverrideTarget({
+            userId,
+            shiftDate,
+            shifts,
+            selectedEmployeeId,
+            rangeDates: weekDates,
+            fetchDay: (date, id) => getShifts(date, date, { userId: id }),
+        });
+
     const handleOverrideFieldChange = (event) => {
         const { name, value } = event.target;
 
-        setOverrideForm((prev) => {
-            const next = { ...prev, [name]: value };
+        if (name !== "userId" && name !== "shiftDate") {
+            setOverrideForm((prev) => ({ ...prev, [name]: value }));
+            return;
+        }
 
-            // Once both employee and date are chosen, auto-populate from
-            // an existing entry for that combination (within the
-            // currently loaded week) so picking an already-scheduled
-            // employee/date edits it in place instead of hitting the
-            // create endpoint's duplicate-entry 409.
-            if ((name === "userId" || name === "shiftDate") && next.userId && next.shiftDate) {
-                const existing = shifts.find(
-                    (s) => Number(s.user_id) === Number(next.userId) && s.shift_date === next.shiftDate
-                );
+        const next = { ...overrideForm, [name]: value };
 
-                if (existing) {
-                    return {
-                        id: existing.id,
-                        userId: next.userId,
-                        shiftDate: next.shiftDate,
-                        status: existing.status,
-                        startTime: existing.start_time || "09:00",
-                        endTime: existing.end_time || "18:00",
-                        notes: existing.notes || "",
-                    };
-                }
+        // Once both employee and date are chosen, auto-populate from an
+        // existing entry for that combination so picking an already-scheduled
+        // employee/date edits it in place instead of hitting the create
+        // endpoint's duplicate-entry 409.
+        if (!next.userId || !next.shiftDate) {
+            setOverrideForm(next);
+            return;
+        }
 
-                // No existing entry for this combination -- make sure a
-                // previously-populated id (from a prior selection that DID
-                // match) doesn't linger and turn this into an accidental
-                // update of the wrong row.
-                return { ...next, id: null };
-            }
+        const lookupId = ++overrideLookupRef.current;
+        const loaded = shifts.find(
+            (s) => Number(s.user_id) === Number(next.userId) && s.shift_date === next.shiftDate
+        );
 
-            return next;
-        });
+        if (loaded) {
+            setOverrideForm(overrideFormFromShift(loaded));
+            return;
+        }
+
+        // No loaded entry for this combination -- make sure a
+        // previously-populated id (from a prior selection that DID match)
+        // doesn't linger and turn this into an accidental update of the
+        // wrong row.
+        setOverrideForm({ ...next, id: null });
+
+        // With an employee filter active (or a date outside the loaded range)
+        // the entry may exist but not be loaded: ask the server for just that
+        // employee and day.
+        if (needsServerLookup({ userId: next.userId, shiftDate: next.shiftDate, selectedEmployeeId, rangeDates: weekDates })) {
+            findOverrideTarget(next.userId, next.shiftDate).then(({ shift, lookupFailed }) => {
+                if (lookupId !== overrideLookupRef.current) return;
+                if (shift) setOverrideForm(overrideFormFromShift(shift));
+                else if (lookupFailed) toast.error("Unable to check for an existing entry for this employee and date");
+            });
+        }
     };
 
     const handleOverrideSubmit = async (event) => {
@@ -428,6 +455,20 @@ function AdminShiftManagement() {
 
         if (overrideSubmittingRef.current) return;
         overrideSubmittingRef.current = true;
+
+        // Creating: if an entry already exists for this employee/date that the
+        // form has not shown yet (e.g. the lookup was still in flight, or an
+        // employee filter hid it), show it for review instead of saving over it
+        // or hitting the duplicate-entry error.
+        if (!overrideForm.id) {
+            const { shift: existing } = await findOverrideTarget(overrideForm.userId, overrideForm.shiftDate);
+            if (existing) {
+                setOverrideForm(overrideFormFromShift(existing));
+                toast.info("An entry already exists for this employee and date. Review it and save to update it.");
+                overrideSubmittingRef.current = false;
+                return;
+            }
+        }
 
         const payload = {
             userId: overrideForm.userId,
