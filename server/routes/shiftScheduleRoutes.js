@@ -9,6 +9,8 @@ const {
     bulkSaveShifts,
 } = require("../controllers/shiftScheduleController");
 
+const { exportShiftReport } = require("../controllers/shiftReportController");
+
 const { protect } = require("../middleware/authMiddleware");
 const { requireActiveUser } = require("../middleware/accessMiddleware");
 
@@ -50,6 +52,9 @@ const router = express.Router();
 router.get("/", protect, requireActiveUser, getShifts);
 
 router.get("/search", protect, requireActiveUser, searchShiftEmployees);
+
+// Admin/Super Admin only -- the controller enforces it (isAdminTier).
+router.get("/report/export", protect, requireActiveUser, exportShiftReport);
 
 router.post("/", protect, requireActiveUser, createShift);
 

@@ -37,80 +37,9 @@
     background:var(--hover);
 }
 
-.shift-secondary-button:disabled,
-.shift-override-button:disabled{
+.shift-secondary-button:disabled{
     opacity:0.6;
     cursor:not-allowed;
-}
-
-/* ---------- ADMINISTRATIVE OVERRIDE ----------
-   Deliberately warning-toned and visually separate from the rest of
-   the page -- this is the one place an Admin/Super Admin can act on
-   another employee's schedule, and it should never look like a normal
-   part of the everyday self-service flow. */
-
-.shift-override-panel{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    gap:16px;
-    flex-wrap:wrap;
-    background:var(--warning-light);
-    border:1px solid var(--warning);
-    border-radius:var(--radius);
-    padding:14px 18px;
-    margin-bottom:16px;
-}
-
-.shift-override-panel-text{
-    display:flex;
-    align-items:flex-start;
-    gap:10px;
-    color:var(--text);
-}
-
-.shift-override-panel-text svg{
-    color:var(--warning);
-    font-size:18px;
-    margin-top:2px;
-    flex-shrink:0;
-}
-
-.shift-override-panel-text strong{
-    display:block;
-    font-size:14px;
-    margin-bottom:2px;
-}
-
-.shift-override-panel-text p{
-    margin:0;
-    font-size:12px;
-    color:var(--text-secondary);
-}
-
-.shift-override-panel-actions{
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-}
-
-.shift-override-button{
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    background:var(--warning);
-    color:#fff;
-    border:none;
-    border-radius:10px;
-    padding:9px 16px;
-    font-size:13px;
-    font-weight:600;
-    cursor:pointer;
-    transition:opacity 0.15s ease;
-}
-
-.shift-override-button:hover{
-    opacity:0.9;
 }
 
 .shift-override-modal .employee-modal-header h2{
@@ -154,42 +83,109 @@
     font-size:13px;
 }
 
-/* compact Administrative Override, top-right */
-.shift-override-panel-compact{
+/* ---------- REPORTS PANEL (top-right, where the override box used to be) ---------- */
+
+.shift-reports-panel{
     flex:0 1 560px;
     max-width:100%;
-    margin:0;
-    padding:10px 12px;
-    gap:10px;
-    background:rgba(245,158,11,0.08);
-    border:1px solid rgba(245,158,11,0.35);
-    border-radius:12px;
+    display:flex;
     flex-direction:column;
-    align-items:stretch;
+    gap:10px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:12px 14px;
 }
 
-.shift-override-panel-compact .shift-override-panel-text svg{
-    font-size:15px;
+.shift-reports-panel-text{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    color:var(--text);
 }
 
-.shift-override-panel-compact .shift-override-panel-text strong{
-    font-size:13px;
-    margin-bottom:0;
+.shift-reports-panel-text svg{
+    color:var(--primary);
+    font-size:20px;
+    flex-shrink:0;
 }
 
-.shift-override-panel-compact .shift-override-panel-text p{
-    font-size:11px;
+.shift-reports-panel-text strong{
+    display:block;
+    font-size:14px;
 }
 
-.shift-override-panel-compact .shift-override-panel-actions{
-    gap:8px;
-}
-
-.shift-override-panel-compact .shift-secondary-button,
-.shift-override-panel-compact .shift-override-button{
-    padding:6px 12px;
+.shift-reports-panel-text p{
+    margin:2px 0 0;
     font-size:12px;
-    border-radius:8px;
+    color:var(--text-secondary);
+}
+
+.shift-reports-controls,
+.shift-reports-actions{
+    display:flex;
+    align-items:center;
+    gap:8px 12px;
+    flex-wrap:wrap;
+}
+
+.shift-reports-employee{
+    flex:1 1 200px;
+    min-width:0;
+}
+
+.shift-reports-employee select{
+    width:100%;
+    height:36px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    font-size:13px;
+    padding:0 10px;
+}
+
+.shift-reports-download{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    height:36px;
+    margin-left:auto;
+    background:var(--primary);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:0 16px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:opacity 0.15s ease;
+}
+
+.shift-reports-download:hover{
+    opacity:0.9;
+}
+
+.shift-reports-download:disabled{
+    opacity:0.55;
+    cursor:not-allowed;
+}
+
+.shift-toolbar-admin-actions{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-left:auto;
+}
+
+.shift-toolbar-admin-actions .shift-secondary-button{
+    height:36px;
+    padding:0 12px;
+    font-size:12px;
+    border-radius:10px;
 }
 
 /* ---------- TOOLBAR: view, navigation, date, employee finder ---------- */
@@ -211,7 +207,8 @@
     flex-wrap:wrap;
 }
 
-.shift-view-toggle{
+.shift-view-toggle,
+.shift-reports-toggle{
     display:inline-flex;
     background:var(--card-light);
     border:1px solid var(--border);
@@ -220,7 +217,8 @@
     gap:2px;
 }
 
-.shift-view-toggle-button{
+.shift-view-toggle-button,
+.shift-reports-toggle-button{
     background:transparent;
     border:none;
     border-radius:8px;
@@ -233,11 +231,13 @@
     transition:background 0.15s ease, color 0.15s ease;
 }
 
-.shift-view-toggle-button:hover{
+.shift-view-toggle-button:hover,
+.shift-reports-toggle-button:hover{
     background:var(--hover);
 }
 
-.shift-view-toggle-button.active{
+.shift-view-toggle-button.active,
+.shift-reports-toggle-button.active{
     background:var(--primary);
     color:#fff;
 }
@@ -423,7 +423,8 @@
 .shift-toolbar button:focus-visible,
 .shift-toolbar input:focus-visible,
 .shift-finder-item:focus-visible,
-.shift-override-panel-compact button:focus-visible,
+.shift-reports-panel button:focus-visible,
+.shift-reports-panel select:focus-visible,
 .shift-schedule-error button:focus-visible{
     outline:2px solid var(--primary);
     outline-offset:2px;
@@ -451,18 +452,24 @@
 }
 
 @media (max-width: 768px){
+    .shift-reports-panel{
+        flex:1 1 100%;
+    }
+
+    .shift-reports-download{
+        flex:1 1 100%;
+        margin-left:0;
+    }
+
+    .shift-toolbar-admin-actions{
+        margin-left:0;
+        width:100%;
+    }
+
 
     .shift-page-header{
         flex-direction:column;
         align-items:stretch;
-    }
-
-    .shift-override-panel-compact{
-        flex:1 1 auto;
-    }
-
-    .shift-override-panel-actions{
-        flex-direction:column;
     }
 
     .shift-toolbar-row{

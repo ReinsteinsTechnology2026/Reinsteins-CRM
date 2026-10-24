@@ -203,9 +203,9 @@ test('permissions, self-service and override are untouched by the filter', () =>
     // with a filter active the override starts on that employee and picks up their existing entry
     assert.match(page, /userId: selectedEmployeeId \? String\(selectedEmployeeId\) : ""/);
     assert.match(page, /Number\(s\.user_id\) === Number\(selectedEmployeeId\) && s\.shift_date === weekDates\[0\]/);
-    // the compact panel is still in the header
-    assert.match(page, /shift-override-panel shift-override-panel-compact/);
-    assert.ok(page.indexOf('shift-override-panel-compact') < page.indexOf('<section className="shift-toolbar"'));
+    // the Reports panel (which replaced the override box) is still in the header
+    assert.match(page, /<section className="shift-reports-panel"/);
+    assert.ok(page.indexOf('shift-reports-panel') < page.indexOf('<section className="shift-toolbar"'));
 });
 
 // ---- REGRESSION: administrative override target while an employee filter hides other employees ----

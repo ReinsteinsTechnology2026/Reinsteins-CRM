@@ -75,7 +75,7 @@ describe('rendered Shift Management page (real page + real helpers, mocked netwo
     copy(path.join(HARNESS, 'child.cjs'), 'child.cjs');
     for (const f of ['backend.js', 'api.js', 'socket.js', 'toastify.js']) copy(path.join(HARNESS, 'stubs', f), `src/services/${f}`);
     fs.writeFileSync(path.join(tmpDir, 'src/services/shiftScheduleService.js'),
-      'export { getShifts, createShift, updateShift, deleteShift, bulkSaveShifts, searchShiftEmployees } from "./backend.js";\n');
+      'export { getShifts, createShift, updateShift, deleteShift, bulkSaveShifts, searchShiftEmployees, exportShiftReport } from "./backend.js";\n');
     fs.writeFileSync(path.join(tmpDir, 'package.json'), '{ "type": "module" }');
     fs.symlinkSync(pre.clientModules, path.join(tmpDir, 'node_modules'), 'junction');
 
@@ -263,8 +263,36 @@ describe('rendered Shift Management page (real page + real helpers, mocked netwo
       assert.ok(o.created.toasts.some((t) => t.includes('Shift created successfully (administrative override)')));
       assert.equal(o.created.chip, 'Filtered: Asha Rao (RS002)', 'the schedule filter is not touched by the override');
       assert.equal(o.duplicateStatus, 409, 'the (mocked) server still refuses a blind duplicate');
-      assert.equal(o.overridePanel, true);
+      assert.equal(o.overridePanel, false, 'the Administrative Override box is gone');
       assert.deepEqual(o.errors, []);
+    });
+  });
+
+  test('i. Reports panel replaces the override box: Day/Week/Month, All/Particular employee, Download Excel', () => {
+    everyZone(({ reports: r }, tz) => {
+      assert.equal(r.boxGone, true, tz);
+      assert.equal(r.heading, 'Reports');
+      assert.equal(r.inHeader, true, 'same place as the old box: inside the page header');
+      assert.deepEqual(r.periodOptions, ['Day', 'Week', 'Month'], 'only three period options');
+      assert.deepEqual(r.scopeOptions, ['All Employees', 'Particular Employee']);
+      assert.equal(r.noDatePicker, true, 'no calendar, date picker or manual input in the panel');
+      assert.deepEqual(r.defaults, { period: 'Week', scope: 'All Employees', dropdown: false });
+      assert.equal(r.hintWeek, 'Excel report for this week (Mon-Sun)');
+      assert.equal(r.hintMonth, 'Excel report for this month');
+      assert.deepEqual(r.afterAll.calls, ['month:all'], `${tz}: all employees, month`);
+      assert.deepEqual(r.afterAll.files, ['Employee_Shift_Report_Monthly.xlsx']);
+      assert.deepEqual(r.options, ['Select an employee', 'Admin User (RS001)', 'Asha Rao (RS002)', 'Bilal Khan (RS003)', 'Chitra Nair (RS004)'], 'dropdown comes from the CRM employee list');
+      assert.equal(r.disabledWithoutEmployee, true);
+      assert.equal(r.callsWhileDisabled, 1, 'no request until an employee is chosen');
+      assert.equal(r.enabledWithEmployee, true);
+      assert.deepEqual(r.afterOne.calls, ['month:all', 'day:3'], 'one employee, day');
+      assert.deepEqual(r.afterOne.files, ['Employee_Shift_Report_Monthly.xlsx', 'Employee_Shift_Report_Daily_EMP3.xlsx']);
+      assert.deepEqual(r.scheduleStill, { range: '19 Oct - 25 Oct', rows: 4 }, 'timetable untouched: still this week, all four employees');
+      assert.deepEqual(r.errorToast, ['Only Admin/Super Admin can export shift reports.']);
+      assert.equal(r.stillEnabledAfterError, true);
+      assert.deepEqual(r.adminActions, ['Copy Previous Week (All Employees)', 'Manage Employee Schedule'], 'both admin actions kept');
+      assert.equal(r.actionsOutsidePanel, true);
+      assert.deepEqual(r.errors.map((e) => e.replace(/:.*$/, '')), ['Download shift report error'], 'only the deliberately forced failure is logged');
     });
   });
 

@@ -196,23 +196,33 @@ test('existing features are preserved: employee search + date picker, self-servi
     assert.match(page, /openOverrideCreate = \(\) => \{[\s\S]*shiftDate: weekDates\[0\]/);
 });
 
-test('compact Administrative Override: one panel, top-right in the header, before the controls and the table', () => {
-    assert.equal((page.match(/<section className="shift-override-panel/g) || []).length, 1, 'exactly one panel');
+test('Reports panel replaces the Administrative Override box: one panel, top-right in the header, before the controls and the table', () => {
+    assert.ok(!/Administrative Override"|shift-override-panel/.test(page), 'the override box is gone');
+    assert.ok(!/shift-override-panel|shift-override-button/.test(css), 'and so are its styles');
+    assert.equal((page.match(/<section className="shift-reports-panel"/g) || []).length, 1, 'exactly one panel');
     const header = page.indexOf('<header className="shift-page-header">');
-    const panel = page.indexOf('shift-override-panel shift-override-panel-compact');
+    const panel = page.indexOf('<section className="shift-reports-panel"');
     const controls = page.indexOf('<section className="shift-toolbar"');
     const card = page.indexOf('<section className="shift-schedule-card">');
     assert.ok(header > 0 && panel > header && controls > panel && card > controls, 'order: header(panel) -> controls -> table');
-    // the panel sits INSIDE the header section (after the title block, before the header closes)
     const headerBlock = page.slice(header, controls);
-    assert.ok(headerBlock.includes('shift-management-title') && headerBlock.includes('shift-override-panel-compact'));
-    assert.match(css, /\.shift-override-panel-compact\{[^}]*padding:10px 12px;/);
-    assert.match(css, /\.shift-override-panel-compact\{[^}]*background:rgba\(245,158,11,0\.08\)/, 'subtle orange background');
+    assert.ok(headerBlock.includes('shift-management-title') && headerBlock.includes('shift-reports-panel'));
+    assert.match(css, /\.shift-reports-panel\{[^}]*flex:0 1 560px;/);
+    assert.match(css, /\.shift-reports-panel\{[^}]*max-width:100%;/);
+    assert.match(css, /\.shift-reports-panel\{[^}]*background:var\(--card\);/, 'portal card colours, not the old orange');
+    assert.match(css, /\.shift-reports-download\{[^}]*background:var\(--primary\);/);
     assert.match(css, /\.shift-page-header\{[^}]*flex-wrap:wrap;/, 'wraps instead of overlapping');
-    assert.match(css, /\.shift-override-panel-compact\{[^}]*max-width:100%;/);
     const mobile = css.slice(css.indexOf('@media (max-width: 768px)'));
     assert.match(mobile, /\.shift-toolbar-row\{\s*flex-direction:column;/, 'controls stack on small screens');
     assert.match(mobile, /\.shift-page-header\{\s*flex-direction:column;/, 'header (and panel) stack on small screens');
+    assert.match(mobile, /\.shift-reports-download\{\s*flex:1 1 100%;/, 'download button is full width on phones');
+    // only the three period options, no date input inside the panel
+    const panelBlock = page.slice(panel, page.indexOf('</section>', panel));
+    assert.match(page, /const REPORT_PERIODS = \[\s*\{ value: "day", label: "Day" \},\s*\{ value: "week", label: "Week" \},\s*\{ value: "month", label: "Month" \},\s*\];/);
+    assert.ok(!/type="date"|<input/.test(panelBlock), 'no date picker or free-text input in the Reports panel');
+    // the two former override actions are kept, as toolbar buttons
+    const toolbarBlock = page.slice(controls, card);
+    assert.ok(toolbarBlock.includes('shift-toolbar-admin-actions') && toolbarBlock.includes('handleCopyPreviousWeekAllEmployees') && toolbarBlock.includes('openOverrideCreate'));
 });
 
 test('access control unchanged: no new role logic, same API surface, route still guarded, server untouched by this feature', () => {
@@ -222,7 +232,7 @@ test('access control unchanged: no new role logic, same API surface, route still
     const endpoints = [...page.matchAll(/api\.(get|post|put|patch|delete)\(\s*["'`]([^"'`]+)/g)].map((m) => `${m[1]} ${m[2]}`);
     assert.deepEqual(endpoints, ['get /employees'], 'only the existing GET /employees call; everything else goes through shiftScheduleService');
     const imported = page.match(/import \{([^}]+)\} from "\.\.\/\.\.\/services\/shiftScheduleService"/)[1].split(',').map((s) => s.trim()).filter(Boolean);
-    assert.deepEqual(imported.sort(), ['bulkSaveShifts', 'createShift', 'deleteShift', 'getShifts', 'searchShiftEmployees', 'updateShift']);
+    assert.deepEqual(imported.sort(), ['bulkSaveShifts', 'createShift', 'deleteShift', 'exportShiftReport', 'getShifts', 'searchShiftEmployees', 'updateShift']);
     assert.match(read('client/src/routes/ShiftManagementRoute.jsx'), /resolveShiftManagementAccess/);
     assert.match(read('client/src/App.jsx'), /path: "shift-management", Component: ShiftManagementRoute/);
     // the shift API already takes an arbitrary startDate/endDate and enforces scope per request (a month needs no new endpoint)
