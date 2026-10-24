@@ -1,0 +1,45 @@
+# ==========================================
+# FRONTEND CACHE HEADERS -- SAMPLE (nginx)
+#
+# THIS IS A SAMPLE, NOT A WORKING CONFIG. Nothing in this repository applies it: the
+# deploy workflow does not install it and the real production web server configuration
+# is not stored here. The real server may not even be nginx, and its root, server
+# blocks, TLS and /api proxying differ from anything below. An administrator with access
+# to the production host must adapt it (or the equivalent directives for the actual server),
+# test it with `nginx -t` (or the server's own check) and apply it deliberately.
+# It is a fragment: merge the directives into the existing frontend server block.
+#
+# Whatever web server serves client/dist (the Node API does not) should send these
+# headers. Without them, index.html is delivered with only Last-Modified, so browsers
+# decide for themselves how long it stays fresh and can keep running the PREVIOUS
+# build's bundle (old UI) for hours after a deploy, until the user presses refresh.
+#
+#   index.html            -> Cache-Control: no-cache      (always revalidate; a 304 is cheap)
+#   /assets/* (hashed)    -> immutable for a year         (file name changes whenever content does)
+#   /version.json         -> no-store                     (build id check, see client/src/utils/buildVersion.js)
+#
+# Merge these into the existing server block for the CRM frontend; adjust root/paths.
+# If a CDN (e.g. Cloudflare) sits in front, make sure no rule overrides these
+# (a "Browser Cache TTL" that replaces origin headers, or "Cache Everything" on HTML).
+# ==========================================
+
+root /var/www/reinsteins-crm/client/dist;   # EDIT: your real path
+
+location = /index.html {
+    add_header Cache-Control "no-cache" always;
+}
+
+location = /version.json {
+    add_header Cache-Control "no-store" always;
+}
+
+location /assets/ {
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    try_files $uri =404;   # a missing hashed file must be a 404, not index.html
+}
+
+location / {
+    # SPA fallback: every other path is index.html, which must also be revalidated
+    try_files $uri /index.html;
+    add_header Cache-Control "no-cache" always;
+}
