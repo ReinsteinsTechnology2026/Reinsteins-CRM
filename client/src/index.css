@@ -77,3 +77,16 @@ select,
 button{
     outline:none;
 }
+
+/* The reset above removes the browser's focus ring from every control, which left keyboard users
+   without any focus indicator on buttons that do not style their own (logout, break/offline, toasts...).
+   Keyboard focus (:focus-visible only -- never on mouse click) gets a visible ring again; controls with
+   their own :focus-visible rule (two-class selectors) still win. */
+button:focus-visible,
+select:focus-visible,
+a:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible{
+    outline:2px solid var(--primary, #16A66A);
+    outline-offset:2px;
+}

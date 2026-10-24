@@ -89,8 +89,8 @@
 }
 
 .exec-project-status.completed {
-  background: rgba(90, 130, 200, 0.18);
-  color: #8FB4E8;
+  background: rgba(22, 166, 106, 0.18);
+  color: #8ED9B7;
 }
 
 .exec-project-status.on_hold {

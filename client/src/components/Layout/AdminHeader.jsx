@@ -5,6 +5,7 @@ import {
 } from "react";
 
 import {
+  useLocation,
   useNavigate,
   useParams,
 } from "react-router-dom";
@@ -31,9 +32,39 @@ import {
 
 import "./AdminHeader.css";
 
+// Page title shown in the header, from the first path segment after /admin
+// (or /:companySlug/admin). Purely presentational -- it never affects routing
+// or permissions; unknown paths keep the dashboard title.
+const ADMIN_PAGE_TITLES = {
+  employees: "Employees",
+  attendance: "Attendance",
+  "shift-management": "Shift Management",
+  tasks: "Tasks",
+  "task-workspace": "Task Workspace",
+  projects: "TechOps",
+  hierarchy: "Hierarchy",
+  leave: "Leave Management",
+  reports: "Reports",
+  sops: "SOPs",
+  chat: "Chat",
+  meetings: "Meetings",
+  settings: "Settings",
+  organization: "Organization",
+  organizations: "Organizations",
+};
+
+function getAdminPageTitle(pathname) {
+  const segments = String(pathname || "").split("/").filter(Boolean);
+  const at = segments.lastIndexOf("admin");
+  const section = at === -1 ? undefined : segments[at + 1];
+  return ADMIN_PAGE_TITLES[section] || "Dashboard";
+}
+
 function AdminHeader({ mobileNavOpen, onOpenMobileNav }) {
   const navigate =
     useNavigate();
+
+  const { pathname } = useLocation();
 
   // Phase 8 fix: notification navigation below previously hardcoded
   // the legacy "/admin" prefix, breaking in-app notification clicks
@@ -433,7 +464,7 @@ function AdminHeader({ mobileNavOpen, onOpenMobileNav }) {
         <div>
 
           <h1>
-            Dashboard
+            {getAdminPageTitle(pathname)}
           </h1>
 
           <p>

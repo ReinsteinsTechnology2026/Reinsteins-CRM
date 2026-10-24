@@ -19,7 +19,7 @@
     white-space: nowrap;
 
     letter-spacing: .02em;
-
+  gap: 5px;
 }
 
 .status-pill.status-neutral {
@@ -31,29 +31,30 @@
     /* Deliberately --info, not --primary -- primary is now the same
        emerald family as --success, so reusing it here would make
        "in progress" and "closed" nearly indistinguishable. */
-    background: rgba(40, 120, 216, .16);
-    color: var(--info);
+    background: #0E744A;
+    color: #FFFFFF;
 }
 
 .status-pill.status-pending-review {
     background: rgba(217, 154, 36, .18);
-    color: var(--warning);
+    color: #8A5A00;
 }
 
 .status-pill.status-closed {
-    background: rgba(22, 166, 106, .18);
-    color: var(--success);
+    background: #E3F6EC;
+    color: #0A5A38;
+  box-shadow: inset 0 0 0 1px #0E744A;
 }
 
 .status-pill.status-cancelled {
     background: rgba(214, 69, 69, .18);
-    color: var(--danger);
+    color: #A82E2E;
 }
 
 .status-pill.status-live {
 
     background: rgba(214, 69, 69, .16);
-    color: var(--danger);
+    color: #A82E2E;
 
     gap: 6px;
 
@@ -92,28 +93,29 @@
     font-weight: 700;
 
     white-space: nowrap;
-
+  gap: 4px;
 }
 
 .priority-pill.priority-low {
-    background: rgba(22, 166, 106, .14);
-    color: var(--success);
+    background: #FFFFFF;
+    color: #0A5A38;
+  box-shadow: inset 0 0 0 1px #8ED9B7;
 }
 
 .priority-pill.priority-medium {
     /* --info here too, same reasoning as status-in-progress above. */
-    background: rgba(40, 120, 216, .14);
-    color: var(--info);
+    background: #CDEFDD;
+    color: #0A5A38;
 }
 
 .priority-pill.priority-high {
     background: rgba(217, 154, 36, .16);
-    color: var(--warning);
+    color: #8A5A00;
 }
 
 .priority-pill.priority-critical {
     background: rgba(214, 69, 69, .16);
-    color: var(--danger);
+    color: #A82E2E;
 }
 
 /* ==========================================
@@ -473,4 +475,31 @@
     color: var(--primary-hover);
     font-weight: 700;
     font-size: 12px;
+}
+
+/* A leading symbol on the pills that are all shades of green, so no state is told apart by colour alone */
+.status-pill.status-in-progress::before {
+    content: "\25CF";
+    font-size: 8px;
+}
+
+.status-pill.status-closed::before {
+    content: "\2713";
+    font-weight: 700;
+}
+
+.priority-pill.priority-low::before {
+    content: "\2193";
+}
+
+.priority-pill.priority-medium::before {
+    content: "\2192";
+}
+
+.priority-pill.priority-high::before {
+    content: "\2191";
+}
+
+.priority-pill.priority-critical::before {
+    content: "!";
 }
