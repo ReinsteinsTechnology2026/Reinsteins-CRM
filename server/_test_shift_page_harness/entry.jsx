@@ -267,12 +267,72 @@ const scenarios = {
     let status = null;
     try { await (await import("./services/shiftScheduleService.js")).createShift({ userId: 3, shiftDate: "2026-10-21", status: "working", startTime: "09:00", endTime: "18:00" }); } catch (e) { status = e.response.status; }
     out.duplicateStatus = status;
-    out.overridePanel = !!$(".shift-override-panel-compact");
+    out.overridePanel = !!$(".shift-override-panel, .shift-override-panel-compact");
     out.errors = page.errors; await page.unmount();
     return out;
   },
 
   // live updates merged only inside the range and, when filtered, only for that employee
+  // i. Reports panel: replaces the Administrative Override box; Day/Week/Month, All/Particular employee, Download Excel
+  async reports() {
+    const out = {};
+    const page = await mount();
+    const downloads = [];
+    const onClick = (e) => { const a = e.target.closest && e.target.closest("a[download]"); if (a) { downloads.push(a.getAttribute("download")); e.preventDefault(); } };
+    document.addEventListener("click", onClick, true);
+    window.URL.createObjectURL = () => "blob:report";
+    window.URL.revokeObjectURL = () => {};
+    const panel = () => $(".shift-reports-panel");
+    const group = (label) => $$(`.shift-reports-panel [role=group][aria-label="${label}"] button`);
+    const exportCalls = () => globalThis.__backend.calls.filter((c) => c.type === "export").map((c) => `${c.period}:${c.employee}`);
+    const download = () => $(".shift-reports-download");
+
+    out.boxGone = !$(".shift-override-panel, .shift-override-panel-compact") && !text($("header.shift-page-header")).includes("Administrative Override");
+    out.heading = text(panel().querySelector("strong"));
+    out.inHeader = !!$("header.shift-page-header .shift-reports-panel");
+    out.periodOptions = group("Report period").map(text);
+    out.scopeOptions = group("Report employees").map(text);
+    out.noDatePicker = $$(".shift-reports-panel input").length === 0;
+    out.defaults = { period: text(group("Report period").find((b) => b.getAttribute("aria-pressed") === "true")), scope: text(group("Report employees").find((b) => b.getAttribute("aria-pressed") === "true")), dropdown: !!$(".shift-reports-employee") };
+    out.hintWeek = text(panel().querySelector("p"));
+
+    // All employees, Month
+    await click(group("Report period").find((b) => text(b) === "Month"));
+    out.hintMonth = text(panel().querySelector("p"));
+    await click(download(), 60);
+    out.afterAll = { calls: exportCalls(), files: [...downloads], label: text(download()) };
+
+    // Particular employee: dropdown from the CRM employee list, Download disabled until one is chosen
+    await click(group("Report employees").find((b) => text(b) === "Particular Employee"));
+    const select = $(".shift-reports-employee select");
+    out.options = [...select.options].map((o) => o.textContent);
+    out.disabledWithoutEmployee = download().disabled;
+    await click(download(), 30);
+    out.callsWhileDisabled = exportCalls().length;
+    await setValue(select, "3");
+    out.enabledWithEmployee = !download().disabled;
+    await click(group("Report period").find((b) => text(b) === "Day"));
+    await click(download(), 60);
+    out.afterOne = { calls: exportCalls(), files: [...downloads] };
+
+    // the timetable and its other controls are unaffected by using the Reports panel
+    out.scheduleStill = { range: text($(".shift-week-range")), rows: $$(".shift-schedule-card tbody tr").length };
+
+    // Admin-only error from the server is shown, not swallowed
+    globalThis.__backend.exportFails = true;
+    await click(download(), 60);
+    out.errorToast = globalThis.__toasts.filter((t) => t.type === "error").map((t) => t.message);
+    out.stillEnabledAfterError = !download().disabled;
+
+    // the two override actions survive, outside the Reports panel
+    out.adminActions = [...$$(".shift-toolbar-admin-actions button").map(text)];
+    out.actionsOutsidePanel = !panel().contains($(".shift-toolbar-admin-actions"));
+
+    document.removeEventListener("click", onClick, true);
+    out.errors = page.errors; await page.unmount();
+    return out;
+  },
+
   async live() {
     const page = await mount();
     const out = {};

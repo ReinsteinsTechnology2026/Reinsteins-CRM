@@ -188,7 +188,7 @@ test('AdminShiftManagement is safe to host in the employee layout: self-containe
   assert.deepEqual(calls, ['get /employees'], 'direct api calls');
   const service = read('client/src/services/shiftScheduleService.js');
   assert.deepEqual([...service.matchAll(/api\.(get|post|patch|delete)\(\s*[`"]([^`"?]+)/g)].map((m) => `${m[1]} ${m[2].replace(/\$\{id\}/, ':id')}`).sort(),
-    ['delete /shifts/:id', 'get /shifts', 'get /shifts/search', 'patch /shifts/:id', 'post /shifts', 'post /shifts/bulk']);
+    ['delete /shifts/:id', 'get /shifts', 'get /shifts/report/export', 'get /shifts/search', 'patch /shifts/:id', 'post /shifts', 'post /shifts/bulk']);
   assert.doesNotMatch(page, /useOutletContext|useNavigate|useParams|<Link\b|["'`]\/admin/, 'no layout/router coupling');
   const css = read('client/src/pages/Admin/AdminShiftManagement.css');
   assert.doesNotMatch(css, /admin-layout|admin-main|admin-page-content|admin-sidebar/, 'no admin-layout ancestor selectors');

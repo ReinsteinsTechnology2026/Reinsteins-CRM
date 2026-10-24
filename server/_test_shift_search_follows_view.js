@@ -181,7 +181,7 @@ test('unchanged: existing API only, no access logic, override + duplicate protec
     assert.match(page, /overrideLookupRef\.current/);
     assert.match(page, /recorded in the audit history/);
     assert.match(page, /onClick=\{row\.isSelf \? \(\) => \(entry \? openSelfEdit\(entry\) : openSelfAdd\(date\)\) : undefined\}/);
-    assert.match(page, /shift-override-panel shift-override-panel-compact/);
+    assert.match(page, /<section className="shift-reports-panel"/);
     assert.match(page, /Copy Previous Week \(All Employees\)/);
     assert.ok(!/\.toISOString\(/.test(page) && !/\.toISOString\(/.test(read('client/src/utils/shiftViews.js')), 'no UTC date building');
 });

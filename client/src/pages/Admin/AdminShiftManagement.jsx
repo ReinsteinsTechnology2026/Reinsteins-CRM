@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { FaCalendarWeek, FaChevronLeft, FaChevronRight, FaTrash, FaTimes, FaUserShield, FaCopy, FaSearch } from "react-icons/fa";
+import { FaCalendarWeek, FaChevronLeft, FaChevronRight, FaTrash, FaTimes, FaUserShield, FaCopy, FaSearch, FaFileExcel, FaDownload } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 import api from "../../services/api";
@@ -10,6 +10,7 @@ import {
     deleteShift,
     bulkSaveShifts,
     searchShiftEmployees,
+    exportShiftReport,
 } from "../../services/shiftScheduleService";
 import EmployeeNameplate from "../../components/EmployeeNameplate";
 import TimeInput12h from "../../components/TimeInput12h";
@@ -57,6 +58,34 @@ const VIEW_OPTIONS = [
     { value: VIEW_WEEK, label: "Week" },
     { value: VIEW_MONTH, label: "Month" },
 ];
+
+// Reports panel: only the period KIND is chosen here; the server works out
+// the actual dates from the current date (no calendar, no custom range).
+const REPORT_PERIODS = [
+    { value: "day", label: "Day" },
+    { value: "week", label: "Week" },
+    { value: "month", label: "Month" },
+];
+
+const REPORT_PERIOD_HINTS = {
+    day: "Excel report for today",
+    week: "Excel report for this week (Mon-Sun)",
+    month: "Excel report for this month",
+};
+
+// With responseType "blob" an error body arrives as a Blob, so read the
+// server's message out of it.
+async function readReportError(err) {
+    try {
+        const data = err?.response?.data;
+        if (data instanceof Blob) {
+            return JSON.parse(await data.text()).message || "Unable to download the report";
+        }
+        return data?.message || "Unable to download the report";
+    } catch {
+        return "Unable to download the report";
+    }
+}
 
 function shiftCellLabel(entry, isDefaultOffDay) {
     if (!entry) return isDefaultOffDay ? "OFF" : "—";
@@ -106,6 +135,14 @@ function AdminShiftManagement() {
     // employee/date can never overwrite the form for the current one.
     const overrideLookupRef = useRef(0);
     const [copying, setCopying] = useState(false);
+
+    // Reports panel. The period itself is decided by the server from the
+    // current date; the client only says day / week / month and which employee.
+    const [reportPeriod, setReportPeriod] = useState("week");
+    const [reportScope, setReportScope] = useState("all");
+    const [reportEmployeeId, setReportEmployeeId] = useState("");
+    const [reportDownloading, setReportDownloading] = useState(false);
+    const reportDownloadingRef = useRef(false);
 
     // Two SEPARATE forms/modals -- self-service (no employee picker,
     // always the admin's own row) and the explicit administrative
@@ -630,6 +667,38 @@ function AdminShiftManagement() {
         }
     };
 
+    const handleDownloadReport = async () => {
+        if (reportDownloadingRef.current) return;
+        if (reportScope === "employee" && !reportEmployeeId) {
+            toast.error("Select an employee first");
+            return;
+        }
+
+        reportDownloadingRef.current = true;
+        setReportDownloading(true);
+
+        try {
+            const { blob, filename } = await exportShiftReport(
+                reportPeriod,
+                reportScope === "employee" ? reportEmployeeId : "all"
+            );
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error("Download shift report error:", err);
+            toast.error(await readReportError(err));
+        } finally {
+            reportDownloadingRef.current = false;
+            setReportDownloading(false);
+        }
+    };
+
     const rangeLabel = formatRangeLabel(view, anchor);
 
     return (
@@ -641,24 +710,74 @@ function AdminShiftManagement() {
                     <p>Company schedule -- everyone's shifts. Your own row (highlighted) is self-service.</p>
                 </div>
 
-                {/* ADMINISTRATIVE OVERRIDE -- deliberately separated from the
-                    table's own self-service interaction, visually distinct
-                    (warning-toned), and always requires explicitly picking an
-                    employee. Never triggered by clicking someone else's row. */}
-                <section className="shift-override-panel shift-override-panel-compact" aria-label="Administrative Override">
-                    <div className="shift-override-panel-text">
-                        <FaUserShield />
+                <section className="shift-reports-panel" aria-label="Reports">
+                    <div className="shift-reports-panel-text">
+                        <FaFileExcel />
                         <div>
-                            <strong>Administrative Override</strong>
-                            <p>Acts on another employee's schedule. Every use is recorded in the audit history.</p>
+                            <strong>Reports</strong>
+                            <p>{REPORT_PERIOD_HINTS[reportPeriod]}</p>
                         </div>
                     </div>
-                    <div className="shift-override-panel-actions">
-                        <button type="button" className="shift-secondary-button" onClick={handleCopyPreviousWeekAllEmployees} disabled={copying}>
-                            <FaCopy /> {copying ? "Copying..." : "Copy Previous Week (All Employees)"}
-                        </button>
-                        <button type="button" className="shift-override-button" onClick={openOverrideCreate}>
-                            <FaUserShield /> Manage Employee Schedule
+
+                    <div className="shift-reports-controls">
+                        <div className="shift-reports-toggle" role="group" aria-label="Report period">
+                            {REPORT_PERIODS.map((option) => (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    className={`shift-reports-toggle-button${reportPeriod === option.value ? " active" : ""}`}
+                                    aria-pressed={reportPeriod === option.value}
+                                    onClick={() => setReportPeriod(option.value)}
+                                >
+                                    {option.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="shift-reports-toggle" role="group" aria-label="Report employees">
+                            <button
+                                type="button"
+                                className={`shift-reports-toggle-button${reportScope === "all" ? " active" : ""}`}
+                                aria-pressed={reportScope === "all"}
+                                onClick={() => setReportScope("all")}
+                            >
+                                All Employees
+                            </button>
+                            <button
+                                type="button"
+                                className={`shift-reports-toggle-button${reportScope === "employee" ? " active" : ""}`}
+                                aria-pressed={reportScope === "employee"}
+                                onClick={() => setReportScope("employee")}
+                            >
+                                Particular Employee
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="shift-reports-actions">
+                        {reportScope === "employee" && (
+                            <label className="shift-reports-employee">
+                                <span className="shift-visually-hidden">Employee for the report</span>
+                                <select
+                                    value={reportEmployeeId}
+                                    onChange={(event) => setReportEmployeeId(event.target.value)}
+                                >
+                                    <option value="">Select an employee</option>
+                                    {employees.map((employee) => (
+                                        <option key={employee.id} value={employee.id}>
+                                            {employee.full_name}{employee.employee_id ? ` (${employee.employee_id})` : ""}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
+                        <button
+                            type="button"
+                            className="shift-reports-download"
+                            onClick={handleDownloadReport}
+                            disabled={reportDownloading || (reportScope === "employee" && !reportEmployeeId)}
+                        >
+                            <FaDownload /> {reportDownloading ? "Preparing..." : "Download Excel"}
                         </button>
                     </div>
                 </section>
@@ -711,6 +830,15 @@ function AdminShiftManagement() {
                     >
                         <FaSearch /> {selectedEmployee ? "Change employee" : "Find employee"}
                     </button>
+
+                    <div className="shift-toolbar-admin-actions">
+                        <button type="button" className="shift-secondary-button" onClick={handleCopyPreviousWeekAllEmployees} disabled={copying}>
+                            <FaCopy /> {copying ? "Copying..." : "Copy Previous Week (All Employees)"}
+                        </button>
+                        <button type="button" className="shift-secondary-button" onClick={openOverrideCreate}>
+                            <FaUserShield /> Manage Employee Schedule
+                        </button>
+                    </div>
                 </div>
 
                 {selectedEmployee && (
@@ -839,7 +967,7 @@ function AdminShiftManagement() {
                                                         : "shift-cell shift-cell-empty";
                                             // Only MY row is directly clickable (self-service). Every
                                             // other employee's row is read-only here -- reaching it
-                                            // requires the explicit Administrative Override panel above.
+                                            // requires the explicit "Manage Employee Schedule" action in the toolbar.
                                             const cellClass = row.isSelf ? `${baseClass} shift-cell-editable` : baseClass;
                                             return (
                                                 <td
@@ -953,7 +1081,7 @@ function AdminShiftManagement() {
                         <div className="employee-modal-header">
                             <div>
                                 <h2><FaUserShield /> Administrative Override</h2>
-                                <p>You are managing another employee's schedule on their behalf.</p>
+                                <p>You are managing another employee's schedule on their behalf. Every use is recorded in the audit history.</p>
                             </div>
                             <button type="button" className="modal-close" onClick={() => setShowOverrideForm(false)}>
                                 <FaTimes />

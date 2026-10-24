@@ -93,3 +93,11 @@ export async function bulkSaveShifts(entries) {
 }
 
 export const employeesResponse = () => ({ data: { employees: backend().employees } });
+
+// Reports panel: records the request and returns a tiny stand-in file (the real workbook is covered by
+// _test_shift_report.js against the real service/controller).
+export async function exportShiftReport(period, employee = 'all') {
+    backend().calls.push({ type: 'export', period, employee });
+    if (backend().exportFails) throw { response: { data: new Blob([JSON.stringify({ message: 'Only Admin/Super Admin can export shift reports.' })]) } };
+    return { blob: new Blob(['xlsx']), filename: `Employee_Shift_Report_${{ day: 'Daily', week: 'Weekly', month: 'Monthly' }[period]}${employee === 'all' ? '' : '_EMP' + employee}.xlsx` };
+}

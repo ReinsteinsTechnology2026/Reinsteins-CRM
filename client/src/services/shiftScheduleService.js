@@ -35,3 +35,17 @@ export const bulkSaveShifts = async (shifts) => {
     const { data } = await api.post("/shifts/bulk", { shifts });
     return data;
 };
+
+// Excel report (Admin/Super Admin only; the server picks the dates).
+// Resolves to { blob, filename }; the filename is the server's, with a
+// matching fallback if the header is not readable.
+export const exportShiftReport = async (period, employee = "all") => {
+    const response = await api.get("/shifts/report/export", {
+        params: { period, employee },
+        responseType: "blob",
+    });
+    const disposition = response.headers?.["content-disposition"] || "";
+    const match = /filename="?([^";]+)"?/i.exec(disposition);
+
+    return { blob: response.data, filename: match ? match[1] : "Employee_Shift_Report.xlsx" };
+};

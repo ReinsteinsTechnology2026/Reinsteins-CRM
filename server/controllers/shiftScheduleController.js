@@ -955,4 +955,5 @@ module.exports = {
     updateShift,
     deleteShift,
     bulkSaveShifts,
+    isAdminTier,
 };
