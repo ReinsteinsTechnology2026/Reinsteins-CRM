@@ -1257,6 +1257,13 @@ const transferTask = async (req, res) => {
             });
         }
 
+        if (task.project_id && !await isEligibleProjectAssignee(proposedAssigneeId, task.project_id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Selected assignee must be an active member of this project"
+            });
+        }
+
         const transferred = await transferTaskService(
             req.params.id,
             req.user.id,
