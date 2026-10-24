@@ -13,6 +13,10 @@ import { toast } from "react-toastify";
 
 import api from "../../services/api";
 import "./Login.css";
+import {
+  fetchDeployedBuildId,
+  reloadForNewBuild,
+} from "../../utils/buildVersion";
 
 // ==========================================
 // COMPANY-AWARE LOGIN (Phase 5)
@@ -180,6 +184,11 @@ function Login() {
       const adminPath = companySlug ? `/${companySlug}/admin` : "/admin";
       const employeePath = companySlug ? `/${companySlug}/employee` : "/employee";
 
+      // A tab that has been open since before the latest deploy is still running the
+      // old bundle (and the old UI). If so, reload once right after landing on the
+      // dashboard; the session is in sessionStorage, which survives the reload.
+      const deployedBuildId = await fetchDeployedBuildId();
+
       if (
         user.role ===
         "admin"
@@ -190,6 +199,8 @@ function Login() {
             replace: true,
           }
         );
+
+        reloadForNewBuild(deployedBuildId);
 
         return;
       }
@@ -204,6 +215,8 @@ function Login() {
             replace: true,
           }
         );
+
+        reloadForNewBuild(deployedBuildId);
 
         return;
       }
