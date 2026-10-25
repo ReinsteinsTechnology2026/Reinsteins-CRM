@@ -19,6 +19,7 @@ import EmployeeTasks from "./pages/Employee/EmployeeTasks";
 // ==========================================
 
 import Login from "./pages/Auth/Login";
+import ChangePassword from "./pages/Auth/ChangePassword";
 import Register from "./pages/Auth/Register";
 
 // ==========================================
@@ -328,6 +329,19 @@ function App() {
         <Route
           path="/:companySlug/login"
           element={<Login />}
+        />
+
+        {/* Mandatory first-login password change. Deliberately NOT behind ProtectedRoute: the user
+            has no session yet, only a challenge from login (see pages/Auth/ChangePassword.jsx).
+            The page itself redirects to login when there is no pending change. */}
+        <Route
+          path="/legacy-change-password"
+          element={<ChangePassword />}
+        />
+
+        <Route
+          path="/:companySlug/change-password"
+          element={<ChangePassword />}
         />
 
         {/* ==================================

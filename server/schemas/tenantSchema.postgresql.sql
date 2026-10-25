@@ -630,6 +630,11 @@ CREATE TABLE "users" (
   -- system_access='super_admin', so granting/promoting a Super Admin
   -- can never accidentally grant this authority.
   "is_system_administrator" boolean NOT NULL DEFAULT FALSE,
+  -- Mandatory password change: TRUE for an account holding an administrator-issued temporary password.
+  -- Cleared by the forced-change flow; password_changed_at (timestamptz, an unambiguous instant)
+  -- rotates older sessions. See server/_migrate_add_must_change_password.js for existing databases.
+  "must_change_password" boolean NOT NULL DEFAULT FALSE,
+  "password_changed_at" timestamptz DEFAULT NULL,
   PRIMARY KEY ("id"),
   CONSTRAINT "employee_id" UNIQUE ("employee_id"),
   CONSTRAINT "email" UNIQUE ("email")

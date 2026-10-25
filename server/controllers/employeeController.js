@@ -501,6 +501,10 @@ const createEmployee = async (req, res) => {
 
     // ======================================
     // HASH PASSWORD
+    //
+    // The administrator-supplied password is a TEMPORARY one: the row is created with
+    // must_change_password = TRUE (see the INSERT below), so the employee has to replace it
+    // at first login (see services/forcedPasswordChangeService.js).
     // ======================================
 
     const hashedPassword =
@@ -565,7 +569,8 @@ const createEmployee = async (req, res) => {
               stipend,
               department_id,
               reporting_manager_id,
-              system_access
+              system_access,
+              must_change_password
             )
             VALUES
             (
@@ -584,7 +589,8 @@ const createEmployee = async (req, res) => {
               ?,
               ?,
               ?,
-              ?
+              ?,
+              TRUE
             )
             RETURNING id
             `,

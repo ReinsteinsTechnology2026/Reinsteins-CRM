@@ -7,6 +7,9 @@ const platformCompanyService = require("../services/platformCompanyService");
 const { getTenantPoolForCompany } = require("../config/tenantConnectionManager");
 const { isValidSlug } = require("../utils/tenantDbName");
 const { UPLOADS_ROOT } = require("../utils/tenantUploadPath");
+const { SCOPES, signChallenge } = require("../utils/passwordChangeChallenge");
+const { readChallenge, applyForcedPasswordChange } = require("../services/forcedPasswordChangeService");
+const { describePasswordPolicy } = require("../utils/passwordPolicy");
 
 // ==========================================
 // TENANT-AWARE AUTH CONTROLLER (Phase 2F)
@@ -34,6 +37,37 @@ const { UPLOADS_ROOT } = require("../utils/tenantUploadPath");
 
 const TENANT_JWT_ISSUER = "groworgs-tenant";
 const TENANT_JWT_AUDIENCE = "groworgs-tenant-user";
+
+const buildTenantSession = (user, company) => ({
+    token: jwt.sign(
+        {
+            userId: user.id,
+            companyId: company.id,
+            companySlug: company.company_slug,
+            type: "tenant_user",
+        },
+        process.env.TENANT_JWT_SECRET,
+        {
+            expiresIn: "8h",
+            issuer: TENANT_JWT_ISSUER,
+            audience: TENANT_JWT_AUDIENCE,
+        }
+    ),
+    user: {
+        id: user.id,
+        name: user.full_name,
+        fullName: user.full_name,
+        employeeId: user.employee_id,
+        role: user.role,
+        systemAccess: user.system_access,
+        designation: user.designation || null,
+    },
+    company: {
+        id: company.id,
+        name: company.company_name,
+        slug: company.company_slug,
+    },
+});
 
 const login = async (req, res) => {
 
@@ -110,7 +144,8 @@ const login = async (req, res) => {
         // authController.js login -- just run against the resolved
         // tenant pool instead of the fixed Reinsteins pool.
         const [users] = await tenantPool.query(
-            `SELECT id, employee_id, full_name, email, password, role, status, employment_status, system_access, designation
+            `SELECT id, employee_id, full_name, email, password, role, status, employment_status, system_access, designation,
+                    must_change_password
              FROM users WHERE employee_id = ? OR LOWER(email) = LOWER(?) LIMIT 1`,
             [loginIdentifier, loginIdentifier]
         );
@@ -134,46 +169,110 @@ const login = async (req, res) => {
             return res.status(401).json({ success: false, message: "Invalid Employee ID or password" });
         }
 
-        // ---------- Issue tenant-aware JWT ----------
-        const token = jwt.sign(
-            {
-                userId: user.id,
-                companyId: company.id,
-                companySlug: company.company_slug,
-                type: "tenant_user",
-            },
-            process.env.TENANT_JWT_SECRET,
-            {
-                expiresIn: "8h",
-                issuer: TENANT_JWT_ISSUER,
-                audience: TENANT_JWT_AUDIENCE,
-            }
-        );
+        // ---------- Mandatory password change ----------
+        // A flagged account (temporary password) gets NO session here -- only a short-lived,
+        // single-purpose challenge that the force-change-password endpoint alone accepts.
+        // tenantProtect rejects that token, so no normal API is reachable until the password
+        // has been replaced. See utils/passwordChangeChallenge.js.
+        if (user.must_change_password === true) {
+            return res.status(200).json({
+                success: true,
+                passwordChangeRequired: true,
+                challengeToken: signChallenge({
+                    scope: SCOPES.TENANT,
+                    userId: user.id,
+                    passwordHash: user.password,
+                    companyId: company.id,
+                    companySlug: company.company_slug,
+                }),
+                passwordPolicy: describePasswordPolicy(),
+                user: { fullName: user.full_name, employeeId: user.employee_id },
+                company: { id: company.id, name: company.company_name, slug: company.company_slug },
+            });
+        }
 
+        // ---------- Issue tenant-aware JWT ----------
         await tenantPool.query(`UPDATE users SET last_login = NOW() WHERE id = ?`, [user.id]);
 
-        return res.status(200).json({
-            success: true,
-            token,
-            user: {
-                id: user.id,
-                name: user.full_name,
-                fullName: user.full_name,
-                employeeId: user.employee_id,
-                role: user.role,
-                systemAccess: user.system_access,
-                designation: user.designation || null,
-            },
-            company: {
-                id: company.id,
-                name: company.company_name,
-                slug: company.company_slug,
-            },
-        });
+        return res.status(200).json({ success: true, ...buildTenantSession(user, company) });
 
     } catch (error) {
         console.error("[tenant-auth] login failed:", error);
         return res.status(500).json({ success: false, message: "Unable to log in." });
+    }
+
+};
+
+// ==========================================
+// FORCED PASSWORD CHANGE
+//
+// POST /api/tenant-auth/:companySlug/force-change-password
+//   Authorization: Bearer <challengeToken from login>
+//   body: { temporaryPassword, newPassword, confirmPassword }
+//
+// Not behind tenantProtect on purpose: the caller has no session yet. Authenticated by the
+// challenge token only (see utils/passwordChangeChallenge.js); the user and the company are
+// taken from that token, and the company in the URL must match it, so a challenge can never
+// be replayed against another tenant. On success a normal session is issued so the user can
+// go straight to their dashboard.
+// ==========================================
+
+const forceChangePassword = async (req, res) => {
+
+    try {
+
+        const companySlug = String(req.params.companySlug || "").trim().toLowerCase();
+
+        if (!isValidSlug(companySlug)) {
+            return res.status(404).json({ success: false, message: "Company not found." });
+        }
+
+        const challenge = readChallenge(req, SCOPES.TENANT);
+
+        if (challenge.error) {
+            return res.status(challenge.error.status).json(challenge.error.body);
+        }
+
+        const company = await platformCompanyService.getCompanyBySlug(companySlug);
+
+        if (
+            !company ||
+            company.status !== "active" ||
+            !platformCompanyService.isCompanyAccessAllowed(company) ||
+            company.id !== challenge.claims.companyId ||
+            company.company_slug !== challenge.claims.companySlug
+        ) {
+            return res.status(401).json({ success: false, message: "Invalid password-change request. Please sign in again.", code: "CHALLENGE_INVALID" });
+        }
+
+        let tenantPool;
+        try {
+            tenantPool = getTenantPoolForCompany(company);
+        } catch (_resolveError) {
+            return res.status(403).json({ success: false, message: "This company is not currently available." });
+        }
+
+        const { temporaryPassword, newPassword, confirmPassword } = req.body || {};
+
+        const result = await applyForcedPasswordChange({
+            pool: tenantPool,
+            claims: challenge.claims,
+            temporaryPassword,
+            newPassword,
+            confirmPassword,
+        });
+
+        if (!result.user) {
+            return res.status(result.status).json(result.body);
+        }
+
+        await tenantPool.query(`UPDATE users SET last_login = NOW() WHERE id = ?`, [result.user.id]);
+
+        return res.status(200).json({ ...result.body, ...buildTenantSession(result.user, company) });
+
+    } catch (error) {
+        console.error("[tenant-auth] force-change-password failed:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to change the password." });
     }
 
 };
@@ -332,6 +431,7 @@ const getCompanyLogo = async (req, res) => {
 
 module.exports = {
     login,
+    forceChangePassword,
     getCompanyInfo,
     getCompanyLogo,
     TENANT_JWT_ISSUER,

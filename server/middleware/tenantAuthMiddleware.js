@@ -4,6 +4,7 @@ const platformCompanyService = require("../services/platformCompanyService");
 const { getTenantPoolForCompany } = require("../config/tenantConnectionManager");
 const { TENANT_JWT_ISSUER, TENANT_JWT_AUDIENCE } = require("../controllers/tenantAuthController");
 const { __runWithTenantContext: runWithTenantContext } = require("../config/db");
+const { checkPasswordSessionState } = require("../utils/passwordSessionState");
 
 // ==========================================
 // TENANT PROTECT (Phase 2F)
@@ -92,7 +93,7 @@ const tenantProtect = async (req, res, next) => {
         }
 
         const [users] = await tenantPool.query(
-            `SELECT id, employee_id, role, status, employment_status, system_access
+            `SELECT id, employee_id, role, status, employment_status, system_access, must_change_password, password_changed_at
              FROM users WHERE id = ? LIMIT 1`,
             [decoded.userId]
         );
@@ -101,6 +102,15 @@ const tenantProtect = async (req, res, next) => {
 
         if (!user || user.status !== "active" || (user.employment_status && user.employment_status !== "active")) {
             return res.status(401).json({ success: false, message: "Account not found or inactive" });
+        }
+
+        // Mandatory password change / credential rotation: a session token that predates the
+        // account being flagged (or the last forced change) is no longer valid. A pending
+        // user only ever holds a challenge token, which fails verification above.
+        const passwordState = checkPasswordSessionState(user, decoded.iat);
+
+        if (!passwordState.allowed) {
+            return res.status(401).json({ success: false, message: passwordState.message, code: passwordState.code });
         }
 
         req.tenantCompany = company;

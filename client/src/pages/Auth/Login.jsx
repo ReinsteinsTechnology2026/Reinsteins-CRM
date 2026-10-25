@@ -17,6 +17,7 @@ import {
   fetchDeployedBuildId,
   reloadForNewBuild,
 } from "../../utils/buildVersion";
+import { storePendingPasswordChange } from "../../utils/passwordChangeFlow";
 
 // ==========================================
 // COMPANY-AWARE LOGIN (Phase 5)
@@ -125,6 +126,40 @@ function Login() {
             password,
           }
         );
+
+      // ======================================
+      // MANDATORY PASSWORD CHANGE
+      // A correct temporary password returns a challenge, NOT a session: keep it under its own
+      // key (never "token"), make sure no stale session is left behind, and go to the change page.
+      // ======================================
+
+      if (response.data.passwordChangeRequired) {
+        if (!response.data.challengeToken) {
+          throw new Error(
+            "Invalid login response"
+          );
+        }
+
+        sessionStorage.removeItem("token");
+        sessionStorage.removeItem("user");
+        sessionStorage.removeItem("company");
+
+        storePendingPasswordChange({
+          challengeToken: response.data.challengeToken,
+          companySlug,
+          employeeId: response.data.user?.employeeId,
+          fullName: response.data.user?.fullName,
+          company: response.data.company || companyInfo,
+          passwordPolicy: response.data.passwordPolicy,
+        });
+
+        navigate(
+          companySlug ? `/${companySlug}/change-password` : "/legacy-change-password",
+          { replace: true }
+        );
+
+        return;
+      }
 
       const {
         token,

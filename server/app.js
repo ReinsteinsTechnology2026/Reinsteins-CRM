@@ -345,12 +345,14 @@ const onlineUsers =
 // of blanket-rejecting them.
 // ==========================================
 
+const { checkPasswordSessionState } = require("./utils/passwordSessionState");
+
 async function authenticateLegacySocket(token) {
 
   const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
   const [users] = await pool.query(
-    `SELECT id, employee_id, full_name, role, system_access, status FROM users WHERE id = ? LIMIT 1`,
+    `SELECT id, employee_id, full_name, role, system_access, status, must_change_password, password_changed_at FROM users WHERE id = ? LIMIT 1`,
     [decoded.id]
   );
 
@@ -358,6 +360,7 @@ async function authenticateLegacySocket(token) {
 
   if (!user) throw new Error("User not found");
   if (user.status !== "active") throw new Error("User account is not active");
+  if (!checkPasswordSessionState(user, decoded.iat).allowed) throw new Error("Password change required");
 
   return {
     socketUser: {
@@ -409,7 +412,7 @@ async function authenticateTenantSocket(token) {
   const tenantPool = getTenantPoolForCompany(company);
 
   const [users] = await tenantPool.query(
-    `SELECT id, employee_id, full_name, role, status, employment_status, system_access
+    `SELECT id, employee_id, full_name, role, status, employment_status, system_access, must_change_password, password_changed_at
      FROM users WHERE id = ? LIMIT 1`,
     [decoded.userId]
   );
@@ -419,6 +422,8 @@ async function authenticateTenantSocket(token) {
   if (!user || user.status !== "active" || (user.employment_status && user.employment_status !== "active")) {
     throw new Error("Account not found or inactive");
   }
+
+  if (!checkPasswordSessionState(user, decoded.iat).allowed) throw new Error("Password change required");
 
   return {
     socketUser: {
