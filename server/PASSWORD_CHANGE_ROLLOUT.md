@@ -92,6 +92,59 @@ psql -d "$PLATFORM_DB_NAME" -Atc "select id, company_slug, status, tenant_db_nam
   (or `[skip]` on later runs).
 - Sign in as a flagged test employee -> "Set Your New Password"; as an admin -> dashboard as before.
 
+## Second step: require the remaining existing accounts (employees, admins, super admins)
+
+The first migration flagged the existing employees **only in the run that created the column**, and left Admin and
+Super Admin accounts alone. `server/_migrate_flag_existing_accounts_password_change.js` flags the accounts that are
+still unflagged -- existing employees, admins and super admins -- in the legacy database and in every registered
+tenant database. It is **manual** (it is not in `deploy.yml`) and run on the production host by an administrator.
+**Platform owners are not included**: they live in `platform_users` and sign in through a separate flow.
+
+Who is flagged (per database): `must_change_password = FALSE` **and** `password_changed_at IS NULL` **and**
+`status <> 'pending'`, in the chosen scope -- **employees** = role `employee` whose `system_access` is not
+admin/super_admin; **admins** = role `admin`, or `system_access` admin/super_admin (a Super Admin can have role
+`employee`). Never touched: accounts already flagged, accounts that changed their password through the forced flow,
+pending self-registrations, and every password hash.
+
+**Limitation -- voluntary changes.** `password_changed_at` is set only by the forced flow. The Settings "change
+password" screen does not record it, so a password somebody chose themselves there looks the same as a temporary one
+and that person is asked once more. If you know who they are, list them with `--skip-employee-ids`.
+
+**1. Dry run (default; writes nothing)** -- on the production host:
+
+```
+cd /var/www/reinsteins-crm
+node server/_migrate_flag_existing_accounts_password_change.js
+```
+
+One line per database (`[dry-run] ... would flag employees: N, admins: M`), then "Dry run only -- nothing was
+written", exit 0. It is also the preflight: every database must have the `users` table, the two columns from the first
+migration, and the privileges needed, or it prints `[FAILED]` and exits 1. Options: `--scope=employees|admins|all`
+(default `all`; flag employees first and admins later if you prefer) and `--skip-employee-ids=RS001,RS007`.
+
+**2. Apply** -- only after reviewing the dry run, outside working hours (flagged users are signed out at their next
+request, administrators included):
+
+```
+node server/_migrate_flag_existing_accounts_password_change.js --apply
+```
+
+Every database must pass the preflight or **nothing is applied**. Databases are then applied one at a time, each in
+one transaction under a lock; the run stops at the first failure (re-run the same command: finished databases are
+skipped). A `[applied]` line per database. **Run-once:** each group (employees, admins) is recorded in the table
+`password_change_rollouts` (with the ids it flagged), in the same transaction; a group with a record is never flagged
+again, even if a flag is cleared by hand later.
+
+**3. Verify** (read-only, per database): `SELECT must_change_password, count(*) FROM users GROUP BY 1;`, and
+`SELECT name, scope, flagged_count, completed_at FROM password_change_rollouts;`. Sign in with a flagged test account:
+"Set Your New Password" on every sign-in until it is changed, then a normal sign-in.
+
+**4. Rollback** -- passwords are never changed, so rollback only clears flags. Per database, to undo exactly this
+step (not the first migration's flags):
+`UPDATE users SET must_change_password = FALSE WHERE password_changed_at IS NULL AND id IN (SELECT unnest(flagged_user_ids) FROM password_change_rollouts);`
+Accounts that already changed their password keep the new one. To allow a re-run afterwards, an administrator would
+also have to delete the matching rows from `password_change_rollouts`; leave them to prevent a second flagging.
+
 ## Rollback and support
 
 - **Reverting the deploy** removes the check. The columns stay and are harmless; passwords are never touched.

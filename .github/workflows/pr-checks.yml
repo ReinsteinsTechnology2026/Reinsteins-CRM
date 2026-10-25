@@ -76,6 +76,7 @@ jobs:
           set -o pipefail
           node --test --test-reporter=spec \
             _test_password_change.js \
+            _test_flag_existing_accounts.js \
             _test_stale_build.js \
             _test_unit_assignment_hierarchy.js \
             _test_unit_shift_defaults.js \
