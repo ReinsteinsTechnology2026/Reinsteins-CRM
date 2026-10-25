@@ -7,6 +7,8 @@ const createEmployee = async () => {
     const employeeId = "EMP001";
     const fullName = "Test Employee";
     const email = "employee@reinsteins.com";
+    // A fixed, well-known TEMPORARY password: the account is created pending, so the employee must
+    // replace it at first login (see services/forcedPasswordChangeService.js).
     const plainPassword = "Employee@123";
 
     const [existingUsers] = await pool.query(
@@ -26,8 +28,8 @@ const createEmployee = async () => {
 
     await pool.query(
       `INSERT INTO users
-       (employee_id, full_name, email, password, role, status)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       (employee_id, full_name, email, password, role, status, must_change_password)
+       VALUES (?, ?, ?, ?, ?, ?, TRUE)`,
       [
         employeeId,
         fullName,

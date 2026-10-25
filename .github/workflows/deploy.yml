@@ -96,6 +96,23 @@ jobs:
           # restart steps run.
           node server/_migrate_add_workitem_assignment.js
 
+          # Mandatory password change. Adds users.must_change_password and
+          # users.password_changed_at to the legacy database and every
+          # registered tenant database, and -- ONLY in the run that first
+          # creates the column, in the same transaction -- flags the existing
+          # employee accounts (role employee; not Admin/Super Admin, not a
+          # pending self-registration) so each must replace their temporary
+          # password at their next login. Later runs find the column and change
+          # nothing, so nobody who already changed their password is flagged
+          # again (the decision is made inside the transaction under a lock, so
+          # an overlapping run cannot re-flag). Reads/writes/logs no password
+          # or hash. A legacy database that does not exist is skipped; any other
+          # failure -- including an unreachable registered tenant database --
+          # exits non-zero. Must run BEFORE the restart below: the new login
+          # code selects these columns. Same `set -e` reasoning as the steps
+          # above. `--dry-run` previews it (never used here).
+          node server/_migrate_add_must_change_password.js
+
           cd client
           npm ci
           VITE_API_URL=https://crm.zioventure.com npm run build

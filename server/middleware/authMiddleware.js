@@ -1,5 +1,8 @@
 const jwt = require("jsonwebtoken");
 
+const pool = require("../config/db");
+const { checkPasswordSessionState } = require("../utils/passwordSessionState");
+
 // ==========================================
 // PROTECT (legacy Reinsteins auth, enhanced -- GrowOrgs Fast
 // Completion Phase, Part 3)
@@ -41,17 +44,40 @@ const protect = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
 
+    let legacyDecoded = null;
+
     try {
       // Phase 14E -- algorithm explicitly pinned (this legacy path
       // never set an issuer/audience, so this is the one meaningful
       // verification tightening available here without changing what
       // a legacy token looks like).
-      const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ["HS256"] });
-      req.user = decoded;
-      return next();
+      legacyDecoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ["HS256"] });
     } catch (_legacyVerifyError) {
       // Not a valid legacy token -- fall through to the tenant-aware
       // attempt below rather than failing immediately.
+    }
+
+    if (legacyDecoded) {
+      // Mandatory password change / credential rotation (see
+      // utils/passwordSessionState.js). One small lookup of the caller's own row; a failure
+      // here is a 401 below, never a silent pass.
+      const [rows] = await pool.query(
+        "SELECT must_change_password, password_changed_at FROM users WHERE id = ? LIMIT 1",
+        [legacyDecoded.id]
+      );
+
+      const passwordState = checkPasswordSessionState(rows[0], legacyDecoded.iat);
+
+      if (!passwordState.allowed) {
+        return res.status(401).json({
+          success: false,
+          message: passwordState.message,
+          code: passwordState.code,
+        });
+      }
+
+      req.user = legacyDecoded;
+      return next();
     }
 
     const { tenantProtect } = require("./tenantAuthMiddleware");

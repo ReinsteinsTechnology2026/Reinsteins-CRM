@@ -36,4 +36,15 @@ function validatePasswordPolicy(password) {
     return { valid: true, message: null };
 }
 
-module.exports = { validatePasswordPolicy };
+// The rules as plain data, so the forced-change page can show exactly what the server enforces
+// (and so a change to the configuration never leaves the screen describing different rules).
+function describePasswordPolicy() {
+    return {
+        minLength: PASSWORD_MIN_LENGTH,
+        requireUppercase: Boolean(PASSWORD_REQUIRE_UPPERCASE),
+        requireLowercase: Boolean(PASSWORD_REQUIRE_LOWERCASE),
+        requireDigit: Boolean(PASSWORD_REQUIRE_DIGIT),
+    };
+}
+
+module.exports = { validatePasswordPolicy, describePasswordPolicy };

@@ -1,6 +1,9 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
+const { SCOPES, signChallenge } = require("../utils/passwordChangeChallenge");
+const { readChallenge, applyForcedPasswordChange } = require("../services/forcedPasswordChangeService");
+const { describePasswordPolicy } = require("../utils/passwordPolicy");
 
 // ==========================================
 // LOGIN
@@ -44,7 +47,8 @@ const login = async (req, res) => {
           status,
           employment_status,
           system_access,
-          project_access_override
+          project_access_override,
+          must_change_password
         FROM users
         WHERE employee_id = ? OR LOWER(email) = LOWER(?)
         LIMIT 1
@@ -100,6 +104,26 @@ const login = async (req, res) => {
         success: false,
         message:
           "Invalid Employee ID or password",
+      });
+    }
+
+    // Mandatory password change: a temporary password buys only a short-lived,
+    // single-purpose challenge -- no session. `protect` rejects that token, so no normal API
+    // is reachable until the password has been replaced (utils/passwordChangeChallenge.js).
+    if (user.must_change_password === true) {
+      return res.status(200).json({
+        success: true,
+        passwordChangeRequired: true,
+        challengeToken: signChallenge({
+          scope: SCOPES.LEGACY,
+          userId: user.id,
+          passwordHash: user.password,
+        }),
+        passwordPolicy: describePasswordPolicy(),
+        user: {
+          fullName: user.full_name,
+          employeeId: user.employee_id,
+        },
       });
     }
 
@@ -592,11 +616,82 @@ const changePassword =
   };
 
 // ==========================================
+// FORCED PASSWORD CHANGE (legacy login)
+//
+// POST /api/auth/force-change-password
+//   Authorization: Bearer <challengeToken from login>
+//   body: { temporaryPassword, newPassword, confirmPassword }
+//
+// Not behind `protect`: the caller has no session yet. Authenticated by the challenge token
+// only; the user comes from that token, never from the body. On success a normal session is
+// issued, exactly as login would have.
+// ==========================================
+
+const forceChangePassword = async (req, res) => {
+  try {
+    const challenge = readChallenge(req, SCOPES.LEGACY);
+
+    if (challenge.error) {
+      return res.status(challenge.error.status).json(challenge.error.body);
+    }
+
+    const { temporaryPassword, newPassword, confirmPassword } = req.body || {};
+
+    const result = await applyForcedPasswordChange({
+      pool,
+      claims: challenge.claims,
+      temporaryPassword,
+      newPassword,
+      confirmPassword,
+    });
+
+    if (!result.user) {
+      return res.status(result.status).json(result.body);
+    }
+
+    const [rows] = await pool.query(
+      `SELECT id, employee_id, full_name, email, role, designation, system_access, project_access_override
+       FROM users WHERE id = ? LIMIT 1`,
+      [result.user.id]
+    );
+    const user = rows[0];
+
+    const token = jwt.sign(
+      { id: user.id, employeeId: user.employee_id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "8h" }
+    );
+
+    await pool.query(`UPDATE users SET last_login = NOW() WHERE id = ?`, [user.id]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Password changed successfully.",
+      token,
+      user: {
+        id: user.id,
+        employeeId: user.employee_id,
+        fullName: user.full_name,
+        email: user.email,
+        designation: user.designation,
+        role: user.role,
+        systemAccess: user.system_access,
+        projectAccessOverride: user.project_access_override,
+      },
+    });
+  } catch (error) {
+    console.error("Force Change Password Error:", error.message);
+    return res.status(500).json({ success: false, message: "Unable to change the password." });
+  }
+};
+
+// ==========================================
 // EXPORT CONTROLLERS
 // ==========================================
 
 module.exports = {
   login,
+  forceChangePassword,
   registerEmployee,
   changePassword,
 };

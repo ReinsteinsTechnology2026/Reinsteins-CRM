@@ -2,7 +2,7 @@ const express = require("express");
 
 const router = express.Router();
 
-const { login, getCompanyInfo, getCompanyLogo } = require("../controllers/tenantAuthController");
+const { login, forceChangePassword, getCompanyInfo, getCompanyLogo } = require("../controllers/tenantAuthController");
 const { tenantProtect } = require("../middleware/tenantAuthMiddleware");
 const { tenantLoginLimiter } = require("../middleware/rateLimiters");
 
@@ -14,6 +14,10 @@ const { tenantLoginLimiter } = require("../middleware/rateLimiters");
 // ==========================================
 
 router.post("/:companySlug/login", tenantLoginLimiter, login);
+
+// Mandatory first-login password change. Authenticated by the challenge token from login,
+// NOT by tenantProtect (there is no session yet); same brute-force limiter as login.
+router.post("/:companySlug/force-change-password", tenantLoginLimiter, forceChangePassword);
 
 // Phase 5 -- public, unauthenticated company branding lookup for the
 // company-aware login page. Read-only, active-companies-only; see
