@@ -3,8 +3,13 @@
 // the part those fakes cannot prove (ALTER ... IF NOT EXISTS, the backfill WHERE, pg_has_role, advisory lock,
 // transactional rollback, real error codes).
 //
+// The second half of the file runs the one-time rollout script (_migrate_flag_existing_accounts_password_change.js)
+// the same way: dry run, apply, run-once protection, rollback, preflight and every account category.
+//
 // SAFETY -- this file only ever talks to a DISPOSABLE server, and refuses everything else before connecting:
-//   * it never reads server/.env or the application's configuration; the server comes ONLY from PG_TEST_* variables;
+//   * the server comes ONLY from PG_TEST_* variables; nothing here builds a connection from the application's
+//     configuration (requiring the migration modules does load server/.env when one exists, which the test never
+//     uses to connect -- it only feeds the "must not match the application's own settings" check below);
 //   * the host must be loopback, the user and the maintenance database must be named wh_ci*, and the variables must
 //     not match the application's own PLATFORM_DB_* / DB_* settings;
 //   * after connecting, EVERY database on the server must be postgres, a template, wh_ci* or a wh_test_* database
@@ -22,6 +27,7 @@ const path = require('node:path');
 const { Pool } = require('pg');
 const { createCompatPool } = require('./config/pgCompat');
 const migration = require('./_migrate_add_must_change_password');
+const rollout = require('./_migrate_flag_existing_accounts_password_change');
 
 const REQUIRED = process.env.PG_TEST_REQUIRED === '1';
 const VARIABLES = ['PG_TEST_HOST', 'PG_TEST_PORT', 'PG_TEST_USER', 'PG_TEST_PASSWORD', 'PG_TEST_ADMIN_DB'];
@@ -340,4 +346,186 @@ test('real PostgreSQL: a missing database is skipped only for the legacy target;
   assert.deepEqual(run, { failures: 1, skipped: 0 });
   assert.deepEqual(await flaggedIds(first.raw), EXPECTED_FLAGGED);
   assert.deepEqual(await flaggedIds(last.raw), EXPECTED_FLAGGED, 'a failing database does not stop the ones after it');
+});
+
+// ================================================================ one-time rollout for existing accounts
+// employee_id, role, system_access, status, already flagged, already changed (password_changed_at set), group
+const ROLLOUT_SEED = [
+  ['EMP1', 'employee', 'employee', 'active', false, false, 'employees'],
+  ['EMP2', 'employee', 'manager', 'active', false, false, 'employees'],
+  ['EMP3', 'employee', 'employee', 'inactive', false, false, 'employees'],
+  ['ADM1', 'admin', 'admin', 'active', false, false, 'admins'],
+  ['SUP1', 'employee', 'super_admin', 'active', false, false, 'admins'], // a Super Admin whose role is 'employee'
+  ['SUP2', 'admin', 'super_admin', 'active', false, false, 'admins'],
+  ['CHG1', 'employee', 'employee', 'active', false, true, null],         // already changed through the forced flow
+  ['CHG2', 'admin', 'admin', 'active', false, true, null],
+  ['FLG1', 'employee', 'employee', 'active', true, false, null],         // already flagged by the first migration
+  ['PEN1', 'employee', 'employee', 'pending', false, false, null],       // pending self-registration
+];
+const inGroup = (group) => ROLLOUT_SEED.filter((row) => row[6] === group).map((row) => row[0]);
+const EMPLOYEES = inGroup('employees');
+const ADMINS = inGroup('admins');
+const FLAGGED_BEFORE = ['FLG1'];
+const sorted = (list) => [...list].sort();
+
+// A database that already has the new columns (the state after the first migration), with every account category.
+async function rolloutDatabase() {
+  const db = await createDatabase();
+  for (const [id, role, access, status, flagged, changed] of ROLLOUT_SEED) {
+    await db.raw.query(
+      `INSERT INTO users (employee_id, full_name, email, password, role, system_access, status, must_change_password, password_changed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $9::boolean THEN now() ELSE NULL END)`,
+      [id, `Test ${id}`, `${id.toLowerCase()}@example.test`, `not-a-real-hash-${id}`, role, access, status, flagged, changed]
+    );
+  }
+  return db;
+}
+const flagged = async (raw) => sorted(await flaggedIds(raw));
+const markerRows = async (raw) => (await raw.query(`SELECT name, scope, flagged_count, flagged_user_ids FROM password_change_rollouts ORDER BY name`)).rows;
+const markerTableAbsent = async (raw) => (await raw.query(`SELECT to_regclass('public.password_change_rollouts') IS NULL AS absent`)).rows[0].absent;
+const userIds = async (raw, employeeIds) => (await raw.query(`SELECT id FROM users WHERE employee_id = ANY($1) ORDER BY id`, [employeeIds])).rows.map((row) => row.id);
+const rolloutRun = (targets, options) => quiet(() => rollout.runRollout(targets, { scope: 'all', skipIds: [], apply: false, ...options }));
+const at = (db, extra = {}) => ({ label: 'test database', getPool: () => db.pool, ...extra });
+
+test('rollout: the dry run counts every category correctly and changes NOTHING, not even the marker table', { skip: SKIP }, async () => {
+  const db = await rolloutDatabase();
+  const before = await snapshot(db.raw);
+
+  const counts = await rollout.preflightDatabase('test database', db.pool, { scope: 'all', skipIds: [] });
+  const result = await rolloutRun([at(db)], { apply: false });
+
+  assert.deepEqual(counts.open, { employees: EMPLOYEES.length, admins: ADMINS.length });
+  assert.deepEqual([result.ok, result.applied], [true, 0]);
+  assert.deepEqual(await snapshot(db.raw), before);
+  assert.equal(await markerTableAbsent(db.raw), true);
+});
+
+test('rollout: apply flags employees, admins and super admins, but not changed, already-flagged or pending accounts, and touches no password', { skip: SKIP }, async () => {
+  const db = await rolloutDatabase();
+  const before = await snapshot(db.raw);
+
+  const result = await rolloutRun([at(db)], { apply: true });
+
+  assert.deepEqual([result.ok, result.applied], [true, 1]);
+  assert.deepEqual(await flagged(db.raw), sorted([...FLAGGED_BEFORE, ...EMPLOYEES, ...ADMINS]));
+
+  // everything except must_change_password is byte-identical (password hashes, password_changed_at, status, roles)
+  const strip = (rows) => rows.map(({ must_change_password, ...rest }) => rest);
+  assert.deepEqual(strip((await snapshot(db.raw)).rows), strip(before.rows));
+
+  // one marker per group, written with the ids it flagged
+  const rows = await markerRows(db.raw);
+  assert.deepEqual(rows.map((row) => [row.name, row.scope, row.flagged_count]), [['existing-admins', 'all', ADMINS.length], ['existing-employees', 'all', EMPLOYEES.length]]);
+  const numeric = (list) => [...list].sort((a, b) => a - b);   // UPDATE ... RETURNING has no guaranteed order
+  assert.deepEqual(numeric(rows[0].flagged_user_ids), await userIds(db.raw, ADMINS));
+  assert.deepEqual(numeric(rows[1].flagged_user_ids), await userIds(db.raw, EMPLOYEES));
+});
+
+test('rollout: a rerun is a no-op -- an administrator who cleared a flag by hand is NOT re-flagged', { skip: SKIP }, async () => {
+  const db = await rolloutDatabase();
+  await rolloutRun([at(db)], { apply: true });
+  await db.raw.query(`UPDATE users SET must_change_password = FALSE WHERE employee_id = 'EMP1'`);
+  const before = await snapshot(db.raw);
+
+  const again = await rolloutRun([at(db)], { apply: true });
+  const dry = await rollout.preflightDatabase('test database', db.pool, { scope: 'all', skipIds: [] });
+
+  assert.deepEqual([again.ok, again.applied], [true, 0]);
+  assert.deepEqual(dry.open, {});
+  assert.deepEqual(dry.already, ['employees', 'admins']);
+  assert.deepEqual(await snapshot(db.raw), before);
+  assert.equal((await markerRows(db.raw)).length, 2);
+});
+
+test('rollout: staging -- employees first, admins later; the finished group is not touched again', { skip: SKIP }, async () => {
+  const db = await rolloutDatabase();
+
+  await rolloutRun([at(db)], { apply: true, scope: 'employees' });
+  assert.deepEqual(await flagged(db.raw), sorted([...FLAGGED_BEFORE, ...EMPLOYEES]));
+
+  await db.raw.query(`UPDATE users SET must_change_password = FALSE WHERE employee_id = 'EMP1'`);
+  const rest = await rolloutRun([at(db)], { apply: true, scope: 'all' });
+
+  assert.equal(rest.ok, true);
+  assert.deepEqual(await flagged(db.raw), sorted([...FLAGGED_BEFORE, 'EMP2', 'EMP3', ...ADMINS]), 'admins are flagged now; EMP1 stays cleared');
+  assert.deepEqual((await markerRows(db.raw)).map((row) => row.name), ['existing-admins', 'existing-employees']);
+});
+
+test('rollout: --skip-employee-ids keeps the listed accounts unflagged', { skip: SKIP }, async () => {
+  const db = await rolloutDatabase();
+
+  await rolloutRun([at(db)], { apply: true, skipIds: ['EMP2', 'ADM1'] });
+
+  assert.deepEqual(await flagged(db.raw), sorted([...FLAGGED_BEFORE, 'EMP1', 'EMP3', 'SUP1', 'SUP2']));
+});
+
+test('rollout: a failure rolls the database back completely (no flags, no marker table); the retry succeeds', { skip: SKIP }, async () => {
+  const db = await rolloutDatabase();
+  await db.raw.query(`
+    CREATE FUNCTION wh_test_block_update() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'blocked by the test trigger'; END $$;
+    CREATE TRIGGER wh_test_block BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION wh_test_block_update();`);
+  const before = await snapshot(db.raw);
+
+  const failed = await rolloutRun([at(db)], { apply: true });
+
+  assert.deepEqual([failed.ok, failed.applied], [false, 0]);
+  assert.deepEqual(await snapshot(db.raw), before);
+  assert.equal(await markerTableAbsent(db.raw), true, 'the marker table was created inside the transaction and rolled back with it');
+
+  await db.raw.query(`DROP TRIGGER wh_test_block ON users`);
+  const retry = await rolloutRun([at(db)], { apply: true });
+  assert.deepEqual([retry.ok, retry.applied], [true, 1]);
+  assert.deepEqual(await flagged(db.raw), sorted([...FLAGGED_BEFORE, ...EMPLOYEES, ...ADMINS]));
+});
+
+test('rollout: ONE database that fails the preflight stops the whole run -- no other database is written', { skip: SKIP }, async () => {
+  const good = await rolloutDatabase();
+  const notMigrated = await oldDatabase({ seed: false });   // the first migration has not run here
+  const missing = compat(newName('_nope'));
+
+  const columns = await rolloutRun([at(good), at(notMigrated, { label: 'old' })], { apply: true });
+  const tenantGone = await rolloutRun([at(good), { label: 'gone', getPool: () => missing }], { apply: true });
+
+  assert.deepEqual([columns.ok, columns.applied, columns.failures], [false, 0, 1]);
+  assert.deepEqual([tenantGone.ok, tenantGone.applied], [false, 0]);
+  assert.deepEqual(await flagged(good.raw), FLAGGED_BEFORE);
+  assert.equal(await markerTableAbsent(good.raw), true);
+});
+
+test('rollout: a database user that cannot UPDATE users fails the preflight and nothing is applied anywhere', { skip: SKIP }, async () => {
+  const good = await rolloutDatabase();
+  const limitedDb = await rolloutDatabase();
+  const role = `wh_ci_readonly_${crypto.randomBytes(4).toString('hex')}`;
+  const password = crypto.randomBytes(12).toString('hex');
+  roles.push(role);
+  await admin.query(`CREATE ROLE ${role} LOGIN PASSWORD '${password}'`);
+  await admin.query(`GRANT CONNECT ON DATABASE ${limitedDb.name} TO ${role}`);
+  await limitedDb.raw.query(`GRANT USAGE ON SCHEMA public TO ${role}; GRANT SELECT ON users TO ${role}`);
+  const limited = compat(limitedDb.name, { user: role, password });
+
+  const result = await rolloutRun([at(good), { label: 'limited', getPool: () => limited }], { apply: true });
+
+  assert.deepEqual([result.ok, result.applied, result.failures], [false, 0, 1]);
+  assert.deepEqual(await flagged(good.raw), FLAGGED_BEFORE);
+  assert.deepEqual(await flagged(limitedDb.raw), FLAGGED_BEFORE);
+});
+
+test('rollout: two overlapping applies flag each account once and leave one marker per group', { skip: SKIP }, async () => {
+  const db = await rolloutDatabase();
+  const second = compat(db.name);
+
+  await Promise.all([rolloutRun([at(db)], { apply: true }), rolloutRun([{ label: 'second', getPool: () => second }], { apply: true })]);
+
+  assert.deepEqual(await flagged(db.raw), sorted([...FLAGGED_BEFORE, ...EMPLOYEES, ...ADMINS]));
+  assert.deepEqual((await markerRows(db.raw)).map((row) => [row.name, row.flagged_count]), [['existing-admins', ADMINS.length], ['existing-employees', EMPLOYEES.length]]);
+});
+
+test('rollout: a legacy database that does not exist is skipped and the others are applied', { skip: SKIP }, async () => {
+  const db = await rolloutDatabase();
+  const missing = compat(newName('_nope'));
+
+  const result = await rolloutRun([{ label: 'legacy database', getPool: () => missing, skipIfMissing: true }, at(db)], { apply: true });
+
+  assert.deepEqual([result.ok, result.applied], [true, 1]);
+  assert.deepEqual(await flagged(db.raw), sorted([...FLAGGED_BEFORE, ...EMPLOYEES, ...ADMINS]));
 });
