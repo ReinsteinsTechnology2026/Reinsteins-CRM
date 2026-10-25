@@ -1,0 +1,121 @@
+name: PR checks
+
+# Checks every pull request that targets main. Separate from deploy.yml on purpose:
+# that workflow deploys to production on a push to main and is not touched here.
+#
+# Safety:
+#   * GitHub-hosted runners only (ubuntu-latest). Pull-request code must never run on the
+#     self-hosted runner, which IS the production server.
+#   * No secrets, no production database, no network access to production. The server tests
+#     use in-memory fakes; nothing here needs a database.
+#   * Read-only token.
+#
+# The database-backed self-tests in server/_test_*.js (tenant-aware login, security hardening,
+# socket isolation, provisioning, ...) are NOT run here: they assume a long-lived development
+# environment (a 37-table legacy database with real accounts, a backend already running on
+# :5000) and trip the hard-coded login rate limiter, so they cannot pass in a clean CI database.
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # The version the code and tests were verified with.
+  NODE_VERSION: "24"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  server-tests:
+    name: Server tests (password change, auth, regression)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+
+      # Dev dependencies are required: jsdom (rendered-page tests) only arrives through the
+      # root devDependency maildev. --ignore-scripts mirrors the deploy (bcrypt ships prebuilt
+      # binaries; no install script is needed).
+      - name: Install server dependencies
+        run: npm ci --ignore-scripts
+
+      # vite, @vitejs/plugin-react, react, react-dom, react-icons for the rendered-page and
+      # production-build tests.
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      # Every server test file that runs without a database. A skipped test means a
+      # prerequisite was missing, so it fails the job instead of passing quietly.
+      - name: Run server tests
+        working-directory: server
+        run: |
+          set -o pipefail
+          node --test --test-reporter=spec \
+            _test_password_change.js \
+            _test_stale_build.js \
+            _test_unit_assignment_hierarchy.js \
+            _test_unit_shift_defaults.js \
+            _test_shift_nav_visibility.js \
+            _test_shift_management_views.js \
+            _test_shift_employee_filter.js \
+            _test_shift_search_follows_view.js \
+            _test_shift_schedule_state.js \
+            _test_shift_page_rendered.js \
+            _test_shift_report.js \
+            _test_portal_design.js \
+            _test_employee_creation_domain_fallback.js \
+            _test_company_logo_upload_error_handling.js \
+            _test_notification_sweep_tenants.js \
+            2>&1 | tee "$RUNNER_TEMP/server-tests.log"
+          if ! grep -Eq 'skipped 0$' "$RUNNER_TEMP/server-tests.log"; then
+            echo "::error::Some server tests were skipped (a prerequisite was not installed)."
+            exit 1
+          fi
+
+  client-build-lint:
+    name: Client lint and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: Lint (oxlint)
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
