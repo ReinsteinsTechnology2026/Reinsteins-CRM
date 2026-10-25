@@ -253,6 +253,31 @@ test('real PostgreSQL: a database that has the flag but not password_changed_at 
   assert.equal((await columnsOf(db.raw)).length, 2);
 });
 
+test('real PostgreSQL: a database that has password_changed_at but not the flag gains the flag, flags exactly the eligible employees, keeps password_changed_at', { skip: SKIP }, async () => {
+  const db = await oldDatabase();
+  await db.raw.query(`ALTER TABLE users ADD COLUMN password_changed_at timestamptz DEFAULT NULL`);
+  await db.raw.query(`UPDATE users SET password_changed_at = '2026-01-02T03:04:05Z' WHERE employee_id = 'E01'`);
+  const changedAt = async () => (await db.raw.query(
+    `SELECT employee_id, password_changed_at FROM users WHERE password_changed_at IS NOT NULL ORDER BY employee_id`)).rows
+    .map((r) => [r.employee_id, r.password_changed_at.toISOString()]);
+  const before = await snapshot(db.raw);
+
+  const dry = await migrate(db.pool, { dryRun: true });
+  assert.deepEqual([dry.action, dry.flagged], ['dry-run', EXPECTED_FLAGGED.length]);
+  assert.deepEqual(await snapshot(db.raw), before, 'the dry run changes nothing');
+
+  const summary = await migrate(db.pool);
+
+  assert.deepEqual([summary.action, summary.flagged], ['migrated', EXPECTED_FLAGGED.length]);
+  assert.deepEqual(await flaggedIds(db.raw), EXPECTED_FLAGGED, 'only E01..E04 are flagged; Admin, Super Admin, role admin and pending are not');
+  const fresh = await createDatabase('_fresh');
+  assert.deepEqual(await columnsOf(db.raw), await columnsOf(fresh.raw));
+  assert.deepEqual(await changedAt(), [['E01', '2026-01-02T03:04:05.000Z']], 'the existing password_changed_at values are left as they were');
+
+  const again = await migrate(db.pool);
+  assert.deepEqual([again.action, again.flagged], ['skipped', 0]);
+});
+
 test('real PostgreSQL: two overlapping runs -- one migrates, the other waits on the advisory lock and then does nothing', { skip: SKIP }, async () => {
   const db = await oldDatabase();
   const second = compat(db.name);

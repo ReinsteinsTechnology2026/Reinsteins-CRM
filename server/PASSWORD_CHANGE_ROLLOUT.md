@@ -21,6 +21,8 @@ This guide is for whoever approves, deploys and supports the change.
 | Account | Behaviour |
 |---|---|
 | Existing employees (role `employee`, including managers, executives, HR, interns) | Flagged **once** by the migration; must change at next sign-in |
+| Existing **inactive** employees (role `employee`, `status` other than `active`/`pending`) | Flagged too; asked to change only if they are reactivated and sign in |
+| Rows whose `status` is NULL | **Not** flagged (`status <> 'pending'` is not true for NULL) |
 | Employees created from now on (Add Employee form, `createEmployee.js`) | Created flagged -- they hold a temporary password |
 | Admin and Super Admin accounts that already exist | **Not** flagged; sign in exactly as before |
 | Pending self-registrations (chose their own password) | Not flagged |
@@ -48,8 +50,11 @@ The deploy (`.github/workflows/deploy.yml`, `set -e`) runs `node server/_migrate
 **after** the other migrations and **before** the client build and the service restart. If it exits non-zero the deploy
 stops and the application is **not** restarted.
 
-The script processes the legacy database (`DB_*` in `server/.env`) and every tenant registered in
-`groworgs_platform_db.companies` (`tenant_db_name`, connected with `PLATFORM_DB_*`). Per database, in one transaction
+The script processes the legacy database (`DB_*` in `server/.env`) and every tenant registered in the platform
+database's `companies` table (`PLATFORM_DB_NAME`; `tenant_db_name`, connected with `PLATFORM_DB_*`). In production
+`DB_NAME` and `PLATFORM_DB_NAME` name the same database, `reinsteins_crm`: the legacy step alters only its `users`
+table and never touches the platform tables there (`companies`, `platform_users`, ...); platform owner accounts live in
+`platform_users` and are never flagged. Each tenant is a separate database with its own `users` table. Per database, in one transaction
 under an advisory lock, it adds `users.must_change_password` and `users.password_changed_at` and -- **only in the run
 that creates the column** -- flags the existing employees. Re-runs find the columns and change nothing, so nobody who
 has already changed their password is flagged again; an overlapping run waits for the lock and then does nothing.
@@ -57,8 +62,10 @@ It never reads, writes or logs a password or hash.
 
 Failure rules: an unreachable or missing **tenant** database, bad credentials, or a permission error **stops the
 deploy**. The one exception is the **legacy** database, which is skipped (with a notice) if it does not exist at all
-or if `DB_NAME` is unset. Production's deploy logs show two registered tenants (`tenant_reinsteins`, `tenant_client`);
-whether the legacy database `reinsteins_workhub` still exists on the host cannot be told from the repository.
+or if `DB_NAME` is unset. Production's deploy logs show two registered tenants (`tenant_reinsteins`, `tenant_client`).
+In production the legacy database is `reinsteins_crm`; `reinsteins_workhub` is its name from before the move to
+PostgreSQL and is still shown in `server/.env.example`. It still serves the unlisted `/legacy-login` route, so it is
+migrated, not skipped.
 
 ## Before approving the merge (read-only, run on the production host by an administrator)
 
@@ -69,12 +76,14 @@ node server/_migrate_add_must_change_password.js --dry-run
 
 The dry run only runs `SELECT`s. For every database it prints what a real run would do (how many accounts would be
 flagged) and fails -- exit code 1 -- on anything that would stop the deploy: a missing or unreachable database, bad
-credentials, or a database user that does not own the `users` table. Expect: one line per database, `exit 0`.
+credentials, or a database user that does not own the `users` table. The ownership check runs only for a database that
+still lacks at least one of the two columns; a database that already has both is reported as `[skip]` without it.
+Expect: one line per database, `exit 0`.
 To see what exists, read-only:
 
 ```
 psql -l                      # add your usual host/user options
-psql -d groworgs_platform_db -Atc "select id, company_slug, status, tenant_db_name from companies order by id"
+psql -d "$PLATFORM_DB_NAME" -Atc "select id, company_slug, status, tenant_db_name from companies order by id"
 ```
 
 ## After the deploy

@@ -882,5 +882,14 @@ test('rollout guide exists and its facts match the code (challenge lifetime, def
   assert.match(doc, /does not own the `users` table/);
   assert.match(doc, /UPDATE users SET must_change_password = FALSE;/);
   assert.match(doc, /no administrator password-reset screen/);
-  assert.match(doc, /legacy database `reinsteins_workhub` still exists on the host cannot be told from the repository/);
+  assert.match(doc, /ownership check runs only for a database that\s+still lacks at least one of the two columns/);
+  // production naming and scope: one database for DB_NAME and PLATFORM_DB_NAME, only `users` is altered
+  assert.match(doc, /In production the legacy database is `reinsteins_crm`; `reinsteins_workhub` is its name from before the move to\s+PostgreSQL/);
+  assert.match(doc, /`DB_NAME` and `PLATFORM_DB_NAME` name the same database, `reinsteins_crm`/);
+  assert.match(doc, /never touches the platform tables there \(`companies`, `platform_users`/);
+  assert.doesNotMatch(doc, /groworgs_platform_db/, 'no database name that does not exist in production');
+  // the backfill WHERE flags inactive employees and, through `status <> 'pending'`, never a NULL status
+  assert.match(migration.BACKFILL_WHERE, /status <> 'pending'/);
+  assert.match(doc, /Existing \*\*inactive\*\* employees .* \| Flagged too/);
+  assert.match(doc, /Rows whose `status` is NULL \| \*\*Not\*\* flagged/);
 });
