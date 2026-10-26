@@ -720,6 +720,7 @@ test('targets: the legacy database comes first only when DB_NAME is set; tenants
   const withLegacy = migration.buildTargets({ legacyPool, legacyDbName: 'reinsteins_workhub', companies, getTenantPool });
   assert.deepEqual(withLegacy.targets.map((t) => t.label), ['legacy database', 'reinsteins (tenant_reinsteins)', 'client (tenant_client)']);
   assert.deepEqual(withLegacy.targets.map((t) => Boolean(t.skipIfMissing)), [true, false, false]);
+  assert.deepEqual(withLegacy.targets.map((t) => t.legacy === true), [true, false, false], 'only the legacy target is marked legacy');
   assert.equal(withLegacy.targets[0].getPool(), legacyPool);
   assert.deepEqual(withLegacy.notices, []);
   withLegacy.targets[1].getPool(); withLegacy.targets[2].getPool();
@@ -869,6 +870,11 @@ test('rollout guide exists and its facts match the code (challenge lifetime, def
   assert.match(doc, /PASSWORD_MIN_LENGTH/);
   // who is flagged -- the same exclusions the migration and the creation code implement
   assert.match(doc, /Admin and Super Admin accounts that already exist \| \*\*Not\*\* flagged/);
+  assert.match(doc, /Admin and Super Admin accounts that already exist \| \*\*Not\*\* flagged by the deploy migration; flagged by the second step/);
+  assert.match(doc, /System Administrator\*\* \(`users\.is_system_administrator = TRUE`, one per database\) \| \*\*Never\*\* flagged/);
+  assert.match(doc, /`existing-employees-v2` \/ `existing-admins-v2`/);
+  assert.match(doc, /`--legacy-without-system-administrator` records the decision that the legacy database has \*\*no exempt\s+account\*\*/);
+  assert.match(doc, /only while that column is \*\*absent\*\*/);
   assert.match(doc, /Pending self-registrations/);
   assert.match(doc, /First admin created by the platform owner/);
   // sessions
