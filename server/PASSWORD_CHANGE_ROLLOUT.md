@@ -24,9 +24,10 @@ This guide is for whoever approves, deploys and supports the change.
 | Existing **inactive** employees (role `employee`, `status` other than `active`/`pending`) | Flagged too; asked to change only if they are reactivated and sign in |
 | Rows whose `status` is NULL | **Not** flagged (`status <> 'pending'` is not true for NULL) |
 | Employees created from now on (Add Employee form, `createEmployee.js`) | Created flagged -- they hold a temporary password |
-| Admin and Super Admin accounts that already exist | **Not** flagged; sign in exactly as before |
+| Admin and Super Admin accounts that already exist | **Not** flagged by the deploy migration; flagged by the second step below |
+| The company's **System Administrator** (`users.is_system_administrator = TRUE`, one per database) | **Never** flagged by either step |
 | Pending self-registrations (chose their own password) | Not flagged |
-| First admin created by the platform owner for a company | Not flagged |
+| First admin created by the platform owner for a company | Not flagged -- it is that company's System Administrator |
 
 ## Sessions are ended at rollout (plan for this)
 
@@ -92,19 +93,39 @@ psql -d "$PLATFORM_DB_NAME" -Atc "select id, company_slug, status, tenant_db_nam
   (or `[skip]` on later runs).
 - Sign in as a flagged test employee -> "Set Your New Password"; as an admin -> dashboard as before.
 
-## Second step: require the remaining existing accounts (employees, admins, super admins)
+## Second step: require the remaining existing accounts (everyone except the System Administrator)
 
 The first migration flagged the existing employees **only in the run that created the column**, and left Admin and
-Super Admin accounts alone. `server/_migrate_flag_existing_accounts_password_change.js` flags the accounts that are
-still unflagged -- existing employees, admins and super admins -- in the legacy database and in every registered
-tenant database. It is **manual** (it is not in `deploy.yml`) and run on the production host by an administrator.
-**Platform owners are not included**: they live in `platform_users` and sign in through a separate flow.
+Super Admin accounts alone. `server/_migrate_flag_existing_accounts_password_change.js` flags **every** account that is
+still unflagged -- employees (including managers, executives such as the CTO, HR, department heads and team leads),
+admins and super admins -- in the legacy database and in every registered tenant database, **except the company's
+designated System Administrator**. It is **manual** (it is not in `deploy.yml`) and run on the production host by an
+administrator. **Platform owners are not included**: they live in `platform_users` and sign in through a separate flow.
 
 Who is flagged (per database): `must_change_password = FALSE` **and** `password_changed_at IS NULL` **and**
-`status <> 'pending'`, in the chosen scope -- **employees** = role `employee` whose `system_access` is not
-admin/super_admin; **admins** = role `admin`, or `system_access` admin/super_admin (a Super Admin can have role
-`employee`). Never touched: accounts already flagged, accounts that changed their password through the forced flow,
-pending self-registrations, and every password hash.
+`status <> 'pending'` **and** `is_system_administrator IS NOT TRUE`, in the chosen scope -- **employees** = role
+`employee` whose `system_access` is not admin/super_admin; **admins** = role `admin`, or `system_access`
+admin/super_admin (a Super Admin can have role `employee`). Never touched: the System Administrator, accounts already
+flagged, accounts that changed their password through the forced flow, pending self-registrations, and every password
+hash.
+
+**The System Administrator** is identified **only** by `users.is_system_administrator = TRUE` -- never by role,
+`system_access`, name or creation order (several accounts can be Super Admins). That column is written only when the
+platform creates a company's first administrator and by `server/_migrate_backfill_system_administrator.js`, and a
+unique index allows at most one per database. The preflight requires the column and **exactly one** such account in
+every database, prints it (`[system-administrator] <database> -- excluded: employee_id ...`), and checks it again inside
+the apply transaction. If a database has no column, none, or more than one, the run fails and **nothing is applied
+anywhere** -- the script never guesses. Designate the account first (for a tenant, the backfill script designates
+Reinsteins' account and prints `[NEEDS DECISION]` for any other tenant).
+
+**The legacy database** has no `is_system_administrator` column, so by default it fails the preflight and blocks the
+whole run. `--legacy-without-system-administrator` records the decision that the legacy database has **no exempt
+account**: its eligible accounts, its admin included, are flagged without the exclusion, and the dry run prints
+`[no-system-administrator] legacy database -- ...`. The option reaches the legacy target only -- every tenant still
+needs exactly one designated System Administrator -- and only while that column is **absent**: it is checked in the
+preflight and again inside the apply transaction, and if the column exists the run refuses. Before applying it,
+make sure nobody but the account holder knows the legacy admin's current password (replace it first if it was ever
+shared or written down); the forced change asks for the current password, so whoever knows it can complete it.
 
 **Limitation -- voluntary changes.** `password_changed_at` is set only by the forced flow. The Settings "change
 password" screen does not record it, so a password somebody chose themselves there looks the same as a temporary one
@@ -120,7 +141,8 @@ node server/_migrate_flag_existing_accounts_password_change.js
 One line per database (`[dry-run] ... would flag employees: N, admins: M`), then "Dry run only -- nothing was
 written", exit 0. It is also the preflight: every database must have the `users` table, the two columns from the first
 migration, and the privileges needed, or it prints `[FAILED]` and exits 1. Options: `--scope=employees|admins|all`
-(default `all`; flag employees first and admins later if you prefer) and `--skip-employee-ids=RS001,RS007`.
+(default `all`; flag employees first and admins later if you prefer), `--skip-employee-ids=RS001,RS007`, and
+`--legacy-without-system-administrator` (see above; give the same options to the dry run and to `--apply`).
 
 **2. Apply** -- only after reviewing the dry run, outside working hours (flagged users are signed out at their next
 request, administrators included):
@@ -131,9 +153,12 @@ node server/_migrate_flag_existing_accounts_password_change.js --apply
 
 Every database must pass the preflight or **nothing is applied**. Databases are then applied one at a time, each in
 one transaction under a lock; the run stops at the first failure (re-run the same command: finished databases are
-skipped). A `[applied]` line per database. **Run-once:** each group (employees, admins) is recorded in the table
-`password_change_rollouts` (with the ids it flagged), in the same transaction; a group with a record is never flagged
-again, even if a flag is cleared by hand later.
+skipped). A `[applied]` line per database. **Run-once:** each group is recorded in the table
+`password_change_rollouts` as `existing-employees-v2` / `existing-admins-v2` (with the ids it flagged), in the same
+transaction; a group with a record is never flagged again, even if a flag is cleared by hand later. The `-v2` names
+belong to the current rules: a record from the earlier rules (`existing-employees` / `existing-admins`, which did not
+exclude the System Administrator) makes the preflight fail, so it can neither skip accounts nor be silently ignored.
+The preflight also fails if an eligible account belongs to neither group.
 
 **3. Verify** (read-only, per database): `SELECT must_change_password, count(*) FROM users GROUP BY 1;`, and
 `SELECT name, scope, flagged_count, completed_at FROM password_change_rollouts;`. Sign in with a flagged test account:

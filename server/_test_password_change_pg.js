@@ -354,6 +354,8 @@ const ROLLOUT_SEED = [
   ['EMP1', 'employee', 'employee', 'active', false, false, 'employees'],
   ['EMP2', 'employee', 'manager', 'active', false, false, 'employees'],
   ['EMP3', 'employee', 'employee', 'inactive', false, false, 'employees'],
+  ['EXE1', 'employee', 'executive', 'active', false, false, 'employees'],  // e.g. the CTO
+  ['TLD1', 'employee', 'team_lead', 'active', false, false, 'employees'],
   ['ADM1', 'admin', 'admin', 'active', false, false, 'admins'],
   ['SUP1', 'employee', 'super_admin', 'active', false, false, 'admins'], // a Super Admin whose role is 'employee'
   ['SUP2', 'admin', 'super_admin', 'active', false, false, 'admins'],
@@ -361,7 +363,10 @@ const ROLLOUT_SEED = [
   ['CHG2', 'admin', 'admin', 'active', false, true, null],
   ['FLG1', 'employee', 'employee', 'active', true, false, null],         // already flagged by the first migration
   ['PEN1', 'employee', 'employee', 'pending', false, false, null],       // pending self-registration
+  ['SYS1', 'admin', 'super_admin', 'active', false, false, null],        // the designated System Administrator
 ];
+const SYSTEM_ADMINISTRATOR = 'SYS1';
+const SYSTEM_ADMINISTRATOR_INDEX = /CREATE UNIQUE INDEX "uq_users_one_system_administrator"[^;]*;/.exec(SCHEMA)?.[0];
 const inGroup = (group) => ROLLOUT_SEED.filter((row) => row[6] === group).map((row) => row[0]);
 const EMPLOYEES = inGroup('employees');
 const ADMINS = inGroup('admins');
@@ -378,6 +383,9 @@ async function rolloutDatabase() {
       [id, `Test ${id}`, `${id.toLowerCase()}@example.test`, `not-a-real-hash-${id}`, role, access, status, flagged, changed]
     );
   }
+  assert.ok(SYSTEM_ADMINISTRATOR_INDEX, 'could not find the System Administrator index in the canonical tenant schema');
+  await db.raw.query(SYSTEM_ADMINISTRATOR_INDEX);
+  await db.raw.query(`UPDATE users SET is_system_administrator = TRUE WHERE employee_id = $1`, [SYSTEM_ADMINISTRATOR]);
   return db;
 }
 const flagged = async (raw) => sorted(await flaggedIds(raw));
@@ -415,7 +423,8 @@ test('rollout: apply flags employees, admins and super admins, but not changed, 
 
   // one marker per group, written with the ids it flagged
   const rows = await markerRows(db.raw);
-  assert.deepEqual(rows.map((row) => [row.name, row.scope, row.flagged_count]), [['existing-admins', 'all', ADMINS.length], ['existing-employees', 'all', EMPLOYEES.length]]);
+  assert.deepEqual(rows.map((row) => [row.name, row.scope, row.flagged_count]), [['existing-admins-v2', 'all', ADMINS.length], ['existing-employees-v2', 'all', EMPLOYEES.length]]);
+  assert.ok(!(await flagged(db.raw)).includes(SYSTEM_ADMINISTRATOR), 'the System Administrator is never flagged');
   const numeric = (list) => [...list].sort((a, b) => a - b);   // UPDATE ... RETURNING has no guaranteed order
   assert.deepEqual(numeric(rows[0].flagged_user_ids), await userIds(db.raw, ADMINS));
   assert.deepEqual(numeric(rows[1].flagged_user_ids), await userIds(db.raw, EMPLOYEES));
@@ -447,8 +456,8 @@ test('rollout: staging -- employees first, admins later; the finished group is n
   const rest = await rolloutRun([at(db)], { apply: true, scope: 'all' });
 
   assert.equal(rest.ok, true);
-  assert.deepEqual(await flagged(db.raw), sorted([...FLAGGED_BEFORE, 'EMP2', 'EMP3', ...ADMINS]), 'admins are flagged now; EMP1 stays cleared');
-  assert.deepEqual((await markerRows(db.raw)).map((row) => row.name), ['existing-admins', 'existing-employees']);
+  assert.deepEqual(await flagged(db.raw), sorted([...FLAGGED_BEFORE, ...EMPLOYEES.filter((id) => id !== 'EMP1'), ...ADMINS]), 'admins are flagged now; EMP1 stays cleared');
+  assert.deepEqual((await markerRows(db.raw)).map((row) => row.name), ['existing-admins-v2', 'existing-employees-v2']);
 });
 
 test('rollout: --skip-employee-ids keeps the listed accounts unflagged', { skip: SKIP }, async () => {
@@ -456,7 +465,7 @@ test('rollout: --skip-employee-ids keeps the listed accounts unflagged', { skip:
 
   await rolloutRun([at(db)], { apply: true, skipIds: ['EMP2', 'ADM1'] });
 
-  assert.deepEqual(await flagged(db.raw), sorted([...FLAGGED_BEFORE, 'EMP1', 'EMP3', 'SUP1', 'SUP2']));
+  assert.deepEqual(await flagged(db.raw), sorted([...FLAGGED_BEFORE, ...[...EMPLOYEES, ...ADMINS].filter((id) => !['EMP2', 'ADM1'].includes(id))]));
 });
 
 test('rollout: a failure rolls the database back completely (no flags, no marker table); the retry succeeds', { skip: SKIP }, async () => {
@@ -517,7 +526,73 @@ test('rollout: two overlapping applies flag each account once and leave one mark
   await Promise.all([rolloutRun([at(db)], { apply: true }), rolloutRun([{ label: 'second', getPool: () => second }], { apply: true })]);
 
   assert.deepEqual(await flagged(db.raw), sorted([...FLAGGED_BEFORE, ...EMPLOYEES, ...ADMINS]));
-  assert.deepEqual((await markerRows(db.raw)).map((row) => [row.name, row.flagged_count]), [['existing-admins', ADMINS.length], ['existing-employees', EMPLOYEES.length]]);
+  assert.deepEqual((await markerRows(db.raw)).map((row) => [row.name, row.flagged_count]), [['existing-admins-v2', ADMINS.length], ['existing-employees-v2', EMPLOYEES.length]]);
+});
+
+test('rollout: a database with no designated System Administrator fails the preflight; nothing is applied anywhere', { skip: SKIP }, async () => {
+  const good = await rolloutDatabase();
+  const undesignated = await rolloutDatabase();
+  await undesignated.raw.query(`UPDATE users SET is_system_administrator = FALSE`);
+  const before = await snapshot(undesignated.raw);
+
+  const result = await rolloutRun([at(good), at(undesignated, { label: 'undesignated' })], { apply: true });
+
+  assert.deepEqual([result.ok, result.applied, result.failures], [false, 0, 1]);
+  assert.deepEqual(await flagged(good.raw), FLAGGED_BEFORE);
+  assert.deepEqual(await snapshot(undesignated.raw), before);
+  assert.equal(await markerTableAbsent(good.raw), true);
+});
+
+// The legacy database as it is in production: the users table without is_system_administrator.
+async function legacyRolloutDatabase() {
+  const db = await rolloutDatabase();
+  await db.raw.query(`ALTER TABLE users DROP COLUMN is_system_administrator`); // drops its unique index with it
+  return db;
+}
+const legacyAt = (db) => ({ label: 'legacy database', getPool: () => db.pool, skipIfMissing: true, legacy: true });
+
+test('rollout: --legacy-without-system-administrator flags the legacy database without an exemption; the tenant still excludes its System Administrator', { skip: SKIP }, async () => {
+  const legacy = await legacyRolloutDatabase();
+  const tenant = await rolloutDatabase();
+
+  const refused = await rolloutRun([legacyAt(legacy), at(tenant)], { apply: true });
+  assert.deepEqual([refused.ok, refused.applied, refused.failures], [false, 0, 1], 'without the option the legacy database blocks the run');
+  assert.deepEqual([await flagged(legacy.raw), await flagged(tenant.raw)], [FLAGGED_BEFORE, FLAGGED_BEFORE]);
+
+  const result = await rolloutRun([legacyAt(legacy), at(tenant)], { apply: true, legacyWithoutSystemAdministrator: true });
+
+  assert.deepEqual([result.ok, result.applied], [true, 2]);
+  assert.deepEqual(await flagged(legacy.raw), sorted([...FLAGGED_BEFORE, ...EMPLOYEES, ...ADMINS, SYSTEM_ADMINISTRATOR]), 'legacy: no account is exempt');
+  assert.deepEqual(await flagged(tenant.raw), sorted([...FLAGGED_BEFORE, ...EMPLOYEES, ...ADMINS]), 'tenant: its System Administrator is not flagged');
+  assert.deepEqual((await markerRows(legacy.raw)).map((row) => [row.name, row.flagged_count]), [['existing-admins-v2', ADMINS.length + 1], ['existing-employees-v2', EMPLOYEES.length]]);
+
+  const again = await rolloutRun([legacyAt(legacy), at(tenant)], { apply: true, legacyWithoutSystemAdministrator: true });
+  assert.deepEqual([again.ok, again.applied], [true, 0], 'run-once still holds');
+});
+
+test('rollout: --legacy-without-system-administrator is refused when the legacy database has an is_system_administrator column', { skip: SKIP }, async () => {
+  const legacy = await rolloutDatabase();   // has the column (and a designated System Administrator)
+  const tenant = await rolloutDatabase();
+  const before = await snapshot(legacy.raw);
+
+  const result = await rolloutRun([legacyAt(legacy), at(tenant)], { apply: true, legacyWithoutSystemAdministrator: true });
+
+  assert.deepEqual([result.ok, result.applied, result.failures], [false, 0, 1]);
+  assert.deepEqual(await snapshot(legacy.raw), before);
+  assert.deepEqual(await flagged(tenant.raw), FLAGGED_BEFORE);
+  assert.equal(await markerTableAbsent(tenant.raw), true);
+});
+
+test('rollout: a marker from the earlier rules fails the preflight instead of closing a group', { skip: SKIP }, async () => {
+  const db = await rolloutDatabase();
+  await db.raw.query(`CREATE TABLE password_change_rollouts (name varchar(100) PRIMARY KEY, scope varchar(20) NOT NULL,
+    completed_at timestamptz NOT NULL DEFAULT now(), flagged_count integer NOT NULL, flagged_user_ids integer[] NOT NULL)`);
+  await db.raw.query(`INSERT INTO password_change_rollouts (name, scope, flagged_count, flagged_user_ids) VALUES ('existing-employees', 'employees', 0, '{}')`);
+
+  const result = await rolloutRun([at(db)], { apply: true });
+
+  assert.deepEqual([result.ok, result.applied, result.failures], [false, 0, 1]);
+  assert.deepEqual(await flagged(db.raw), FLAGGED_BEFORE);
 });
 
 test('rollout: a legacy database that does not exist is skipped and the others are applied', { skip: SKIP }, async () => {
