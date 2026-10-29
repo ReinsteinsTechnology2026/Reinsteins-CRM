@@ -1,6 +1,6 @@
 const pool = require("../config/db");
 const { getDirectReportRows } = require("../services/organizationService");
-const { isWeekendDate, computeDefaultOffDates } = require("../utils/shiftDefaults");
+const { isWeekendDate, computeDefaultOffDates, isRealCalendarDate } = require("../utils/shiftDefaults");
 const { currentShiftRoom, currentUserRoom } = require("../utils/socketRooms");
 
 // ==========================================
@@ -281,6 +281,16 @@ const getShifts = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "startDate must not be after endDate.",
+            });
+        }
+
+        // An impossible calendar date such as 2026-02-31 is a 400 here instead of a database
+        // error. There is deliberately NO maximum length: the Admin page limits its own Custom
+        // range to 92 days in the client, but other consumers of this endpoint are not known.
+        if (!isRealCalendarDate(startDate) || !isRealCalendarDate(endDate)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid date range. Use YYYY-MM-DD for startDate and endDate.",
             });
         }
 

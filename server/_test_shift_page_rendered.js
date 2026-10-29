@@ -67,6 +67,7 @@ describe('rendered Shift Management page (real page + real helpers, mocked netwo
     for (const rel of [
       'pages/Admin/AdminShiftManagement.jsx', 'pages/Admin/AdminShiftManagement.css',
       'components/EmployeeNameplate.jsx', 'components/EmployeeNameplate.css', 'components/TimeInput12h.jsx',
+      'components/MonthYearPicker.jsx', 'components/MonthYearPicker.css',
       'utils/timeFormat.js', 'utils/shiftViews.js', 'utils/shiftScheduleState.js',
     ]) copy(client(rel), `src/${rel}`);
 
@@ -293,6 +294,107 @@ describe('rendered Shift Management page (real page + real helpers, mocked netwo
       assert.deepEqual(r.adminActions, ['Copy Previous Week (All Employees)', 'Manage Employee Schedule'], 'both admin actions kept');
       assert.equal(r.actionsOutsidePanel, true);
       assert.deepEqual(r.errors.map((e) => e.replace(/:.*$/, '')), ['Download shift report error'], 'only the deliberately forced failure is logged');
+    });
+  });
+
+  test('j. Month opens a month/year picker; choosing a month updates the view and closes it (mouse, keyboard, Esc, outside click)', () => {
+    everyZone(({ monthPicker: m }, tz) => {
+      assert.equal(m.closedAtStart, true, tz);
+      // clicking Month switches to the Month view AND opens the picker on the month being shown
+      assert.equal(m.opened.open, true, `${tz}: opened by the Month button`);
+      assert.equal(m.opened.activeView, 'Month'); assert.equal(m.opened.range, 'October 2026');
+      assert.equal(m.opened.year, 2026); assert.equal(m.opened.options, 12);
+      assert.deepEqual(m.opened.selected, ['October 2026']); assert.deepEqual(m.opened.current, ['October 2026'], 'today\'s month is marked');
+      assert.equal(m.opened.expanded, 'true'); assert.equal(m.opened.dateInput, false, 'no "any date in the month" box in Month view any more');
+      assert.equal(m.opened.focusOnSelected, 'October 2026', 'focus moves into the picker, onto the chosen month');
+      assert.deepEqual([m.opened.call.startDate, m.opened.call.endDate], ['2026-10-01', '2026-10-31'], tz);
+      // arrow keys move around the 3-column grid: Right = next month, Up = three months back
+      assert.deepEqual(m.arrows, { afterRight: 'November 2026', afterUp: 'August 2026' }, tz);
+      // another year: the chosen month is marked only in its own year
+      assert.deepEqual(m.otherYear, { year: 2028, selected: 0 }, tz);
+      // choosing February 2028 (a leap year) updates the schedule, closes the picker, returns focus to the Month button
+      assert.equal(m.afterPick.open, false, `${tz}: closes after a month is chosen`);
+      assert.equal(m.afterPick.range, 'February 2028'); assert.equal(m.afterPick.headerDates.length, 29, 'leap February');
+      assert.equal(m.afterPick.headerDates[0], '2028-02-01'); assert.equal(m.afterPick.headerDates[28], '2028-02-29');
+      assert.equal(m.afterPick.activeView, 'Month');
+      assert.deepEqual([m.afterPick.call.startDate, m.afterPick.call.endDate], ['2028-02-01', '2028-02-29'], tz);
+      assert.equal(m.afterPick.focusBackOnMonthButton, true);
+      // reopen / toggle / Escape / click outside / Previous-Next / leaving Month
+      assert.equal(m.reopened, true); assert.deepEqual(m.reopenedSelected, ['February 2028']);
+      assert.equal(m.toggledClosed, true); assert.equal(m.escClosed, true, `${tz}: Esc closes`); assert.equal(m.outsideClosed, true, `${tz}: outside click closes`);
+      assert.deepEqual(m.stepClosed, { closed: true, range: 'March 2028' });
+      assert.deepEqual(m.weekClosed, { closed: true, activeView: 'Week', dateInput: true }, 'Week keeps its date picker');
+      // the arrows stop at the supported years
+      assert.deepEqual(m.maxYear, { year: 2100, nextDisabled: true }, tz); assert.deepEqual(m.minYear, { year: 2000, prevDisabled: true }, tz);
+      assert.deepEqual(m.errors, [], `${tz}: no React errors`);
+    });
+  });
+
+  test('k. Custom range: Start/End dates drive the real request; invalid or oversized ranges show a message and call nothing', () => {
+    everyZone(({ customRange: c }, tz) => {
+      // entering Custom range starts from what was on screen (this week) and drops the single-date picker and Previous/Next
+      assert.equal(c.entered.activeView, 'Custom range', tz);
+      assert.deepEqual([c.entered.start, c.entered.end], ['2026-10-19', '2026-10-25'], 'prefilled with the visible week');
+      assert.equal(c.entered.count, '7 days'); assert.equal(c.entered.prevNext, 0, 'no Previous/Next for a custom range');
+      assert.equal(c.entered.dateInput, false); assert.equal(c.entered.startPicker, 'date'); assert.equal(c.entered.pickerOpen, false);
+      // one note line under the inputs: the limit while usable; the Employee control is captioned like the other filters
+      assert.equal(c.entered.hint, 'Up to 92 days', tz); assert.equal(c.entered.message, null); assert.equal(c.entered.notes, 1);
+      assert.equal(c.entered.employeeCaption, 'Employee');
+      assert.deepEqual(c.entered.headerDates, WEEK, tz);
+      // copy previous week is disabled with the reason shown
+      assert.equal(c.entered.copyDisabled, true);
+      assert.match(c.entered.copyHint, /Copy Previous Week works on one week at a time\. Switch to Day, Week or Month view/);
+      // a 91-day range: ONE request for exactly those dates, every date a column, data on the right date
+      assert.deepEqual([c.threeMonths.call.startDate, c.threeMonths.call.endDate, c.threeMonths.call.userId], ['2026-09-01', '2026-11-30', undefined], tz);
+      assert.equal(c.threeMonths.headerDates.length, 91, tz);
+      assert.equal(c.threeMonths.firstHeader, '2026-09-01'); assert.equal(c.threeMonths.lastHeader, '2026-11-30');
+      assert.equal(c.threeMonths.count, '91 days'); assert.match(c.threeMonths.range, /^1 Sep\w* 2026 - 30 Nov 2026$/);
+      assert.equal(c.threeMonths.asha21, '09:00 AM - 06:00 PM', `${tz}: data lands on the right date`);
+      assert.deepEqual(c.threeMonths.rows, ALL_ROWS);
+      // the limit: 92 days inclusive is fine, 93 is not and never reaches the API
+      assert.deepEqual([c.day92.call.startDate, c.day92.call.endDate], ['2026-01-01', '2026-04-02'], tz);
+      assert.equal(c.day92.headerDates.length, 92); assert.equal(c.day92.count, '92 days'); assert.equal(c.day92.message, null);
+      assert.equal(c.day93.calls, c.day93.callsBefore, `${tz}: 93 days sent no request`);
+      assert.equal(c.day93.message, 'That range is 93 days. Choose at most 92 days (about 3 months).'); assert.equal(c.day93.messageRole, 'alert');
+      assert.equal(c.day93.prompt, true); assert.equal(c.day93.table, false); assert.equal(c.day93.rows.length, 0, 'no stale rows'); assert.equal(c.day93.invalidInputs, 2);
+      assert.equal(c.day93.copyDisabled, true); assert.equal(c.day93.count, null);
+      // dates ARE present but unusable: the caption says so (not "No dates selected"); the message sits directly under the inputs and replaces the hint
+      assert.equal(c.day93.range, 'Dates not valid', tz); assert.equal(c.day93.messageBeneathInputs, true, `${tz}: message is attached to the Start/End inputs`);
+      assert.equal(c.day93.hint, null); assert.equal(c.day93.notes, 1, 'one note line, never both');
+      // reversed, one date missing, both missing: a message each, no request
+      assert.equal(c.reversed.message, 'The start date cannot be after the end date.'); assert.equal(c.reversed.calls, c.reversed.callsBefore, tz);
+      assert.equal(c.reversed.range, 'Dates not valid'); assert.equal(c.reversed.messageBeneathInputs, true);
+      assert.equal(c.missingEnd.message, 'Choose an end date.'); assert.equal(c.missingEnd.messageRole, 'status'); assert.equal(c.missingEnd.calls, c.reversed.calls);
+      assert.equal(c.missingEnd.range, 'Choose both dates', 'one date is genuinely missing'); assert.equal(c.missingEnd.messageBeneathInputs, true);
+      assert.equal(c.missingBoth.message, 'Choose a start date and an end date.'); assert.equal(c.missingBoth.calls, c.reversed.calls);
+      assert.equal(c.missingBoth.range, 'No dates selected', 'both dates are genuinely missing'); assert.equal(c.missingBoth.messageBeneathInputs, true);
+      assert.equal(c.reconnectWhileInvalid.callsAfter, c.reconnectWhileInvalid.callsBefore, `${tz}: a socket reconnect does not request an invalid range`);
+      assert.deepEqual(c.copyClick, { calls: c.reconnectWhileInvalid.callsAfter, bulk: 0 }, 'the disabled Copy button does nothing');
+      // fixing the range makes exactly one request
+      assert.equal(c.fixed.requestsMade, 1, tz);
+      assert.deepEqual([c.fixed.call.startDate, c.fixed.call.endDate], ['2026-05-01', '2026-05-10']);
+      assert.equal(c.fixed.headerDates.length, 10); assert.equal(c.fixed.count, '10 days'); assert.equal(c.fixed.message, null);
+      assert.equal(c.fixed.hint, 'Up to 92 days', 'the note goes back to the limit once the range is usable'); assert.equal(c.fixed.notes, 1);
+      assert.deepEqual(c.singleDay.headerDates, ['2026-05-05']); assert.equal(c.singleDay.count, '1 day'); assert.match(c.singleDay.range, /^5 May 2026$/);
+      // employee filter inside a custom range: server-side userId, same dates; clearing keeps the range
+      assert.equal(c.filtered.chip, 'Filtered: Asha Rao (RS002)', tz);
+      assert.deepEqual([c.filtered.call.startDate, c.filtered.call.endDate, c.filtered.call.userId], ['2026-05-01', '2026-05-10', 2]);
+      assert.deepEqual(c.filtered.rows, ['Asha RaoEngineer']); assert.equal(c.filtered.headerDates.length, 10);
+      assert.deepEqual([c.cleared.call.startDate, c.cleared.call.endDate, c.cleared.call.userId], ['2026-05-01', '2026-05-10', undefined]);
+      assert.equal(c.cleared.chip, null); assert.deepEqual(c.cleared.rows, ALL_ROWS);
+      // live updates only inside the range
+      assert.equal(c.liveInside, '11:00 AM - 08:00 PM', tz);
+      assert.equal(c.liveOutside.sameColumns, true); assert.equal(c.liveOutside.cell, null, 'a date outside the range gets no column');
+      // a slow answer for a range that has since become invalid is never shown
+      assert.deepEqual(c.staleAfterInvalid, { prompt: true, table: false, loading: false }, `${tz}: the late answer was dropped`);
+      // leaving Custom range: the month/week it starts in, the first day for Day; the dates are kept when coming back
+      assert.equal(c.toMonth.range, 'May 2026', tz); assert.deepEqual([c.toMonth.call.startDate, c.toMonth.call.endDate], ['2026-05-01', '2026-05-31']);
+      assert.equal(c.toMonth.pickerOpen, true, 'Month opens its picker');
+      assert.deepEqual([c.back.start, c.back.end], ['2026-05-01', '2026-05-10'], 'custom dates kept');
+      assert.deepEqual([c.back.call.startDate, c.back.call.endDate], ['2026-05-01', '2026-05-10']);
+      assert.deepEqual(c.toDay.headerDates, ['2026-05-01'], `${tz}: Day lands on the custom range's first day (today is outside it)`);
+      assert.deepEqual(c.toWeek.headerDates, ['2026-04-27', '2026-04-28', '2026-04-29', '2026-04-30', '2026-05-01', '2026-05-02', '2026-05-03'], tz);
+      assert.deepEqual(c.errors, [], `${tz}: no React errors`);
     });
   });
 

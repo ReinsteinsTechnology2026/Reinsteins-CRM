@@ -200,11 +200,42 @@
     gap:10px;
 }
 
+/* Captioned controls sit on ONE caption line: items start at the top, every caption has the same
+   height and gap, and every control is 36px tall, so View / Showing / Start / End / Employee line up. */
 .shift-toolbar-row{
     display:flex;
-    align-items:center;
+    align-items:flex-start;
     gap:10px 14px;
     flex-wrap:wrap;
+}
+
+/* the second row: the admin actions, right-aligned under the filters */
+.shift-toolbar-actions{
+    align-items:center;
+    justify-content:flex-end;
+}
+
+/* a captioned control: a small label above the control, so every filter says what it is */
+.shift-field{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    min-width:0;
+}
+
+.shift-field-label,
+.shift-date-field > span{
+    font-size:11px;
+    font-weight:600;
+    line-height:14px;
+    letter-spacing:0.02em;
+    color:var(--text-secondary);
+}
+
+/* the view switch; the month/year popover is positioned against it */
+.shift-view-switch{
+    position:relative;
+    display:inline-flex;
 }
 
 .shift-view-toggle,
@@ -256,15 +287,21 @@
     padding:0 12px;
 }
 
+/* 28px buttons + 3px padding + 1px border on each side = the same 36px as the other toolbar controls */
+.shift-toolbar .shift-view-toggle-button{
+    height:28px;
+}
+
 .shift-date-field{
     display:flex;
     flex-direction:column;
-    gap:1px;
+    gap:4px;
     font-size:11px;
     color:var(--text-secondary);
 }
 
-.shift-date-input{
+.shift-date-input,
+.shift-range-input{
     height:36px;
     border:1px solid var(--border);
     border-radius:10px;
@@ -274,7 +311,65 @@
     font-size:13px;
 }
 
-.shift-find-button{
+/* Custom range: Start date + End date, with ONE note line directly beneath them (the limit while the
+   range is usable, the reason once it is not) -- so a message is always next to the inputs it is about,
+   at every width, and the toolbar does not change height when the message appears. */
+.shift-range-group{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    min-width:0;
+}
+
+.shift-range-fields{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.shift-range-note{
+    margin:0;
+    min-height:18px;
+    font-size:12px;
+    line-height:18px;
+}
+
+.shift-range-input[aria-invalid="true"]{
+    border-color:var(--danger);
+}
+
+.shift-range-count{
+    display:inline-flex;
+    align-items:center;
+    height:24px;
+    padding:0 10px;
+    border-radius:999px;
+    background:var(--card-light);
+    border:1px solid var(--border);
+    font-size:12px;
+    font-weight:600;
+    color:var(--text-secondary);
+}
+
+.shift-range-hint{
+    color:var(--text-secondary);
+}
+
+.shift-range-message{
+    font-size:13px;
+    font-weight:600;
+    color:var(--danger);
+}
+
+.shift-copy-hint{
+    margin:0;
+    font-size:12px;
+    color:var(--text-secondary);
+}
+
+/* Employee: captioned like the other filters; pushed to the right edge of the row when there is room */
+.shift-find-field{
     margin-left:auto;
 }
 
@@ -472,6 +567,12 @@
         align-items:stretch;
     }
 
+    /* The header is a COLUMN here, so the title's base `flex: 1 1 280px` would make its box 280px TALL
+       (a ~230px blank gap under the text). Size it to its content. */
+    .shift-management-title{
+        flex:0 0 auto;
+    }
+
     .shift-toolbar-row{
         flex-direction:column;
         align-items:stretch;
@@ -485,8 +586,12 @@
         justify-content:space-between;
     }
 
-    .shift-find-button{
+    .shift-find-field{
         margin-left:0;
+    }
+
+    .shift-find-field .shift-find-button{
+        width:100%;
         justify-content:center;
     }
 
@@ -496,8 +601,26 @@
         gap:8px;
     }
 
-    .shift-date-field .shift-date-input{
+    .shift-date-field .shift-date-input,
+    .shift-date-field .shift-range-input{
         flex:1;
+    }
+
+    .shift-range-fields{
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .shift-range-fields .shift-date-field span{
+        min-width:72px;
+    }
+
+    .shift-view-switch{
+        display:flex;
+    }
+
+    .shift-view-toggle{
+        flex-wrap:wrap;
     }
 
     .shift-finder-day{

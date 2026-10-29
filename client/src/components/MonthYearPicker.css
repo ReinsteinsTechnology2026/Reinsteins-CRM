@@ -1,0 +1,92 @@
+/* Month / year picker popover (components/MonthYearPicker.jsx). Colours and radius come from the
+   portal's shared variables, so it follows the light and dark themes. */
+
+.shift-month-picker{
+    position:absolute;
+    top:calc(100% + 6px);
+    left:0;
+    z-index:30;
+    width:264px;
+    max-width:calc(100vw - 48px);
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:12px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.shift-month-picker-year{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+}
+
+.shift-month-picker-year-label{
+    font-size:15px;
+    font-weight:700;
+    color:var(--text);
+}
+
+.shift-month-picker-step{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:32px;
+    height:32px;
+    background:var(--card-light);
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    cursor:pointer;
+}
+
+.shift-month-picker-step:hover:not(:disabled){
+    background:var(--hover);
+}
+
+.shift-month-picker-step:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+}
+
+.shift-month-picker-grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:6px;
+}
+
+.shift-month-option{
+    height:40px;
+    background:var(--card-light);
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background 0.15s ease, color 0.15s ease;
+}
+
+.shift-month-option:hover{
+    background:var(--hover);
+}
+
+/* the current calendar month, so "today" is findable while browsing */
+.shift-month-option.current{
+    border-color:var(--primary);
+}
+
+.shift-month-option.selected{
+    background:var(--primary);
+    border-color:var(--primary);
+    color:#fff;
+}
+
+.shift-month-picker button:focus-visible{
+    outline:2px solid var(--primary);
+    outline-offset:2px;
+}

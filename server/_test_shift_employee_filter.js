@@ -162,7 +162,7 @@ test('MOCKED validation unchanged: a non-numeric userId is rejected and filterin
 // ---- page wiring (static) ----
 test('page wiring: the filter is state independent of the view; search, picker, chip and table are all tied to it', () => {
     const state = read('client/src/utils/shiftScheduleState.js');
-    assert.match(page, /const \{ view, anchor, employee: selectedEmployee, searchOpen \} = schedule/);
+    assert.match(page, /const \{ view, anchor, custom, employee: selectedEmployee, searchOpen \} = schedule/);
     assert.match(page, /const selectedEmployeeId = selectedEmployee \? selectedEmployee\.userId : null/);
     // view switching must not touch the filter (reducer: setView keeps `employee`)
     const setView = state.slice(state.indexOf('case "setView"'), state.indexOf('case "step"'));
@@ -170,7 +170,7 @@ test('page wiring: the filter is state independent of the view; search, picker, 
     // server-side filter through the existing API, refetched when the employee changes
     assert.match(page, /buildShiftQuery\(wanted, wantedEmployeeId\)/);
     assert.match(page, /getShifts\(wanted\.start, wanted\.end, extraParams\)/);
-    assert.match(page, /\[range\.start, range\.end, selectedEmployeeId\]/);
+    assert.match(page, /\[range\.valid, range\.start, range\.end, selectedEmployeeId\]/);
     // rows, live merge
     assert.match(page, /buildScheduleRows\(\{ employees, shifts, currentUserId: currentUser\?\.id, selectedEmployee \}\)/);
     assert.match(page, /shouldMergeLiveUpdate\(payload, weekDates, selectedEmployeeId\)/);

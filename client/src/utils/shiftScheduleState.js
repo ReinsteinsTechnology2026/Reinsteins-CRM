@@ -11,9 +11,14 @@
 import {
     VIEW_DAY,
     VIEW_WEEK,
+    VIEW_MONTH,
+    VIEW_RANGE,
+    MIN_PICKER_YEAR,
+    MAX_PICKER_YEAR,
     anchorForView,
     anchorFromPickerValue,
     getViewRange,
+    parseIsoDate,
     shiftAnchor,
 } from "./shiftViews.js"; // explicit extension so plain Node ESM (the tests) can load this file too
 
@@ -21,6 +26,9 @@ export function initialScheduleState(today = new Date()) {
     return {
         view: VIEW_WEEK,
         anchor: today,
+        // The Custom range view's dates ("YYYY-MM-DD", or "" while not chosen). Kept even when the
+        // user switches to another view and back.
+        custom: { start: "", end: "" },
         employee: null, // { userId, fullName, employeeId, designation } or null = everyone
         searchOpen: false,
     };
@@ -28,13 +36,41 @@ export function initialScheduleState(today = new Date()) {
 
 export function scheduleReducer(state, action) {
     switch (action.type) {
-        case "setView":
+        case "setView": {
             if (action.view === state.view) return state;
-            return {
-                ...state,
-                view: action.view,
-                anchor: anchorForView(action.view, state.anchor, getViewRange(state.view, state.anchor), action.today || new Date()),
-            };
+
+            const current = getViewRange(state.view, state.anchor, state.custom);
+            let custom = state.custom;
+            let anchor = state.anchor;
+
+            if (current.valid) {
+                // Day lands on today when today is inside the range being left, otherwise on its first day.
+                anchor = anchorForView(action.view, state.anchor, current, action.today || new Date());
+                // Leaving a custom range for Week/Month shows the week/month it STARTS in, not an old anchor.
+                if (state.view === VIEW_RANGE && action.view !== VIEW_DAY) anchor = parseIsoDate(current.start);
+            }
+
+            // First time in Custom range: start from what was on screen, so the dates are never blank.
+            if (action.view === VIEW_RANGE && !custom.start && !custom.end && current.valid) {
+                custom = { start: current.start, end: current.end };
+            }
+
+            return { ...state, view: action.view, anchor, custom };
+        }
+        case "setCustomRange": {
+            // Only the keys given change; anything that is not a string counts as "not chosen".
+            const next = { ...state.custom };
+            if ("start" in action) next.start = typeof action.start === "string" ? action.start : "";
+            if ("end" in action) next.end = typeof action.end === "string" ? action.end : "";
+            return { ...state, custom: next };
+        }
+        case "pickMonth": {
+            // The month/year picker: shows that whole month. An out-of-range pick never moves the range.
+            const year = Number(action.year);
+            const month = Number(action.month);
+            const ok = Number.isInteger(year) && year >= MIN_PICKER_YEAR && year <= MAX_PICKER_YEAR && Number.isInteger(month) && month >= 0 && month <= 11;
+            return ok ? { ...state, view: VIEW_MONTH, anchor: new Date(year, month, 1) } : state;
+        }
         case "step":
             return { ...state, anchor: shiftAnchor(state.view, state.anchor, action.direction) };
         case "pickDate": {
