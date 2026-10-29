@@ -31,6 +31,16 @@ function computeDefaultOffDates(startDate, endDate) {
     return dates;
 }
 
+// Is this "YYYY-MM-DD" string (already pattern-checked) a date that exists on the calendar?
+// "2026-02-31" and "2026-13-01" match the pattern but are not dates. Pure UTC arithmetic,
+// so the answer is the same in every server time zone.
+function isRealCalendarDate(value) {
+    const [y, m, d] = String(value).split("-").map(Number);
+    const date = new Date(Date.UTC(y, m - 1, d));
+
+    return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+}
+
 // ==========================================
 // REAL-TIME RECIPIENT SCOPING
 // Mirrors shiftScheduleController.js's getShiftVisibilityScope/
@@ -89,6 +99,7 @@ module.exports = {
     DEFAULT_WEEKEND_STATUS,
     isWeekendDate,
     computeDefaultOffDates,
+    isRealCalendarDate,
     isAdminTierUser,
     isManagerTierUser,
     resolveShiftRoomPlan,

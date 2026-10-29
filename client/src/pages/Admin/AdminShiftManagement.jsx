@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { FaCalendarWeek, FaChevronLeft, FaChevronRight, FaTrash, FaTimes, FaUserShield, FaCopy, FaSearch, FaFileExcel, FaDownload } from "react-icons/fa";
 import { toast } from "react-toastify";
 
@@ -13,6 +13,7 @@ import {
     exportShiftReport,
 } from "../../services/shiftScheduleService";
 import EmployeeNameplate from "../../components/EmployeeNameplate";
+import MonthYearPicker from "../../components/MonthYearPicker";
 import TimeInput12h from "../../components/TimeInput12h";
 import { formatTime12h, formatTimeRange12h, calculateShiftDuration } from "../../utils/timeFormat";
 import socket, { connectSocket } from "../../services/socket";
@@ -20,6 +21,8 @@ import {
     VIEW_DAY,
     VIEW_WEEK,
     VIEW_MONTH,
+    VIEW_RANGE,
+    MAX_CUSTOM_RANGE_DAYS,
     NAV_LABELS,
     PICKER_LABELS,
     toIsoDate,
@@ -57,7 +60,11 @@ const VIEW_OPTIONS = [
     { value: VIEW_DAY, label: "Day" },
     { value: VIEW_WEEK, label: "Week" },
     { value: VIEW_MONTH, label: "Month" },
+    { value: VIEW_RANGE, label: "Custom range" },
 ];
+
+// "Copy Previous Week" is defined for one week at a time, which a custom range is not.
+const COPY_WEEK_DISABLED_REASON = "Copy Previous Week works on one week at a time. Switch to Day, Week or Month view to use it.";
 
 // Reports panel: only the period KIND is chosen here; the server works out
 // the actual dates from the current date (no calendar, no custom range).
@@ -116,7 +123,7 @@ function AdminShiftManagement() {
     // so selecting/clearing an employee never resets the range and changing
     // the view/date never drops the employee.
     const [schedule, dispatch] = useReducer(scheduleReducer, undefined, () => initialScheduleState());
-    const { view, anchor, employee: selectedEmployee, searchOpen } = schedule;
+    const { view, anchor, custom, employee: selectedEmployee, searchOpen } = schedule;
     const [shifts, setShifts] = useState([]);
     const [defaultOffDates, setDefaultOffDates] = useState(() => new Set());
     const [employees, setEmployees] = useState([]);
@@ -167,9 +174,11 @@ function AdminShiftManagement() {
     const scheduleGuardRef = useRef(createRequestGuard());
     const searchGuardRef = useRef(createRequestGuard());
 
-    // The visible date range (1 day, the Mon-Sun week, or the whole calendar
-    // month) -- drives the fetch, the table columns and the live-update merge.
-    const range = useMemo(() => getViewRange(view, anchor), [view, anchor]);
+    // The visible date range (1 day, the Mon-Sun week, the whole calendar month, or
+    // the user's Custom range) -- drives the fetch, the table columns and the
+    // live-update merge. A Custom range that is incomplete, reversed or longer than
+    // MAX_CUSTOM_RANGE_DAYS has `valid: false` and no dates; it is never requested.
+    const range = useMemo(() => getViewRange(view, anchor, custom), [view, anchor, custom]);
     const weekDates = range.dates;
     const selectedEmployeeId = selectedEmployee ? selectedEmployee.userId : null;
     // Always the CURRENT range/employee, even when read from a handler that was
@@ -177,11 +186,46 @@ function AdminShiftManagement() {
     const paramsRef = useRef(null);
     paramsRef.current = { range, selectedEmployeeId };
 
+    // Month/year picker: opened by the Month button, closed by choosing a month, Esc,
+    // a click outside, or leaving the Month view.
+    const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+    const viewSwitchRef = useRef(null);
+    const closeMonthPicker = useCallback(() => setMonthPickerOpen(false), []);
+
     const handleViewChange = (nextView) => dispatch({ type: "setView", view: nextView, today: new Date() });
 
+    // The Month button opens the month/year picker (and toggles it while already in Month view).
+    const handleViewButton = (nextView) => {
+        if (nextView === VIEW_MONTH) {
+            if (view !== VIEW_MONTH) handleViewChange(VIEW_MONTH);
+            setMonthPickerOpen(view === VIEW_MONTH ? !monthPickerOpen : true);
+            return;
+        }
+
+        setMonthPickerOpen(false);
+        handleViewChange(nextView);
+    };
+
+    const handleMonthPicked = (year, month) => {
+        dispatch({ type: "pickMonth", year, month });
+        setMonthPickerOpen(false);
+        const monthButton = viewSwitchRef.current && viewSwitchRef.current.querySelector("[data-view=month]");
+        if (monthButton) monthButton.focus();
+    };
+
+    const handleStep = (direction) => {
+        setMonthPickerOpen(false);
+        dispatch({ type: "step", direction });
+    };
+
     const loadSchedule = async () => {
-        const requestId = scheduleGuardRef.current.begin();
         const { range: wanted, selectedEmployeeId: wantedEmployeeId } = paramsRef.current;
+
+        // An invalid Custom range never reaches the API (also covers a socket reconnect or a
+        // reload after a save while the range is being edited).
+        if (!wanted.valid) return;
+
+        const requestId = scheduleGuardRef.current.begin();
 
         try {
             setLoading(true);
@@ -216,9 +260,19 @@ function AdminShiftManagement() {
     };
 
     useEffect(() => {
+        if (!range.valid) {
+            // Nothing to ask the server for: drop whatever was in flight and show no stale rows.
+            scheduleGuardRef.current.cancelAll();
+            setShifts([]);
+            setDefaultOffDates(new Set());
+            setError("");
+            setLoading(false);
+            return;
+        }
+
         loadSchedule();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [range.start, range.end, selectedEmployeeId]);
+    }, [range.valid, range.start, range.end, selectedEmployeeId]);
 
     useEffect(() => {
         loadEmployees();
@@ -629,6 +683,9 @@ function AdminShiftManagement() {
     }, [anchor, view]);
 
     const handleCopyPreviousWeekAllEmployees = async () => {
+        // "Previous week" is not defined for a custom range (the button is disabled there too).
+        if (view === VIEW_RANGE) return;
+
         try {
             setCopying(true);
 
@@ -699,7 +756,10 @@ function AdminShiftManagement() {
         }
     };
 
-    const rangeLabel = formatRangeLabel(view, anchor);
+    const rangeLabel = formatRangeLabel(view, anchor, "en-IN", custom);
+    const isCustomRange = view === VIEW_RANGE;
+    // incomplete choices ("pick a start date") are hints, real mistakes (reversed / too long) are alerts
+    const rangeMessageRole = range.code && range.code.startsWith("missing_") ? "status" : "alert";
 
     return (
         <div className="admin-page-content shift-page">
@@ -785,54 +845,142 @@ function AdminShiftManagement() {
 
             <section className="shift-toolbar" aria-label="Schedule controls">
                 <div className="shift-toolbar-row">
-                    <div className="shift-view-toggle" role="group" aria-label="Schedule view">
-                        {VIEW_OPTIONS.map((option) => (
-                            <button
-                                key={option.value}
-                                type="button"
-                                className={`shift-view-toggle-button${view === option.value ? " active" : ""}`}
-                                aria-pressed={view === option.value}
-                                onClick={() => handleViewChange(option.value)}
-                            >
-                                {option.label}
-                            </button>
-                        ))}
+                    <div className="shift-field">
+                        <span className="shift-field-label" id="shift-view-label">View</span>
+                        {/* The popover sits under the switch so it opens next to the Month button */}
+                        <div className="shift-view-switch" ref={viewSwitchRef}>
+                            <div className="shift-view-toggle" role="group" aria-labelledby="shift-view-label">
+                                {VIEW_OPTIONS.map((option) => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        data-view={option.value}
+                                        className={`shift-view-toggle-button${view === option.value ? " active" : ""}`}
+                                        aria-pressed={view === option.value}
+                                        aria-haspopup={option.value === VIEW_MONTH ? "dialog" : undefined}
+                                        aria-expanded={option.value === VIEW_MONTH ? monthPickerOpen : undefined}
+                                        onClick={() => handleViewButton(option.value)}
+                                    >
+                                        {option.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {monthPickerOpen && (
+                                <MonthYearPicker
+                                    year={anchor.getFullYear()}
+                                    month={anchor.getMonth()}
+                                    onSelect={handleMonthPicked}
+                                    onClose={closeMonthPicker}
+                                    containerRef={viewSwitchRef}
+                                />
+                            )}
+                        </div>
                     </div>
 
-                    <div className="shift-view-nav">
-                        <button type="button" className="shift-week-nav-button" onClick={() => dispatch({ type: "step", direction: -1 })}>
-                            <FaChevronLeft /> {NAV_LABELS[view].prev}
-                        </button>
-                        <span className="shift-week-range" aria-live="polite">
-                            <FaCalendarWeek /> {rangeLabel}
-                        </span>
-                        <button type="button" className="shift-week-nav-button" onClick={() => dispatch({ type: "step", direction: 1 })}>
-                            {NAV_LABELS[view].next} <FaChevronRight />
-                        </button>
+                    <div className="shift-field shift-view-nav-field">
+                        <span className="shift-field-label">{isCustomRange ? "Selected dates" : "Showing"}</span>
+                        <div className="shift-view-nav">
+                            {!isCustomRange && (
+                                <button type="button" className="shift-week-nav-button" onClick={() => handleStep(-1)}>
+                                    <FaChevronLeft /> {NAV_LABELS[view].prev}
+                                </button>
+                            )}
+                            <span className="shift-week-range" aria-live="polite">
+                                <FaCalendarWeek /> {rangeLabel}
+                            </span>
+                            {isCustomRange && range.valid && (
+                                <span className="shift-range-count" data-testid="shift-range-count">
+                                    {range.dates.length} {range.dates.length === 1 ? "day" : "days"}
+                                </span>
+                            )}
+                            {!isCustomRange && (
+                                <button type="button" className="shift-week-nav-button" onClick={() => handleStep(1)}>
+                                    {NAV_LABELS[view].next} <FaChevronRight />
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    <label className="shift-date-field">
-                        <span>{PICKER_LABELS[view]}</span>
-                        <input
-                            type="date"
-                            className="shift-date-input"
-                            value={toIsoDate(anchor)}
-                            onChange={(event) => dispatch({ type: "pickDate", value: event.target.value })}
-                        />
-                    </label>
+                    {(view === VIEW_DAY || view === VIEW_WEEK) && (
+                        <label className="shift-date-field">
+                            <span>{PICKER_LABELS[view]}</span>
+                            <input
+                                type="date"
+                                className="shift-date-input"
+                                value={toIsoDate(anchor)}
+                                onChange={(event) => dispatch({ type: "pickDate", value: event.target.value })}
+                            />
+                        </label>
+                    )}
 
-                    <button
-                        type="button"
-                        className="shift-week-nav-button shift-find-button"
-                        aria-expanded={searchOpen}
-                        aria-controls="shift-finder"
-                        onClick={searchOpen ? closeSearch : openSearch}
-                    >
-                        <FaSearch /> {selectedEmployee ? "Change employee" : "Find employee"}
-                    </button>
+                    {isCustomRange && (
+                        <div className="shift-range-group">
+                            <div className="shift-range-fields" role="group" aria-label="Custom date range">
+                                <label className="shift-date-field">
+                                    <span>Start date</span>
+                                    <input
+                                        type="date"
+                                        name="rangeStart"
+                                        className="shift-range-input"
+                                        value={custom.start}
+                                        max={custom.end || undefined}
+                                        aria-invalid={!range.valid}
+                                        aria-describedby="shift-range-note"
+                                        onChange={(event) => dispatch({ type: "setCustomRange", start: event.target.value })}
+                                    />
+                                </label>
+                                <label className="shift-date-field">
+                                    <span>End date</span>
+                                    <input
+                                        type="date"
+                                        name="rangeEnd"
+                                        className="shift-range-input"
+                                        value={custom.end}
+                                        min={custom.start || undefined}
+                                        aria-invalid={!range.valid}
+                                        aria-describedby="shift-range-note"
+                                        onChange={(event) => dispatch({ type: "setCustomRange", end: event.target.value })}
+                                    />
+                                </label>
+                            </div>
+                            {/* One line directly under the two inputs: the limit while the range is usable, the reason once it is not */}
+                            {range.valid ? (
+                                <p id="shift-range-note" className="shift-range-note shift-range-hint" data-testid="shift-range-hint">
+                                    Up to {MAX_CUSTOM_RANGE_DAYS} days
+                                </p>
+                            ) : (
+                                <p id="shift-range-note" className="shift-range-note shift-range-message" role={rangeMessageRole} data-testid="shift-range-message">
+                                    {range.error}
+                                </p>
+                            )}
+                        </div>
+                    )}
 
+                    <div className="shift-field shift-find-field">
+                        <span className="shift-field-label">Employee</span>
+                        <button
+                            type="button"
+                            className="shift-week-nav-button shift-find-button"
+                            aria-expanded={searchOpen}
+                            aria-controls="shift-finder"
+                            onClick={searchOpen ? closeSearch : openSearch}
+                        >
+                            <FaSearch /> {selectedEmployee ? "Change employee" : "Find employee"}
+                        </button>
+                    </div>
+                </div>
+
+                <div className="shift-toolbar-row shift-toolbar-actions">
                     <div className="shift-toolbar-admin-actions">
-                        <button type="button" className="shift-secondary-button" onClick={handleCopyPreviousWeekAllEmployees} disabled={copying}>
+                        <button
+                            type="button"
+                            className="shift-secondary-button"
+                            onClick={handleCopyPreviousWeekAllEmployees}
+                            disabled={copying || isCustomRange}
+                            aria-describedby={isCustomRange ? "shift-copy-hint" : undefined}
+                            title={isCustomRange ? COPY_WEEK_DISABLED_REASON : undefined}
+                        >
                             <FaCopy /> {copying ? "Copying..." : "Copy Previous Week (All Employees)"}
                         </button>
                         <button type="button" className="shift-secondary-button" onClick={openOverrideCreate}>
@@ -840,6 +988,12 @@ function AdminShiftManagement() {
                         </button>
                     </div>
                 </div>
+
+                {isCustomRange && (
+                    <p id="shift-copy-hint" className="shift-copy-hint" data-testid="shift-copy-hint">
+                        {COPY_WEEK_DISABLED_REASON}
+                    </p>
+                )}
 
                 {selectedEmployee && (
                     <div className="shift-filter-chip" role="status">
@@ -920,7 +1074,13 @@ function AdminShiftManagement() {
 
             <section className="shift-schedule-card">
 
-                {loading ? (
+                {!range.valid ? (
+                    <div className="shift-schedule-empty" data-testid="shift-range-prompt">
+                        <FaCalendarWeek />
+                        <h3>Select a date range</h3>
+                        <p>Choose a start date and an end date (up to {MAX_CUSTOM_RANGE_DAYS} days) to see the shifts in between.</p>
+                    </div>
+                ) : loading ? (
                     <div className="shift-schedule-loading" role="status">Loading shift schedule...</div>
                 ) : error ? (
                     <div className="shift-schedule-error" role="alert">
@@ -935,7 +1095,7 @@ function AdminShiftManagement() {
                     </div>
                 ) : (
                     <div className="shift-table-wrapper">
-                        <table className={`shift-table${view === VIEW_MONTH ? " shift-table-month" : ""}`} aria-label={`Shift schedule, ${rangeLabel}`}>
+                        <table className={`shift-table${view === VIEW_MONTH || isCustomRange ? " shift-table-month" : ""}`} aria-label={`Shift schedule, ${rangeLabel}`}>
                             <thead>
                                 <tr>
                                     <th>Employee</th>

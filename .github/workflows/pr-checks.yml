@@ -86,6 +86,7 @@ jobs:
             _test_shift_search_follows_view.js \
             _test_shift_schedule_state.js \
             _test_shift_page_rendered.js \
+            _test_shift_custom_range.js \
             _test_shift_report.js \
             _test_portal_design.js \
             _test_employee_creation_domain_fallback.js \

@@ -36,6 +36,18 @@ const button = (label) => {
 };
 const viewButton = (label) => $$(".shift-view-toggle-button").find((b) => text(b) === label);
 
+// Month/year picker helpers
+const monthPickerOpen = () => !!$(".shift-month-picker");
+const pickerYear = () => Number(text($(".shift-month-picker-year-label")));
+const monthOption = (monthName, year) => $$(".shift-month-option").find((b) => b.getAttribute("aria-label") === `${monthName} ${year}`);
+// Opens the picker if needed, browses to `year` with the arrows and chooses the month.
+async function pickMonth(monthName, year) {
+  if (!monthPickerOpen()) await click(viewButton("Month"));
+  while (pickerYear() < year) await click($(".shift-month-picker-step[aria-label='Next year']"));
+  while (pickerYear() > year) await click($(".shift-month-picker-step[aria-label='Previous year']"));
+  await click(monthOption(monthName, year));
+}
+
 async function openFinderAndSearch(query, wait = 60) {
   if (!$("#shift-finder")) await click(findButton("Find employee") || findButton("Change employee"));
   await setValue($("#shift-search-input"), query);
@@ -102,7 +114,7 @@ const scenarios = {
     await click(viewButton("Month")); out.month = { ...snapshot(), call: lastShiftCall(), asha21: cellText("Asha Rao", "2026-10-21"), bilal05: cellText("Bilal Khan", "2026-10-05") };
     await click(button("Next Month")); out.nextMonth = { ...snapshot(), call: lastShiftCall() };
     await click(button("Previous Month")); await click(button("Previous Month")); out.prevMonth2 = { ...snapshot(), call: lastShiftCall() };
-    await setValue($(".shift-date-input"), "2028-02-10"); out.leap = { ...snapshot(), call: lastShiftCall() };
+    await pickMonth("February", 2028); out.leap = { ...snapshot(), call: lastShiftCall() };
     await click(viewButton("Week")); await setValue($(".shift-date-input"), "2026-01-01"); out.yearBoundary = { ...snapshot(), call: lastShiftCall() };
     await setValue($(".shift-date-input"), ""); out.emptyPickerIgnored = snapshot().range;
     out.errors = page.errors; await page.unmount();
@@ -121,8 +133,8 @@ const scenarios = {
     await click(viewButton("Day")); out.day = { ...snapshot(), call: lastShiftCall() };
     await click(viewButton("Month")); out.month = { ...snapshot(), call: lastShiftCall(), asha21: cellText("Asha Rao", "2026-10-21"), asha27: cellText("Asha Rao", "2026-10-27") };
     await click(button("Next Month")); out.nextMonth = { ...snapshot(), call: lastShiftCall() };
-    await setValue($(".shift-date-input"), "2026-12-31"); out.picked = { ...snapshot(), call: lastShiftCall() };
-    await click(viewButton("Week")); out.weekAfterPick = { ...snapshot(), call: lastShiftCall() };
+    await pickMonth("December", 2026); out.picked = { ...snapshot(), call: lastShiftCall() };
+    await click(viewButton("Week")); await setValue($(".shift-date-input"), "2026-12-31"); out.weekAfterPick = { ...snapshot(), call: lastShiftCall() };
     await click(button("Next Week")); out.weekNext = { ...snapshot(), call: lastShiftCall() };
     await click(button("Clear employee filter")); out.cleared = { ...snapshot(), call: lastShiftCall() };
     out.rangeKeptOnClear = out.weekNext.range === out.cleared.range;
@@ -329,6 +341,155 @@ const scenarios = {
     out.actionsOutsidePanel = !panel().contains($(".shift-toolbar-admin-actions"));
 
     document.removeEventListener("click", onClick, true);
+    out.errors = page.errors; await page.unmount();
+    return out;
+  },
+
+  // j. Month view: clicking Month opens the month/year picker; choosing a month updates the view and closes it
+  async monthPicker() {
+    const page = await mount();
+    const out = {};
+    out.closedAtStart = !monthPickerOpen();
+
+    await click(viewButton("Month"));
+    out.opened = {
+      open: monthPickerOpen(), activeView: text($(".shift-view-toggle-button.active")), range: text($(".shift-week-range")),
+      year: pickerYear(), selected: $$(".shift-month-option.selected").map((b) => b.getAttribute("aria-label")),
+      current: $$(".shift-month-option.current").map((b) => b.getAttribute("aria-label")),
+      options: $$(".shift-month-option").length, expanded: viewButton("Month").getAttribute("aria-expanded"),
+      dateInput: !!$(".shift-date-input"), call: lastShiftCall(),
+      focusOnSelected: document.activeElement && document.activeElement.getAttribute("aria-label"),
+    };
+
+    // arrow keys move around the month grid
+    const grid = $(".shift-month-picker-grid");
+    await act(async () => { grid.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })); });
+    const afterRight = document.activeElement.getAttribute("aria-label");
+    await act(async () => { grid.dispatchEvent(new window.KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true })); });
+    out.arrows = { afterRight, afterUp: document.activeElement.getAttribute("aria-label") };
+
+    // browse to another year with the arrows: the chosen month is only marked in ITS year
+    await click($(".shift-month-picker-step[aria-label='Next year']")); await click($(".shift-month-picker-step[aria-label='Next year']"));
+    out.otherYear = { year: pickerYear(), selected: $$(".shift-month-option.selected").length };
+    await click(monthOption("February", 2028));
+    out.afterPick = {
+      open: monthPickerOpen(), range: text($(".shift-week-range")), headerDates: snapshot().headerDates, activeView: text($(".shift-view-toggle-button.active")),
+      call: lastShiftCall(), focusBackOnMonthButton: document.activeElement === viewButton("Month"),
+    };
+
+    // Month toggles the picker while in Month view; Esc, a click outside and leaving Month close it
+    await click(viewButton("Month")); out.reopened = monthPickerOpen();
+    out.reopenedSelected = $$(".shift-month-option.selected").map((b) => b.getAttribute("aria-label"));
+    await click(viewButton("Month")); out.toggledClosed = !monthPickerOpen();
+    await click(viewButton("Month"));
+    await act(async () => { document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true })); }); await flush();
+    out.escClosed = !monthPickerOpen();
+    await click(viewButton("Month"));
+    await act(async () => { document.body.dispatchEvent(new window.MouseEvent("mousedown", { bubbles: true })); }); await flush();
+    out.outsideClosed = !monthPickerOpen();
+    await click(viewButton("Month"));
+    await click(button("Next Month")); out.stepClosed = { closed: !monthPickerOpen(), range: text($(".shift-week-range")) };
+    await click(viewButton("Month")); await click(viewButton("Week")); out.weekClosed = { closed: !monthPickerOpen(), activeView: text($(".shift-view-toggle-button.active")), dateInput: !!$(".shift-date-input") };
+
+    // year bounds: the arrows stop at 2000 and 2100
+    await click(viewButton("Month"));
+    for (let i = 0; i < 120; i += 1) { const up = $(".shift-month-picker-step[aria-label='Next year']"); if (up.disabled) break; await click(up, 0); }
+    out.maxYear = { year: pickerYear(), nextDisabled: $(".shift-month-picker-step[aria-label='Next year']").disabled };
+    for (let i = 0; i < 120; i += 1) { const down = $(".shift-month-picker-step[aria-label='Previous year']"); if (down.disabled) break; await click(down, 0); }
+    out.minYear = { year: pickerYear(), prevDisabled: $(".shift-month-picker-step[aria-label='Previous year']").disabled };
+
+    out.errors = page.errors; await page.unmount();
+    return out;
+  },
+
+  // k. Custom range: Start/End dates, the 92-day limit, validation without API calls, employee filter, live updates
+  async customRange() {
+    const page = await mount();
+    const out = {};
+    const startInput = () => $("input[name=rangeStart]");
+    const endInput = () => $("input[name=rangeEnd]");
+    const copyButton = () => findButton("Copy Previous Week (All Employees)");
+    const calls = () => globalThis.__backend.calls.filter((c) => c.type === "getShifts").length;
+    const view = () => ({
+      ...snapshot(), call: lastShiftCall(), calls: calls(), start: startInput() && startInput().value, end: endInput() && endInput().value,
+      count: text($("[data-testid=shift-range-count]")), message: text($("[data-testid=shift-range-message]")),
+      messageRole: $("[data-testid=shift-range-message]") && $("[data-testid=shift-range-message]").getAttribute("role"),
+      hint: text($("[data-testid=shift-range-hint]")), notes: $$(".shift-range-note").length,
+      // the message is the element right after the Start/End inputs, inside the same group
+      messageBeneathInputs: (() => { const m = $("[data-testid=shift-range-message]"); return !!m && !!m.closest(".shift-range-group") && !!m.previousElementSibling && m.previousElementSibling.classList.contains("shift-range-fields") && !!m.previousElementSibling.querySelector("input[name=rangeEnd]"); })(),
+      employeeCaption: text($(".shift-find-field .shift-field-label")),
+      prompt: !!$("[data-testid=shift-range-prompt]"), copyDisabled: copyButton().disabled, copyHint: text($("[data-testid=shift-copy-hint]")),
+      invalidInputs: $$("input[aria-invalid=true]").length, table: !!$(".shift-schedule-card table"),
+    });
+    const setRange = async (start, end, wait = 40) => { await setValue(startInput(), start, wait); await setValue(endInput(), end, wait); };
+
+    await click(viewButton("Custom range"));
+    out.entered = { ...view(), prevNext: [findButton("Previous Week"), findButton("Previous Month"), findButton("Next Month")].filter(Boolean).length, dateInput: !!$(".shift-date-input"), pickerOpen: monthPickerOpen(), startPicker: startInput().type };
+
+    // a valid range: one request for exactly those dates; columns, data and the count follow
+    await setRange("2026-09-01", "2026-11-30");
+    out.threeMonths = { ...view(), asha21: cellText("Asha Rao", "2026-10-21"), firstHeader: snapshot().headerDates[0], lastHeader: snapshot().headerDates.slice(-1)[0] };
+
+    // exactly 92 days (inclusive) is allowed, 93 is not -- and 93 never reaches the API
+    await setRange("2026-01-01", "2026-04-02");
+    out.day92 = view();
+    const before93 = calls();
+    await setValue(endInput(), "2026-04-03");
+    out.day93 = { ...view(), callsBefore: before93 };
+
+    // reversed, missing and unreal dates: inline message, no request
+    await setRange("2026-05-01", "2026-04-01");
+    out.reversed = { ...view(), callsBefore: before93 };
+    await setValue(endInput(), "");
+    out.missingEnd = view();
+    await setValue(startInput(), "");
+    out.missingBoth = view();
+    // reconnecting while the range is invalid must not request anything either
+    const beforeReconnect = calls();
+    await act(async () => { socket.emit("connect"); }); await flush();
+    out.reconnectWhileInvalid = { callsBefore: beforeReconnect, callsAfter: calls() };
+    // a click on the (disabled) Copy button does nothing
+    copyButton().click(); await flush();
+    out.copyClick = { calls: calls(), bulk: globalThis.__backend.calls.filter((c) => c.type === "bulk").length };
+
+    // a valid range again: exactly one request
+    const beforeFix = calls();
+    await setRange("2026-05-01", "2026-05-10");
+    out.fixed = { ...view(), requestsMade: calls() - beforeFix };
+    await setRange("2026-05-05", "2026-05-05");
+    out.singleDay = { ...view(), headerDates: snapshot().headerDates };
+    await setRange("2026-05-01", "2026-05-10");
+
+    // the employee filter works inside a custom range and survives clearing it
+    await openFinderAndSearch("RS002");
+    out.filtered = { ...view(), chip: snapshot().chip, rows: snapshot().rows, asha: cellText("Asha Rao", "2026-05-05") };
+    await click(button("Clear employee filter"));
+    out.cleared = { ...view(), chip: snapshot().chip };
+
+    // live updates: merged only inside the range
+    const emit = async (p) => { await act(async () => { socket.emit("shift:updated", p); }); await flush(); };
+    await emit({ id: 601, userId: 2, shiftDate: "2026-05-05", status: "working", startTime: "11:00", endTime: "20:00", action: "created" });
+    out.liveInside = cellText("Asha Rao", "2026-05-05");
+    const rowsBefore = snapshot().headerDates.length;
+    await emit({ id: 602, userId: 2, shiftDate: "2026-05-20", status: "working", startTime: "11:00", endTime: "20:00", action: "created" });
+    out.liveOutside = { columns: snapshot().headerDates.length, sameColumns: snapshot().headerDates.length === rowsBefore, cell: cellText("Asha Rao", "2026-05-20") };
+
+    // a slow answer for a range that became invalid must not be shown
+    globalThis.__backend.rules.push({ match: (c) => c.type === "getShifts" && c.startDate === "2026-02-01", delay: 400, status: "leave" });
+    await setRange("2026-02-01", "2026-02-10", 10);
+    await setValue(endInput(), "", 10);
+    await flush(700);
+    out.staleAfterInvalid = { prompt: !!$("[data-testid=shift-range-prompt]"), table: !!$(".shift-schedule-card table"), loading: !!$(".shift-schedule-loading") };
+    globalThis.__backend.rules.length = 0;
+    await setRange("2026-05-01", "2026-05-10");
+
+    // leaving Custom range: Week/Month show the one it STARTS in; Day lands on its first day; coming back keeps the dates
+    await click(viewButton("Month")); out.toMonth = { ...snapshot(), call: lastShiftCall(), pickerOpen: monthPickerOpen() };
+    await click(viewButton("Custom range")); out.back = { ...view() };
+    await click(viewButton("Day")); out.toDay = { ...snapshot(), call: lastShiftCall() };
+    await click(viewButton("Custom range"));
+    await click(viewButton("Week")); out.toWeek = { ...snapshot(), call: lastShiftCall() };
+
     out.errors = page.errors; await page.unmount();
     return out;
   },

@@ -64,7 +64,7 @@ test('what is on screen is spelled out: view + range + employee (or everyone) fo
     assert.match(filterSummary('month', anchor, asha), /^Month October 2026: Asha Rao \(EMP002\)$/);
     assert.match(filterSummary('week', anchor, null), /^Week 19 Oct - 25 Oct: all employees$/);
     assert.match(filterSummary('month', anchor, { fullName: 'No Id' }), /: No Id$/);
-    assert.deepEqual(VIEW_LABELS, { day: 'Day', week: 'Week', month: 'Month' });
+    assert.deepEqual(VIEW_LABELS, { day: 'Day', week: 'Week', month: 'Month', range: 'Custom range' });
     assert.equal(PICKER_LABELS.week, 'Any date in the week');
     assert.equal(PICKER_LABELS.month, 'Any date in the month');
 });
@@ -149,7 +149,8 @@ test('India/IST (and other zones): picker dates, ranges and the whole flow stay 
 
 // ---- page wiring (static) ----
 test('page: ONE date picker in the toolbar that sets the shared date; no independent single-day search state', () => {
-    assert.equal((page.match(/type="date"/g) || []).length, 2, 'toolbar picker + the override form date');
+    // Day/Week picker + Custom range Start and End + the override form date; Month uses the month/year picker
+    assert.equal((page.match(/type="date"/g) || []).length, 4, 'toolbar picker, Start date, End date and the override form date');
     assert.match(page, /type="date"\s+className="shift-date-input"\s+value=\{toIsoDate\(anchor\)\}\s+onChange=\{\(event\) => dispatch\(\{ type: "pickDate", value: event\.target\.value \}\)\}/);
     assert.ok(!/setSearchDate|searchDate/.test(page), 'no second date state');
     assert.match(page, /<span>\{PICKER_LABELS\[view\]\}<\/span>/, 'the picker is labelled for the selected view');
@@ -168,7 +169,7 @@ test('page: search results adapt to the view, the chip names the employee, clear
     // the schedule itself still follows the range + employee through the existing API
     assert.match(page, /buildShiftQuery\(wanted, wantedEmployeeId\)/);
     assert.match(page, /getShifts\(wanted\.start, wanted\.end, extraParams\)/);
-    assert.match(page, /\[range\.start, range\.end, selectedEmployeeId\]/);
+    assert.match(page, /\[range\.valid, range\.start, range\.end, selectedEmployeeId\]/);
 });
 
 test('unchanged: existing API only, no access logic, override + duplicate protections, audit wording, self-service', () => {

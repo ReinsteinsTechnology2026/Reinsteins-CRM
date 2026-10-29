@@ -164,13 +164,14 @@ test('page wiring: segmented Day/Week/Month control drives the fetch range, colu
     for (const label of ['Day', 'Week', 'Month']) assert.ok(page.includes(`label: "${label}"`), label);
     assert.match(page, /aria-pressed=\{view === option\.value\}/);
     assert.match(page, /className="shift-view-toggle"/);
-    assert.match(page, /const range = useMemo\(\(\) => getViewRange\(view, anchor\), \[view, anchor\]\)/);
+    assert.match(page, /const range = useMemo\(\(\) => getViewRange\(view, anchor, custom\), \[view, anchor, custom\]\)/);
     assert.match(page, /await getShifts\(wanted\.start, wanted\.end, extraParams\)/, 'existing API, range-driven');
-    assert.match(page, /\}, \[range\.start, range\.end, selectedEmployeeId\]\);/, 'schedule reloads when the range or the employee filter changes');
+    assert.match(page, /\}, \[range\.valid, range\.start, range\.end, selectedEmployeeId\]\);/, 'schedule reloads when the range or the employee filter changes');
     assert.match(page, /NAV_LABELS\[view\]\.prev/);
     assert.match(page, /NAV_LABELS\[view\]\.next/);
-    assert.match(page, /dispatch\(\{ type: "step", direction: -1 \}\)/);
-    assert.match(page, /dispatch\(\{ type: "step", direction: 1 \}\)/);
+    assert.match(page, /onClick=\{\(\) => handleStep\(-1\)\}/);
+    assert.match(page, /onClick=\{\(\) => handleStep\(1\)\}/);
+    assert.match(page, /dispatch\(\{ type: "step", direction \}\)/, 'handleStep closes the month picker, then steps');
     assert.match(page, /shouldMergeLiveUpdate\(payload, weekDates, selectedEmployeeId\)/, 'live updates are still merged only inside the visible range');
     assert.match(page, /weekDates\.map\(\(date\) => \{/, 'one column per visible date');
     assert.match(page, /shift-table-month/);
