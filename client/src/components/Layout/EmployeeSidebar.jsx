@@ -32,6 +32,7 @@ import {
   FaProjectDiagram,
   FaSitemap,
   FaChartBar,
+  FaTable,
 } from "react-icons/fa";
 import CompanyLogo from "../Common/CompanyLogo";
 import api from "../../services/api";
@@ -385,6 +386,7 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
     // Shift entry: decided by role/system_access only (utils/shiftAccess.js),
     // identical to the standard menu's entry - never by designation.
     { ...shiftNav, icon: <FaCalendarWeek /> },
+    { name: "Smart Sheets", icon: <FaTable />, path: `${basePath}/smart-sheets` },
     {
       name: "Chat",
       icon: <FaComments />,
@@ -431,6 +433,7 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
         `${basePath}/attendance`,
     },
     { ...shiftNav, icon: <FaCalendarWeek /> },
+    { name: "Smart Sheets", icon: <FaTable />, path: `${basePath}/smart-sheets` },
     {
       name: "My Tasks",
       icon: <FaTasks />,

@@ -1,0 +1,452 @@
+/* ==========================================
+   SMART SHEETS -- LIST PAGE + SHARE DIALOG
+   Shared by the admin and employee portals. Class prefix: smart-sheets-*. Modal chrome
+   (.employee-modal-overlay / .employee-modal / .employee-form-group / .cancel-employee-button /
+   .save-employee-button / .shift-delete-button) is reused from Employees.css and
+   EmployeeShiftSchedule.css, exactly like the other admin pages.
+========================================== */
+
+.smart-sheets-page{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    min-width:0;
+}
+
+.smart-sheets-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    flex-wrap:wrap;
+}
+
+.smart-sheets-title{
+    flex:1 1 280px;
+    min-width:0;
+}
+
+.smart-sheets-title h2{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:0;
+    color:var(--text);
+    font-size:22px;
+    font-weight:700;
+}
+
+.smart-sheets-title p{
+    margin:6px 0 0;
+    color:var(--text-secondary);
+    font-size:14px;
+}
+
+.smart-sheets-actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.smart-sheets-primary,
+.smart-sheets-secondary{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+}
+
+.smart-sheets-secondary{
+    background:var(--card-light);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    padding:9px 16px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.smart-sheets-secondary:hover{
+    background:var(--hover);
+}
+
+.smart-sheets-toolbar{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+}
+
+.smart-sheets-search{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex:1 1 260px;
+    max-width:420px;
+    padding:0 12px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text-secondary);
+}
+
+.smart-sheets-search input{
+    flex:1;
+    min-width:0;
+    border:none;
+    background:transparent;
+    padding:10px 0;
+    color:var(--text);
+    font-size:14px;
+    outline:none;
+}
+
+.smart-sheets-toggle{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    color:var(--text-secondary);
+    font-size:13px;
+    cursor:pointer;
+}
+
+.smart-sheets-state{
+    margin:0;
+    padding:24px;
+    text-align:center;
+    color:var(--text-secondary);
+}
+
+.smart-sheets-state-error{
+    color:var(--danger);
+}
+
+.smart-sheets-state button{
+    margin-left:8px;
+    padding:6px 12px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--card);
+    color:var(--text);
+    cursor:pointer;
+}
+
+.smart-sheets-empty{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    padding:48px 16px;
+    background:var(--card);
+    border:1px dashed var(--border);
+    border-radius:14px;
+    text-align:center;
+    color:var(--text-secondary);
+}
+
+.smart-sheets-empty svg{
+    font-size:34px;
+    opacity:0.6;
+}
+
+.smart-sheets-empty h3{
+    margin:6px 0 0;
+    color:var(--text);
+    font-size:17px;
+}
+
+.smart-sheets-empty p{
+    margin:0;
+    max-width:380px;
+    font-size:14px;
+}
+
+.smart-sheets-grid{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
+    gap:14px;
+}
+
+.smart-sheets-card{
+    display:flex;
+    flex-direction:column;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    overflow:hidden;
+    transition:box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.smart-sheets-card:hover{
+    border-color:var(--primary);
+    box-shadow:var(--shadow);
+}
+
+.smart-sheets-card.is-archived{
+    opacity:0.75;
+}
+
+.smart-sheets-open{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    width:100%;
+    padding:16px;
+    background:transparent;
+    border:none;
+    text-align:left;
+    color:var(--text);
+    cursor:pointer;
+    font-family:inherit;
+}
+
+.smart-sheets-card-icon{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 40px;
+    height:40px;
+    border-radius:10px;
+    background:var(--card-light);
+    color:var(--primary);
+    font-size:18px;
+}
+
+.smart-sheets-card-body{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+    flex:1;
+    min-width:0;
+}
+
+.smart-sheets-card-body strong{
+    font-size:15px;
+    overflow-wrap:anywhere;
+}
+
+.smart-sheets-card-body small{
+    color:var(--text-secondary);
+    font-size:12px;
+}
+
+.smart-sheets-chip{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    flex:0 0 auto;
+    padding:3px 9px;
+    border-radius:999px;
+    background:var(--card-light);
+    border:1px solid var(--border);
+    color:var(--text-secondary);
+    font-size:11px;
+    font-weight:600;
+    white-space:nowrap;
+}
+
+.smart-sheets-card-actions{
+    display:flex;
+    gap:6px;
+    padding:8px 12px;
+    border-top:1px solid var(--border);
+    background:var(--card-light);
+}
+
+.smart-sheets-icon-button{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:34px;
+    height:34px;
+    border:1px solid var(--border);
+    border-radius:9px;
+    background:var(--card);
+    color:var(--text);
+    cursor:pointer;
+}
+
+.smart-sheets-icon-button:hover:not(:disabled){
+    background:var(--hover);
+}
+
+.smart-sheets-icon-button:disabled{
+    opacity:0.5;
+    cursor:not-allowed;
+}
+
+.smart-sheets-danger{
+    color:var(--danger);
+}
+
+.smart-sheets-muted{
+    margin:0 0 12px;
+    color:var(--text-secondary);
+    font-size:13px;
+    line-height:1.5;
+}
+
+.smart-sheets-warnings{
+    margin-bottom:14px;
+    padding:12px 14px;
+    border:1px solid var(--warning);
+    border-radius:10px;
+    background:var(--card-light);
+    color:var(--text);
+    font-size:13px;
+}
+
+.smart-sheets-warnings ul{
+    margin:8px 0 0;
+    padding-left:18px;
+}
+
+.smart-sheets-wide-modal,
+.smart-sheets-share-modal{
+    width:min(620px, calc(100vw - 32px));
+    max-height:calc(100dvh - 48px);
+    overflow-y:auto;
+}
+
+.smart-sheets-share-section{
+    margin-bottom:18px;
+}
+
+.smart-sheets-share-section h3{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:0 0 10px;
+    color:var(--text);
+    font-size:14px;
+}
+
+.smart-sheets-count{
+    padding:1px 8px;
+    border-radius:999px;
+    background:var(--card-light);
+    border:1px solid var(--border);
+    color:var(--text-secondary);
+    font-size:11px;
+}
+
+.smart-sheets-pick-list{
+    max-height:220px;
+    overflow-y:auto;
+    margin:10px 0;
+    border:1px solid var(--border);
+    border-radius:10px;
+}
+
+.smart-sheets-pick-list .smart-sheets-muted{
+    padding:12px;
+    margin:0;
+}
+
+.smart-sheets-pick-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 12px;
+    cursor:pointer;
+    border-bottom:1px solid var(--border);
+}
+
+.smart-sheets-pick-row:last-child{
+    border-bottom:none;
+}
+
+.smart-sheets-pick-row:hover{
+    background:var(--hover);
+}
+
+.smart-sheets-pick-row.is-assigned{
+    opacity:0.6;
+    cursor:default;
+}
+
+.smart-sheets-pick-name{
+    display:flex;
+    flex-direction:column;
+    flex:1;
+    min-width:0;
+    color:var(--text);
+    font-size:14px;
+}
+
+.smart-sheets-pick-name small{
+    color:var(--text-secondary);
+    font-size:12px;
+}
+
+.smart-sheets-assign-row{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+
+.smart-sheets-assign-row select,
+.smart-sheets-access-list select{
+    padding:8px 10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    background:var(--card);
+    color:var(--text);
+    font-size:13px;
+}
+
+.smart-sheets-assign-row .save-employee-button{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin-left:auto;
+}
+
+.smart-sheets-access-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    border:1px solid var(--border);
+    border-radius:10px;
+}
+
+.smart-sheets-access-list li{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 12px;
+    border-bottom:1px solid var(--border);
+}
+
+.smart-sheets-access-list li:last-child{
+    border-bottom:none;
+}
+
+@media (max-width: 720px){
+    .smart-sheets-grid{
+        grid-template-columns:1fr;
+    }
+
+    .smart-sheets-actions{
+        width:100%;
+    }
+
+    .smart-sheets-actions > *{
+        flex:1 1 auto;
+        justify-content:center;
+    }
+
+    .smart-sheets-access-list li{
+        flex-wrap:wrap;
+    }
+
+    .smart-sheets-assign-row .save-employee-button{
+        margin-left:0;
+        flex:1 1 100%;
+        justify-content:center;
+    }
+}

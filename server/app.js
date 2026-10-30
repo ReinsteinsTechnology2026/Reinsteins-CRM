@@ -50,6 +50,9 @@ const {
   LEGACY_COMPANY_SLUG,
 } = require("./utils/socketRooms");
 const { UPLOADS_ROOT } = require("./utils/tenantUploadPath");
+const { createSmartSheetService } = require("./services/smartSheetService");
+const { createPgStore } = require("./services/smartSheetStore");
+const { registerSmartSheetHandlers } = require("./services/smartSheetRealtime");
 const { isManagerTierUser, resolveShiftRoomPlan } = require("./utils/shiftDefaults");
 const { getDirectReportRows } = require("./services/organizationService");
 const { verifyFileAccessToken } = require("./utils/fileAccessToken");
@@ -93,6 +96,10 @@ const shiftScheduleRoutes = require(
 
 const sopRoutes = require(
   "./routes/sopRoutes"
+);
+
+const smartSheetRoutes = require(
+  "./routes/smartSheetRoutes"
 );
 
 const taskRoutes = require(
@@ -300,6 +307,11 @@ const io = new Server(
     },
   }
 );
+
+// Smart Sheets: one service instance for the socket handlers (the REST controller
+// has its own, same store). Both use the tenant-aware pool, so each call lands in
+// the caller's tenant database.
+const smartSheetService = createSmartSheetService({ store: createPgStore({ pool }) });
 
 // ==========================================
 // TRACK ONLINE USERS
@@ -555,6 +567,23 @@ io.on(
     socket.join(
       presenceRoom(companySlug)
     );
+
+    // ========================================
+    // SMART SHEETS (collaborative spreadsheets)
+    //
+    // join / leave / live cell edits. Registered through onTenantEvent so
+    // every database call runs in THIS socket's tenant context. Access is
+    // re-checked against the database on join and on every update --
+    // see services/smartSheetRealtime.js.
+    // ========================================
+
+    registerSmartSheetHandlers({
+      io,
+      socket,
+      onTenantEvent,
+      companySlug,
+      service: smartSheetService,
+    });
 
     // ========================================
     // SHIFT-SCHEDULE ROOM MEMBERSHIP
@@ -2286,6 +2315,13 @@ app.use(
 app.use(
   "/api/shifts",
   shiftScheduleRoutes
+);
+
+// SMART SHEETS (collaborative spreadsheets; live edits travel over Socket.IO)
+
+app.use(
+  "/api/smart-sheets",
+  smartSheetRoutes
 );
 
 // SOP LIBRARY

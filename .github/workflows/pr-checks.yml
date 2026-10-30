@@ -88,6 +88,13 @@ jobs:
             _test_shift_page_rendered.js \
             _test_shift_custom_range.js \
             _test_shift_report.js \
+            _test_smart_sheets_service.js \
+            _test_smart_sheets_realtime.js \
+            _test_smart_sheets_http.js \
+            _test_smart_sheets_xlsx.js \
+            _test_smart_sheets_migration.js \
+            _test_smart_sheets_client_sync.js \
+            _test_smart_sheets_client.js \
             _test_portal_design.js \
             _test_employee_creation_domain_fallback.js \
             _test_company_logo_upload_error_handling.js \

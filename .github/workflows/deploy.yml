@@ -113,6 +113,17 @@ jobs:
           # above. `--dry-run` previews it (never used here).
           node server/_migrate_add_must_change_password.js
 
+          # Smart Sheets (collaborative spreadsheets). Safe, idempotent, additive-only
+          # creation of smart_sheets / smart_sheet_access / smart_sheet_worksheets /
+          # smart_sheet_cells in the legacy database and every registered tenant database
+          # (every newly provisioned tenant already gets them from
+          # tenantSchema.postgresql.sql). Only CREATE ... IF NOT EXISTS, one transaction
+          # per database, never drops, alters or reads existing data. Must run BEFORE the
+          # restart below: the new code queries these tables. Same `set -e` reasoning as
+          # the steps above: a non-zero exit stops the deploy before the build/restart.
+          # `--dry-run` previews it (never used here).
+          node server/_migrate_add_smart_sheets.js
+
           cd client
           npm ci
           VITE_API_URL=https://crm.zioventure.com npm run build
