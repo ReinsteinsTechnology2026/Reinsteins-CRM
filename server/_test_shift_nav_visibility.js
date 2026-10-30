@@ -104,16 +104,16 @@ test('a Founder/Chairman with employee-level access gets NO elevated Shift entry
   }
 });
 
-test('menus: only the Shift entry changed; position, other items and the designation-based menu selection are unchanged', async () => {
+test('menus: only the Shift entry changed (plus the Smart Sheets entry right after it); position, other items and the designation-based menu selection are unchanged', async () => {
   const plain = { role: 'employee', systemAccess: 'employee' };
   assert.deepEqual(names(await menu('executiveMenuItems', plain)), [
-    'Dashboard', 'Projects', 'Organization', 'Hierarchy', 'Reports', 'Approvals', 'Shift Schedule',
+    'Dashboard', 'Projects', 'Organization', 'Hierarchy', 'Reports', 'Approvals', 'Shift Schedule', 'Smart Sheets',
     'Chat', 'Email', 'Meetings', 'SOPs', 'My Profile', 'Settings']);
   assert.deepEqual(names(await menu('standardMenuItems', plain)), [
-    'Dashboard', 'Attendance', 'Shift Schedule', 'My Tasks', 'My Leave', 'My Reporting Manager', 'Hierarchy',
+    'Dashboard', 'Attendance', 'Shift Schedule', 'Smart Sheets', 'My Tasks', 'My Leave', 'My Reporting Manager', 'Hierarchy',
     'My Profile', 'Chat', 'Email', 'Meetings', 'SOPs', 'Settings']);
   assert.deepEqual(names(await menu('standardMenuItems', plain, '/employee', { projects: true, team: true })), [
-    'Dashboard', 'Attendance', 'Shift Schedule', 'My Tasks', 'Projects', 'My Leave', 'My Reporting Manager', 'Hierarchy',
+    'Dashboard', 'Attendance', 'Shift Schedule', 'Smart Sheets', 'My Tasks', 'Projects', 'My Leave', 'My Reporting Manager', 'Hierarchy',
     'My Team', 'Team Leave Approvals', 'My Profile', 'Chat', 'Email', 'Meetings', 'SOPs', 'Settings']);
   // admin tier: same lists, only the Shift label differs
   const admin = { role: 'employee', systemAccess: 'super_admin' };

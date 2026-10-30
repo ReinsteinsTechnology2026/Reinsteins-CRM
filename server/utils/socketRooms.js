@@ -59,6 +59,12 @@ function shiftRoom(companySlug) {
     return `tenant:${companySlug}:shifts`;
 }
 
+// One room per open spreadsheet (Smart Sheets). Joined only after the server has verified, from a
+// fresh database read, that the user may open that sheet -- see services/smartSheetRealtime.js.
+function smartSheetRoom(companySlug, sheetId) {
+    return `tenant:${companySlug}:smartsheet:${sheetId}`;
+}
+
 // Convenience for REST controllers/services: builds a room using
 // whatever company the CURRENT request/context belongs to, without
 // the caller needing to look up the slug itself.
@@ -74,6 +80,9 @@ function currentConversationRoom(conversationId) {
 function currentShiftRoom() {
     return shiftRoom(getCurrentCompanySlug());
 }
+function currentSmartSheetRoom(sheetId) {
+    return smartSheetRoom(getCurrentCompanySlug(), sheetId);
+}
 
 module.exports = {
     LEGACY_COMPANY_SLUG,
@@ -83,8 +92,10 @@ module.exports = {
     conversationRoom,
     presenceRoom,
     shiftRoom,
+    smartSheetRoom,
     currentUserRoom,
     currentMeetingRoom,
     currentConversationRoom,
     currentShiftRoom,
+    currentSmartSheetRoom,
 };

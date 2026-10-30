@@ -1,0 +1,282 @@
+/* ==========================================
+   SMART SHEET EDITOR
+   Chrome around the Univer canvas (title, save status, collaborators, export). Class prefix:
+   smart-sheet-*. Colours come from the CRM's theme variables so light/dark follow the app.
+========================================== */
+
+.smart-sheet-editor{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    min-height:520px;
+    min-width:0;
+}
+
+.smart-sheet-editor-bar{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    padding:10px 14px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:12px;
+}
+
+.smart-sheet-back{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:36px;
+    height:36px;
+    flex:0 0 auto;
+    background:var(--card-light);
+    border:1px solid var(--border);
+    border-radius:10px;
+    color:var(--text);
+    cursor:pointer;
+}
+
+.smart-sheet-back:hover{
+    background:var(--hover);
+}
+
+.smart-sheet-title,
+.smart-sheet-title-input{
+    flex:1 1 220px;
+    min-width:0;
+    margin:0;
+    color:var(--text);
+    font-size:18px;
+    font-weight:700;
+}
+
+.smart-sheet-title{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.smart-sheet-title-input{
+    background:transparent;
+    border:1px solid transparent;
+    border-radius:8px;
+    padding:6px 8px;
+    font-family:inherit;
+}
+
+.smart-sheet-title-input:hover{
+    border-color:var(--border);
+}
+
+.smart-sheet-title-input:focus{
+    outline:none;
+    border-color:var(--primary);
+    background:var(--card-light);
+}
+
+.smart-sheet-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:5px 10px;
+    border-radius:999px;
+    background:var(--card-light);
+    border:1px solid var(--border);
+    color:var(--text-secondary);
+    font-size:12px;
+    font-weight:600;
+    white-space:nowrap;
+}
+
+.smart-sheet-status{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--text-secondary);
+    white-space:nowrap;
+}
+
+.smart-sheet-status-saved{
+    color:var(--success, #16a34a);
+}
+
+.smart-sheet-status-error{
+    color:var(--danger);
+}
+
+.smart-sheet-status-offline{
+    color:var(--warning);
+    white-space:normal;
+    max-width:260px;
+}
+
+.smart-sheet-spin{
+    animation:smart-sheet-spin 1s linear infinite;
+}
+
+@keyframes smart-sheet-spin{
+    to{ transform:rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce){
+    .smart-sheet-spin{ animation:none; }
+}
+
+.smart-sheet-collaborators{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+}
+
+.smart-sheet-alone{
+    color:var(--text-secondary);
+    font-size:12px;
+}
+
+.smart-sheet-avatar{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:28px;
+    height:28px;
+    border-radius:50%;
+    color:#fff;
+    font-size:11px;
+    font-weight:700;
+    border:2px solid var(--card);
+    cursor:default;
+}
+
+.smart-sheet-avatar-more{
+    background:var(--text-secondary);
+}
+
+.smart-sheet-export{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    padding:9px 14px;
+    background:var(--primary);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.smart-sheet-export:disabled{
+    opacity:0.6;
+    cursor:not-allowed;
+}
+
+.smart-sheet-banner{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    padding:10px 14px;
+    border-radius:10px;
+    font-size:13px;
+    border:1px solid var(--border);
+    background:var(--card-light);
+    color:var(--text);
+}
+
+.smart-sheet-banner-error{
+    border-color:var(--danger);
+}
+
+.smart-sheet-banner-warn{
+    border-color:var(--warning);
+}
+
+.smart-sheet-banner button{
+    margin-left:auto;
+    padding:6px 12px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--card);
+    color:var(--text);
+    font-weight:600;
+    cursor:pointer;
+}
+
+.smart-sheet-stage{
+    position:relative;
+    flex:1;
+    min-height:420px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:12px;
+    overflow:hidden;
+}
+
+.smart-sheet-univer{
+    position:absolute;
+    inset:0;
+}
+
+.smart-sheet-overlay{
+    position:absolute;
+    inset:0;
+    z-index:5;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    padding:24px;
+    text-align:center;
+    background:var(--card);
+    color:var(--text);
+    font-size:15px;
+}
+
+.smart-sheet-overlay p{
+    margin:0;
+    max-width:460px;
+}
+
+.smart-sheet-overlay button{
+    padding:9px 16px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--card-light);
+    color:var(--text);
+    font-weight:600;
+    cursor:pointer;
+}
+
+.smart-sheet-overlay-error{
+    background:var(--card);
+}
+
+@media (max-width: 720px){
+    .smart-sheet-editor-bar{
+        gap:8px;
+        padding:8px 10px;
+    }
+
+    .smart-sheet-title,
+    .smart-sheet-title-input{
+        flex-basis:100%;
+        order:1;
+    }
+
+    .smart-sheet-status-offline{
+        max-width:none;
+    }
+
+    .smart-sheet-export{
+        margin-left:auto;
+    }
+
+    .smart-sheet-stage{
+        min-height:360px;
+    }
+}
