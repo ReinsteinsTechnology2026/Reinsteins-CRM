@@ -32,6 +32,7 @@ import AdminHome from "./pages/Admin/AdminHome";
 import Employees from "./pages/Admin/Employees";
 import AdminAttendance from "./pages/Admin/AdminAttendance";
 import AdminShiftManagement from "./pages/Admin/AdminShiftManagement";
+import SmartSheetsList from "./pages/SmartSheets/SmartSheetsList";
 import AdminLeave from "./pages/Admin/AdminLeave";
 import AdminReports from "./pages/Admin/AdminReports";
 import AdminSettings from "./pages/Admin/AdminSettings";
@@ -101,6 +102,7 @@ import MeetingLinkLanding from "./pages/Meetings/MeetingLinkLanding";
 
 import ProtectedRoute from "./routes/ProtectedRoute";
 import ShiftManagementRoute from "./routes/ShiftManagementRoute";
+import SmartSheetEditorRoute from "./routes/SmartSheetEditorRoute";
 
 // ==========================================
 // GROWORGS PLATFORM OWNER DASHBOARD (Phase 4)
@@ -160,6 +162,9 @@ const ADMIN_ROUTES = [
   { path: "employees", Component: Employees },
   { path: "attendance", Component: AdminAttendance },
   { path: "shift-management", Component: AdminShiftManagement },
+  // Smart Sheets: the list is small; the editor (Univer) is a lazily loaded chunk.
+  { path: "smart-sheets", Component: SmartSheetsList },
+  { path: "smart-sheets/:sheetId", Component: SmartSheetEditorRoute },
   { path: "tasks", Component: AdminTasksList },
   { path: "task-workspace/:taskId", Component: TaskWorkspace },
   { path: "projects", Component: ProjectsList },
@@ -188,6 +193,9 @@ const EMPLOYEE_ROUTES = [
   // Admin-tier users (role/system_access, never designation) who use the employee portal;
   // anyone else is redirected to shift-schedule. See routes/ShiftManagementRoute.jsx.
   { path: "shift-management", Component: ShiftManagementRoute },
+  // Spreadsheets shared with this employee (the server decides what is listed and what is editable).
+  { path: "smart-sheets", Component: SmartSheetsList },
+  { path: "smart-sheets/:sheetId", Component: SmartSheetEditorRoute },
   { path: "tasks", Component: EmployeeTasks },
   { path: "task-workspace/:taskId", Component: TaskWorkspace },
   { path: "leave", Component: EmployeeLeave },

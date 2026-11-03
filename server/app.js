@@ -32,6 +32,7 @@ const {
 const pool = require("./config/db");
 const {
   __runWithTenantContext: runWithTenantContext,
+  __roomScopeOf: roomScopeOf,
 } = require("./config/db");
 const platformCompanyService = require("./services/platformCompanyService");
 const { getTenantPoolForCompany } = require("./config/tenantConnectionManager");
@@ -50,6 +51,10 @@ const {
   LEGACY_COMPANY_SLUG,
 } = require("./utils/socketRooms");
 const { UPLOADS_ROOT } = require("./utils/tenantUploadPath");
+const { createSmartSheetService } = require("./services/smartSheetService");
+const { createPgStore } = require("./services/smartSheetStore");
+const { registerSmartSheetHandlers } = require("./services/smartSheetRealtime");
+const { LIMITS: SMART_SHEET_LIMITS } = require("./utils/smartSheetValidation");
 const { isManagerTierUser, resolveShiftRoomPlan } = require("./utils/shiftDefaults");
 const { getDirectReportRows } = require("./services/organizationService");
 const { verifyFileAccessToken } = require("./utils/fileAccessToken");
@@ -93,6 +98,10 @@ const shiftScheduleRoutes = require(
 
 const sopRoutes = require(
   "./routes/sopRoutes"
+);
+
+const smartSheetRoutes = require(
+  "./routes/smartSheetRoutes"
 );
 
 const taskRoutes = require(
@@ -289,6 +298,11 @@ if (process.env.NODE_ENV === "production" && !process.env.CORS_ORIGINS) {
 const io = new Server(
   server,
   {
+    // Largest single Socket.IO message the server will accept (the default is 1 MB). Smart Sheets validates
+    // every live edit against MAX_OPERATION_BYTES (512 KB) and answers an oversized one with a normal error
+    // reply; the ceiling sits ABOVE that so such a message is rejected politely instead of the connection
+    // being dropped (a dropped connection is what made a large paste retry forever).
+    maxHttpBufferSize: SMART_SHEET_LIMITS.MAX_SOCKET_MESSAGE_BYTES,
     cors: {
       origin: ALLOWED_ORIGINS,
       methods: [
@@ -300,6 +314,11 @@ const io = new Server(
     },
   }
 );
+
+// Smart Sheets: one service instance for the socket handlers (the REST controller
+// has its own, same store). Both use the tenant-aware pool, so each call lands in
+// the caller's tenant database.
+const smartSheetService = createSmartSheetService({ store: createPgStore({ pool }) });
 
 // ==========================================
 // TRACK ONLINE USERS
@@ -501,12 +520,17 @@ io.on(
     // above). Never re-derived from anything the client sends later.
     const companySlug = socket.tenantContext.companySlug;
 
+    // Which DATABASE this socket belongs to: "legacy-db" or the tenant slug. EVERY room name and the
+    // presence key below use this, never the bare slug (the legacy database and the tenant company
+    // "reinsteins" share a slug but not their ids) -- see config/db.js roomScopeOf().
+    const roomScope = roomScopeOf(socket.tenantContext);
+
     // Composite key: onlineUsers MUST be keyed by tenant + userId,
     // not bare userId. Every tenant database's users.id independently
     // restarts at 1, so without the companySlug prefix, Tenant A's
     // user #3 and Tenant B's user #3 would collide into the same Map
     // entry -- merging two unrelated people's presence tracking.
-    const presenceKey = `${companySlug}:${userId}`;
+    const presenceKey = `${roomScope}:${userId}`;
 
     console.log(
       `Socket connected: ${socket.user.fullName} (${userId}) [tenant: ${companySlug}]`
@@ -547,14 +571,31 @@ io.on(
     // ========================================
 
     socket.join(
-      userRoom(companySlug, userId)
+      userRoom(roomScope, userId)
     );
 
     // Tenant-wide presence room -- used ONLY for the online/offline
     // broadcast below, never for anything carrying private data.
     socket.join(
-      presenceRoom(companySlug)
+      presenceRoom(roomScope)
     );
+
+    // ========================================
+    // SMART SHEETS (collaborative spreadsheets)
+    //
+    // join / leave / live cell edits. Registered through onTenantEvent so
+    // every database call runs in THIS socket's tenant context. Access is
+    // re-checked against the database on join and on every update --
+    // see services/smartSheetRealtime.js.
+    // ========================================
+
+    registerSmartSheetHandlers({
+      io,
+      socket,
+      onTenantEvent,
+      roomScope,
+      service: smartSheetService,
+    });
 
     // ========================================
     // SHIFT-SCHEDULE ROOM MEMBERSHIP
@@ -586,11 +627,11 @@ io.on(
       const shiftRoomPlan = resolveShiftRoomPlan(socket.user, directReportIds);
 
       if (shiftRoomPlan.joinBroadRoom) {
-        socket.join(shiftRoom(companySlug));
+        socket.join(shiftRoom(roomScope));
       }
 
       for (const watchedUserId of shiftRoomPlan.watchUserIds) {
-        socket.join(userRoom(companySlug, watchedUserId));
+        socket.join(userRoom(roomScope, watchedUserId));
       }
 
     } catch (err) {
@@ -632,7 +673,7 @@ io.on(
     // connected, and vice versa.
     // ========================================
 
-    io.to(presenceRoom(companySlug)).emit(
+    io.to(presenceRoom(roomScope)).emit(
       "user:online",
       {
         userId:
@@ -648,8 +689,8 @@ io.on(
     const onlineUserIdsInThisTenant = Array.from(
       onlineUsers.keys()
     )
-      .filter((key) => key.startsWith(`${companySlug}:`))
-      .map((key) => Number(key.slice(companySlug.length + 1)));
+      .filter((key) => key.startsWith(`${roomScope}:`))
+      .map((key) => Number(key.slice(roomScope.length + 1)));
 
     socket.emit(
       "users:online",
@@ -709,7 +750,7 @@ io.on(
           }
 
           socket.join(
-            conversationRoom(companySlug, id)
+            conversationRoom(roomScope, id)
           );
 
         } catch (error) {
@@ -745,7 +786,7 @@ io.on(
         }
 
         socket.leave(
-          conversationRoom(companySlug, id)
+          conversationRoom(roomScope, id)
         );
       }
     );
@@ -886,7 +927,7 @@ io.on(
 
           if (
             !onlineUsers.has(
-              `${companySlug}:${targetId}`
+              `${roomScope}:${targetId}`
             )
           ) {
             socket.emit(
@@ -909,7 +950,7 @@ io.on(
 
           io
             .to(
-              userRoom(companySlug, targetId)
+              userRoom(roomScope, targetId)
             )
             .emit(
               "call:incoming",
@@ -1002,7 +1043,7 @@ io.on(
 
           io
             .to(
-              userRoom(companySlug, caller.id)
+              userRoom(roomScope, caller.id)
             )
             .emit(
               "call:accepted",
@@ -1064,7 +1105,7 @@ io.on(
 
           io
             .to(
-              userRoom(companySlug, caller.id)
+              userRoom(roomScope, caller.id)
             )
             .emit(
               "call:rejected",
@@ -1116,7 +1157,7 @@ io.on(
 
           io
             .to(
-              userRoom(companySlug, targetUser.id)
+              userRoom(roomScope, targetUser.id)
             )
             .emit(
               "call:ended",
@@ -1170,7 +1211,7 @@ io.on(
 
           io
             .to(
-              userRoom(companySlug, targetUser.id)
+              userRoom(roomScope, targetUser.id)
             )
             .emit(
               "webrtc:offer",
@@ -1222,7 +1263,7 @@ io.on(
 
           io
             .to(
-              userRoom(companySlug, targetUser.id)
+              userRoom(roomScope, targetUser.id)
             )
             .emit(
               "webrtc:answer",
@@ -1276,7 +1317,7 @@ io.on(
 
           io
             .to(
-              userRoom(companySlug, targetUser.id)
+              userRoom(roomScope, targetUser.id)
             )
             .emit(
               "webrtc:ice-candidate",
@@ -1355,7 +1396,7 @@ io.on(
 
     const getMeetingRoomParticipants = (meetingId) => {
 
-      const roomName = meetingRoom(companySlug, meetingId);
+      const roomName = meetingRoom(roomScope, meetingId);
 
       const socketIds = io.sockets.adapter.rooms.get(roomName);
 
@@ -1404,7 +1445,7 @@ io.on(
             return;
           }
 
-          const roomName = meetingRoom(companySlug, meetingId);
+          const roomName = meetingRoom(roomScope, meetingId);
 
           const existingParticipants =
             getMeetingRoomParticipants(meetingId);
@@ -1453,7 +1494,7 @@ io.on(
 
         if (!meetingId) return;
 
-        const roomName = meetingRoom(companySlug, meetingId);
+        const roomName = meetingRoom(roomScope, meetingId);
 
         socket.to(roomName).emit("meeting:participant-left", {
           meetingId,
@@ -1481,9 +1522,9 @@ io.on(
 
           if (!offer) return;
 
-          if (!socket.rooms.has(meetingRoom(companySlug, meetingId))) return;
+          if (!socket.rooms.has(meetingRoom(roomScope, meetingId))) return;
 
-          io.to(userRoom(companySlug, targetUserId)).emit("meeting:offer", {
+          io.to(userRoom(roomScope, targetUserId)).emit("meeting:offer", {
             meetingId,
             fromUserId: Number(socket.user.id),
             offer,
@@ -1504,9 +1545,9 @@ io.on(
 
           if (!answer) return;
 
-          if (!socket.rooms.has(meetingRoom(companySlug, meetingId))) return;
+          if (!socket.rooms.has(meetingRoom(roomScope, meetingId))) return;
 
-          io.to(userRoom(companySlug, targetUserId)).emit("meeting:answer", {
+          io.to(userRoom(roomScope, targetUserId)).emit("meeting:answer", {
             meetingId,
             fromUserId: Number(socket.user.id),
             answer,
@@ -1527,9 +1568,9 @@ io.on(
 
           if (!candidate) return;
 
-          if (!socket.rooms.has(meetingRoom(companySlug, meetingId))) return;
+          if (!socket.rooms.has(meetingRoom(roomScope, meetingId))) return;
 
-          io.to(userRoom(companySlug, targetUserId)).emit("meeting:ice-candidate", {
+          io.to(userRoom(roomScope, targetUserId)).emit("meeting:ice-candidate", {
             meetingId,
             fromUserId: Number(socket.user.id),
             candidate,
@@ -1553,9 +1594,9 @@ io.on(
 
         const { meetingId, isMuted, isCameraOff } = data;
 
-        if (!meetingId || !socket.rooms.has(meetingRoom(companySlug, meetingId))) return;
+        if (!meetingId || !socket.rooms.has(meetingRoom(roomScope, meetingId))) return;
 
-        socket.to(meetingRoom(companySlug, meetingId)).emit("meeting:media-state-changed", {
+        socket.to(meetingRoom(roomScope, meetingId)).emit("meeting:media-state-changed", {
           userId: Number(socket.user.id),
           isMuted: Boolean(isMuted),
           isCameraOff: Boolean(isCameraOff),
@@ -1570,9 +1611,9 @@ io.on(
 
         const { meetingId, raised } = data;
 
-        if (!meetingId || !socket.rooms.has(meetingRoom(companySlug, meetingId))) return;
+        if (!meetingId || !socket.rooms.has(meetingRoom(roomScope, meetingId))) return;
 
-        socket.to(meetingRoom(companySlug, meetingId)).emit("meeting:hand-raised", {
+        socket.to(meetingRoom(roomScope, meetingId)).emit("meeting:hand-raised", {
           userId: Number(socket.user.id),
           fullName: socket.user.fullName,
           raised: Boolean(raised),
@@ -1587,9 +1628,9 @@ io.on(
 
         const { meetingId, sharing } = data;
 
-        if (!meetingId || !socket.rooms.has(meetingRoom(companySlug, meetingId))) return;
+        if (!meetingId || !socket.rooms.has(meetingRoom(roomScope, meetingId))) return;
 
-        socket.to(meetingRoom(companySlug, meetingId)).emit("meeting:screen-share-changed", {
+        socket.to(meetingRoom(roomScope, meetingId)).emit("meeting:screen-share-changed", {
           userId: Number(socket.user.id),
           fullName: socket.user.fullName,
           sharing: Boolean(sharing),
@@ -1618,7 +1659,7 @@ io.on(
 
           if (!allowed) return;
 
-          io.to(userRoom(companySlug, targetUserId)).emit("meeting:force-mute", {
+          io.to(userRoom(roomScope, targetUserId)).emit("meeting:force-mute", {
             meetingId,
           });
 
@@ -1639,7 +1680,7 @@ io.on(
 
           if (!allowed) return;
 
-          io.to(userRoom(companySlug, targetUserId)).emit("meeting:force-camera-off", {
+          io.to(userRoom(roomScope, targetUserId)).emit("meeting:force-camera-off", {
             meetingId,
           });
 
@@ -1664,9 +1705,9 @@ io.on(
         const { meetingId, reaction } = data;
 
         if (!meetingId || !reaction) return;
-        if (!socket.rooms.has(meetingRoom(companySlug, meetingId))) return;
+        if (!socket.rooms.has(meetingRoom(roomScope, meetingId))) return;
 
-        socket.to(meetingRoom(companySlug, meetingId)).emit("meeting:reaction-broadcast", {
+        socket.to(meetingRoom(roomScope, meetingId)).emit("meeting:reaction-broadcast", {
           userId: Number(socket.user.id),
           fullName: socket.user.fullName,
           reaction,
@@ -1693,9 +1734,9 @@ io.on(
         const { meetingId, targetUserId } = data;
 
         if (!meetingId || !targetUserId) return;
-        if (!socket.rooms.has(meetingRoom(companySlug, meetingId))) return;
+        if (!socket.rooms.has(meetingRoom(roomScope, meetingId))) return;
 
-        io.to(userRoom(companySlug, targetUserId)).emit("meeting:control-requested", {
+        io.to(userRoom(roomScope, targetUserId)).emit("meeting:control-requested", {
           meetingId,
           fromUserId: Number(socket.user.id),
           fromName: socket.user.fullName,
@@ -1711,9 +1752,9 @@ io.on(
         const { meetingId, targetUserId, approved } = data;
 
         if (!meetingId || !targetUserId) return;
-        if (!socket.rooms.has(meetingRoom(companySlug, meetingId))) return;
+        if (!socket.rooms.has(meetingRoom(roomScope, meetingId))) return;
 
-        io.to(userRoom(companySlug, targetUserId)).emit("meeting:control-response", {
+        io.to(userRoom(roomScope, targetUserId)).emit("meeting:control-response", {
           meetingId,
           fromUserId: Number(socket.user.id),
           approved: Boolean(approved),
@@ -1729,9 +1770,9 @@ io.on(
         const { meetingId, targetUserId } = data;
 
         if (!meetingId || !targetUserId) return;
-        if (!socket.rooms.has(meetingRoom(companySlug, meetingId))) return;
+        if (!socket.rooms.has(meetingRoom(roomScope, meetingId))) return;
 
-        io.to(userRoom(companySlug, targetUserId)).emit("meeting:control-revoked", {
+        io.to(userRoom(roomScope, targetUserId)).emit("meeting:control-revoked", {
           meetingId,
           fromUserId: Number(socket.user.id),
         });
@@ -1759,7 +1800,7 @@ io.on(
         // just tells the other participants.
         // ====================================
 
-        const meetingRoomPrefix = `tenant:${companySlug}:meeting:`;
+        const meetingRoomPrefix = `tenant:${roomScope}:meeting:`;
 
         socket.rooms.forEach((roomName) => {
 
@@ -1799,7 +1840,7 @@ io.on(
               presenceKey
             );
 
-            io.to(presenceRoom(companySlug)).emit(
+            io.to(presenceRoom(roomScope)).emit(
               "user:offline",
               {
                 userId:
@@ -2286,6 +2327,13 @@ app.use(
 app.use(
   "/api/shifts",
   shiftScheduleRoutes
+);
+
+// SMART SHEETS (collaborative spreadsheets; live edits travel over Socket.IO)
+
+app.use(
+  "/api/smart-sheets",
+  smartSheetRoutes
 );
 
 // SOP LIBRARY

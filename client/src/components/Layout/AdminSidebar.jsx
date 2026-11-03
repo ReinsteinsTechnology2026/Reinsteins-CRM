@@ -16,6 +16,7 @@ import {
   FaUsers,
   FaCalendarCheck,
   FaCalendarWeek,
+  FaTable,
   FaBook,
   FaTasks,
   FaCalendarAlt,
@@ -526,6 +527,30 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
 
           <span className="admin-sidebar-menu-name">
             Shift Management
+          </span>
+        </button>
+
+        {/* SMART SHEETS */}
+
+        <button
+          type="button"
+          className={`sidebar-item ${
+            isActive(
+              `${basePath}/smart-sheets`
+            )
+              ? "active"
+              : ""
+          }`}
+          onClick={() =>
+            handleNavigate(
+              `${basePath}/smart-sheets`
+            )
+          }
+        >
+          <FaTable />
+
+          <span className="admin-sidebar-menu-name">
+            Smart Sheets
           </span>
         </button>
 

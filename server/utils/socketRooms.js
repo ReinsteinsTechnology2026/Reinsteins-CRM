@@ -1,4 +1,23 @@
-const { __LEGACY_COMPANY_SLUG: LEGACY_COMPANY_SLUG, __getCurrentCompanySlug: getCurrentCompanySlug } = require("../config/db");
+const {
+    __LEGACY_COMPANY_SLUG: LEGACY_COMPANY_SLUG,
+    __getCurrentCompanySlug: getCurrentCompanySlug,
+    __getCurrentRoomScope: getCurrentRoomScope,
+    __roomScopeOf: roomScopeOf,
+    __LEGACY_ROOM_SCOPE: LEGACY_ROOM_SCOPE,
+} = require("../config/db");
+
+// ==========================================
+// ROOM SCOPE (read this before touching any room name)
+//
+// Every function below takes a SCOPE as its first argument, not a bare company slug. A scope names a
+// DATABASE: "legacy-db" for the legacy Reinsteins database, the company slug for a registered tenant
+// database. The legacy database and the tenant company "reinsteins" share the slug "reinsteins" but
+// are different databases, so a slug-only name would put legacy sheet 5 and tenant sheet 5 (or
+// legacy user 3 and tenant user 3) into ONE room. See config/db.js roomScopeOf().
+//
+// Socket handlers get their scope from roomScopeOf(socket.tenantContext); REST code uses the
+// current*Room() helpers, which read the ambient request context.
+// ==========================================
 
 // ==========================================
 // SOCKET.IO ROOM NAMING (Socket.IO Multi-Tenant Isolation Phase)
@@ -31,23 +50,23 @@ const { __LEGACY_COMPANY_SLUG: LEGACY_COMPANY_SLUG, __getCurrentCompanySlug: get
 // other company, not a special case.
 // ==========================================
 
-function userRoom(companySlug, userId) {
-    return `tenant:${companySlug}:user:${userId}`;
+function userRoom(scope, userId) {
+    return `tenant:${scope}:user:${userId}`;
 }
 
-function meetingRoom(companySlug, meetingId) {
-    return `tenant:${companySlug}:meeting:${meetingId}`;
+function meetingRoom(scope, meetingId) {
+    return `tenant:${scope}:meeting:${meetingId}`;
 }
 
-function conversationRoom(companySlug, conversationId) {
-    return `tenant:${companySlug}:conversation:${conversationId}`;
+function conversationRoom(scope, conversationId) {
+    return `tenant:${scope}:conversation:${conversationId}`;
 }
 
 // The room every socket for a given company joins on connect, used
 // ONLY for tenant-scoped presence broadcast (user:online/offline) --
 // never for anything containing another user's private data.
-function presenceRoom(companySlug) {
-    return `tenant:${companySlug}:presence`;
+function presenceRoom(scope) {
+    return `tenant:${scope}:presence`;
 }
 
 // Tenant-wide room every authenticated socket for a company joins on
@@ -55,36 +74,50 @@ function presenceRoom(companySlug) {
 // change broadcasts. A client with no "shift:updated" listener
 // registered simply ignores events in this room, so joining costs
 // nothing for users who never open Shift Management.
-function shiftRoom(companySlug) {
-    return `tenant:${companySlug}:shifts`;
+function shiftRoom(scope) {
+    return `tenant:${scope}:shifts`;
+}
+
+// One room per open spreadsheet (Smart Sheets). Joined only after the server has verified, from a
+// fresh database read, that the user may open that sheet -- see services/smartSheetRealtime.js.
+function smartSheetRoom(scope, sheetId) {
+    return `tenant:${scope}:smartsheet:${sheetId}`;
 }
 
 // Convenience for REST controllers/services: builds a room using
 // whatever company the CURRENT request/context belongs to, without
 // the caller needing to look up the slug itself.
 function currentUserRoom(userId) {
-    return userRoom(getCurrentCompanySlug(), userId);
+    return userRoom(getCurrentRoomScope(), userId);
 }
 function currentMeetingRoom(meetingId) {
-    return meetingRoom(getCurrentCompanySlug(), meetingId);
+    return meetingRoom(getCurrentRoomScope(), meetingId);
 }
 function currentConversationRoom(conversationId) {
-    return conversationRoom(getCurrentCompanySlug(), conversationId);
+    return conversationRoom(getCurrentRoomScope(), conversationId);
 }
 function currentShiftRoom() {
-    return shiftRoom(getCurrentCompanySlug());
+    return shiftRoom(getCurrentRoomScope());
+}
+function currentSmartSheetRoom(sheetId) {
+    return smartSheetRoom(getCurrentRoomScope(), sheetId);
 }
 
 module.exports = {
     LEGACY_COMPANY_SLUG,
+    LEGACY_ROOM_SCOPE,
     getCurrentCompanySlug,
+    getCurrentRoomScope,
+    roomScopeOf,
     userRoom,
     meetingRoom,
     conversationRoom,
     presenceRoom,
     shiftRoom,
+    smartSheetRoom,
     currentUserRoom,
     currentMeetingRoom,
     currentConversationRoom,
     currentShiftRoom,
+    currentSmartSheetRoom,
 };

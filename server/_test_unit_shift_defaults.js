@@ -9,7 +9,7 @@ const assert = require("node:assert/strict");
 
 const db = require("./config/db");
 const { isWeekendDate, computeDefaultOffDates, resolveShiftRoomPlan } = require("./utils/shiftDefaults");
-const { shiftRoom, userRoom } = require("./utils/socketRooms");
+const { shiftRoom, userRoom, LEGACY_ROOM_SCOPE } = require("./utils/socketRooms");
 const shiftController = require("./controllers/shiftScheduleController");
 
 function installQueue(responses) {
@@ -158,7 +158,7 @@ describe("createShift broadcasts shift:updated only after a successful write", (
     assert.equal(calls.length, 1);
     assert.deepEqual(
       [...calls[0].rooms].sort(),
-      [userRoom("reinsteins", 1), shiftRoom("reinsteins")].sort()
+      [userRoom(LEGACY_ROOM_SCOPE, 1), shiftRoom(LEGACY_ROOM_SCOPE)].sort()
     );
     assert.equal(calls[0].event, "shift:updated");
     assert.deepEqual(calls[0].payload, {
@@ -306,7 +306,7 @@ describe("bulkSaveShifts broadcasts per successful entry only", () => {
 });
 
 describe("tenant isolation of the broadcast room", () => {
-  test("room name is built from the ambient tenant context, defaulting to reinsteins", async () => {
+  test("room name is built from the ambient tenant context, defaulting to the legacy database scope", async () => {
     installQueue([
       [[{ id: 1 }]],
       [[]],
@@ -324,8 +324,8 @@ describe("tenant isolation of the broadcast room", () => {
     });
 
     assert.deepEqual([...calls[0].rooms].sort(), ["tenant:acmeco:shifts", "tenant:acmeco:user:1"].sort());
-    assert.ok(!calls[0].rooms.includes(shiftRoom("reinsteins")), "must not reach the reinsteins room");
-    assert.ok(!calls[0].rooms.includes(userRoom("reinsteins", 1)), "must not reach a reinsteins user room");
+    assert.ok(!calls[0].rooms.includes(shiftRoom(LEGACY_ROOM_SCOPE)), "must not reach the legacy-database room");
+    assert.ok(!calls[0].rooms.includes(userRoom(LEGACY_ROOM_SCOPE, 1)), "must not reach a legacy-database user room");
   });
 });
 
@@ -446,7 +446,7 @@ describe("realtime recipient authorization (manager/admin/tenant scoping)", () =
       makeReq({ body: { userId: affectedUserId, shiftDate: "2026-10-10", status: "off" }, app: { get: () => io } }),
       makeRes()
     );
-    assert.deepEqual([...calls[0].rooms].sort(), [userRoom("reinsteins", affectedUserId), shiftRoom("reinsteins")].sort());
+    assert.deepEqual([...calls[0].rooms].sort(), [userRoom(LEGACY_ROOM_SCOPE, affectedUserId), shiftRoom(LEGACY_ROOM_SCOPE)].sort());
 
     installQueue([
       [[{ id: 900, user_id: affectedUserId, shift_date: "2026-10-10", status: "off", start_time: null, end_time: null, notes: null }]],
@@ -458,7 +458,7 @@ describe("realtime recipient authorization (manager/admin/tenant scoping)", () =
       makeReq({ params: { id: "900" }, body: { status: "leave" }, app: { get: () => io } }),
       makeRes()
     );
-    assert.deepEqual([...calls[0].rooms].sort(), [userRoom("reinsteins", affectedUserId), shiftRoom("reinsteins")].sort());
+    assert.deepEqual([...calls[0].rooms].sort(), [userRoom(LEGACY_ROOM_SCOPE, affectedUserId), shiftRoom(LEGACY_ROOM_SCOPE)].sort());
 
     installQueue([
       [[{ id: 900, user_id: affectedUserId, shift_date: "2026-10-10", status: "leave", start_time: null, end_time: null, notes: null }]],
@@ -470,7 +470,7 @@ describe("realtime recipient authorization (manager/admin/tenant scoping)", () =
       makeReq({ params: { id: "900" }, app: { get: () => io } }),
       makeRes()
     );
-    assert.deepEqual([...calls[0].rooms].sort(), [userRoom("reinsteins", affectedUserId), shiftRoom("reinsteins")].sort());
+    assert.deepEqual([...calls[0].rooms].sort(), [userRoom(LEGACY_ROOM_SCOPE, affectedUserId), shiftRoom(LEGACY_ROOM_SCOPE)].sort());
 
     installQueue([[[{ id: affectedUserId }]], [[]], [[{ id: 901 }]], [[]]]);
     ({ io, calls } = fakeIo());
@@ -481,7 +481,7 @@ describe("realtime recipient authorization (manager/admin/tenant scoping)", () =
       }),
       makeRes()
     );
-    assert.deepEqual([...calls[0].rooms].sort(), [userRoom("reinsteins", affectedUserId), shiftRoom("reinsteins")].sort());
+    assert.deepEqual([...calls[0].rooms].sort(), [userRoom(LEGACY_ROOM_SCOPE, affectedUserId), shiftRoom(LEGACY_ROOM_SCOPE)].sort());
   });
 
   test("an admin editing their own shift: exactly one .emit() call spanning both rooms, not two", () => {
@@ -508,7 +508,7 @@ describe("realtime recipient authorization (manager/admin/tenant scoping)", () =
       )
       .then(() => {
         assert.equal(calls.length, 1, "must be exactly one emit call, not one per room");
-        assert.deepEqual([...calls[0].rooms].sort(), [userRoom("reinsteins", adminId), shiftRoom("reinsteins")].sort());
+        assert.deepEqual([...calls[0].rooms].sort(), [userRoom(LEGACY_ROOM_SCOPE, adminId), shiftRoom(LEGACY_ROOM_SCOPE)].sort());
       });
   });
 });
