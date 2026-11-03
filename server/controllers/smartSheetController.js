@@ -3,7 +3,7 @@ const path = require("path");
 
 const { describeError } = require("../services/smartSheetService");
 const realtime = require("../services/smartSheetRealtime");
-const { getCurrentCompanySlug } = require("../utils/socketRooms");
+const { getCurrentRoomScope } = require("../utils/socketRooms");
 const { UPLOADS_ROOT } = require("../utils/tenantUploadPath");
 
 // ==========================================
@@ -24,12 +24,13 @@ function handle(work) {
         try {
             await work(req, res);
         } catch (error) {
-            const { status, code, message } = describeError(error);
+            const { status, code, message, retryAfterMs } = describeError(error);
             if (status >= 500) {
                 console.error("Smart Sheets error:", error);
             }
             if (!res.headersSent) {
-                res.status(status).json({ success: false, code, message });
+                if (retryAfterMs !== undefined) res.set("Retry-After", String(Math.max(1, Math.ceil(retryAfterMs / 1000))));
+                res.status(status).json({ success: false, code, message, ...(retryAfterMs !== undefined ? { retryAfterMs } : {}) });
             }
         }
     };
@@ -59,9 +60,8 @@ function createSmartSheetController(service) {
     const importSheet = handle(async (req, res) => {
         const storedPath = path.relative(UPLOADS_ROOT, req.file.path).split(path.sep).join("/");
         try {
-            const buffer = await fs.promises.readFile(req.file.path);
             const result = await service.importSheet(req.user.id, req.body && req.body.name, {
-                buffer,
+                path: req.file.path, // parsed in an isolated child process: the workbook is never loaded into this process
                 originalName: req.file.originalname,
                 storedPath,
             });
@@ -86,7 +86,7 @@ function createSmartSheetController(service) {
         const body = req.body || {};
         const result = await service.updateSheet(req.user.id, req.params.id, { name: body.name, status: body.status });
         if (result.status === "archived" && io(req)) {
-            await realtime.evictAll(io(req), getCurrentCompanySlug(), result.id, "archived");
+            await realtime.evictAll(io(req), getCurrentRoomScope(), result.id, "archived");
         }
         ok(res, result);
     });
@@ -94,7 +94,7 @@ function createSmartSheetController(service) {
     const deleteSheet = handle(async (req, res) => {
         const result = await service.deleteSheet(req.user.id, req.params.id);
         if (io(req)) {
-            await realtime.evictAll(io(req), getCurrentCompanySlug(), result.id, "deleted");
+            await realtime.evictAll(io(req), getCurrentRoomScope(), result.id, "deleted");
         }
         ok(res, result);
     });
@@ -108,7 +108,7 @@ function createSmartSheetController(service) {
         const result = await service.assign(req.user.id, req.params.id, { userIds: body.userIds, permission: body.permission });
         if (io(req)) {
             for (const userId of result.granted) {
-                realtime.notifyAccessChanged(io(req), getCurrentCompanySlug(), req.params.id, userId, result.permission);
+                realtime.notifyAccessChanged(io(req), getCurrentRoomScope(), req.params.id, userId, result.permission);
             }
         }
         ok(res, result);
@@ -118,7 +118,7 @@ function createSmartSheetController(service) {
         const result = await service.revoke(req.user.id, req.params.id, req.params.userId);
         if (io(req)) {
             // Immediately: the employee's open tabs leave the room and are told why.
-            await realtime.evictUser(io(req), getCurrentCompanySlug(), result.sheetId, result.userId, "unassigned");
+            await realtime.evictUser(io(req), getCurrentRoomScope(), result.sheetId, result.userId, "unassigned");
         }
         ok(res, result);
     });

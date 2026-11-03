@@ -11,11 +11,13 @@
 // ==========================================
 
 class SmartSheetError extends Error {
-    constructor(status, code, message) {
+    // extra: optional machine-readable hints, e.g. { retryAfterMs } for rate limiting
+    constructor(status, code, message, extra = {}) {
         super(message);
         this.name = "SmartSheetError";
         this.status = status;
         this.code = code;
+        if (extra.retryAfterMs !== undefined) this.retryAfterMs = extra.retryAfterMs;
     }
 }
 

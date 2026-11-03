@@ -45,7 +45,11 @@ cell, a worksheet add/rename, or a column-width/row-height change. Socket events
 * `smartsheet:op {sheetId, op}` -- re-checks access, validates, **saves**, and only then broadcasts to the other users.
 * `smartsheet:leave`, `smartsheet:presence`, `smartsheet:access-revoked`, `smartsheet:access-changed`.
 
-Rooms are `tenant:<company>:smartsheet:<id>` (from `utils/socketRooms.js`), so tenants can never share a room.
+Rooms are `tenant:<scope>:smartsheet:<id>` (from `utils/socketRooms.js`). The **scope names a database**: `legacy-db` for the legacy
+Reinsteins database, the company slug for a tenant database (`config/db.js roomScopeOf`). The legacy database and the tenant
+company `reinsteins` have the same slug but different data and independent ids, so a slug-only name would have put legacy
+sheet 5 and tenant sheet 5 in one room. `legacy-db` contains a hyphen, so it can never equal a company slug. User and presence
+rooms use the same scope.
 
 ### The last-write-wins rule
 
@@ -62,7 +66,15 @@ Edits to **different** cells never conflict.
 
 * The editor shows `Saving…` until the server acknowledges the **committed** save, then `Saved`.
 * Offline or disconnected: edits are kept in the page and sent, in order, when the connection returns (a banner says so).
-  After a reconnect the client first flushes its own edits, then reloads the saved state from the server.
+* **First load and every reconnect use ONE code path** (`client/src/utils/smartSheetSession.js`): join the live room, flush this
+  tab's unsaved edits (with a timeout), load the saved state, replay the live changes that arrived meanwhile (in revision
+  order), then re-open editing. Editing is paused while this runs. If it cannot finish, the workbook is **not** replaced (typed
+  data is kept), the header shows *Out of date*, and it retries with backoff (1 s ... 15 s, forever; *Retry now* skips the wait).
+* Every change carries an `opId`. A retry after a lost acknowledgement re-sends the same `opId`; the server answers the
+  original revision and does **not** apply or broadcast it twice (kept 10 min, max 20,000 entries). A connection that is "up"
+  but silent triggers a controlled reconnect; a change that still cannot be delivered is reported and does not block the queue.
+* A large paste is split by **serialized size** (about 256 KB per message), not only by cell count. Socket.IO accepts messages up
+  to 2 MB, above the 512 KB validator limit, so an oversized change gets a proper error instead of a dropped connection.
 * A refresh always shows the latest saved state (`GET /api/smart-sheets/:id/workbook`).
 * A save the server **refuses** (validation, no access, read-only) is reported ("Not saved" + banner with *Reload saved version*).
 
@@ -84,6 +96,15 @@ Formula results are recomputed when a sheet is opened; an exported formula cell 
 
 100,000 rows x 1,000 columns, 50 worksheets, 5,000 cells and 512 KB per change, 32,767 characters per cell, 10 MB upload,
 200,000 non-empty cells per import, 300 changes per 10 s per socket. Default blank sheet: 1,000 x 26.
+
+Growth and abuse limits (all checked **before** anything is stored):
+
+* 200,000 non-empty cells and 25 MB of stored cell data per spreadsheet (`SHEET_FULL`); this also bounds the workbook response.
+* Per **user**, across all their sockets/tabs: 600 changes per 10 s and 100,000 cells per minute (`RATE_LIMITED` + `retryAfterMs`).
+* Imports: the .xlsx is a zip, so its **declared uncompressed size** (<= 50 MB, <= 2,000 parts, no ZIP64/encryption) is read from
+  the zip directory before any parsing; parsing then runs in a **child process** (768 MB heap, 60 s timeout, no credentials in its
+  environment); at most 2 imports run at once process-wide and 1 per user; 5 imports per user per 10 minutes.
+* Keys for every limiter include the database scope, because user ids restart at 1 in each database.
 
 ## Not supported yet
 
@@ -108,4 +129,7 @@ and data validation are not synchronised or stored. Version history is not part 
 `node --test _test_smart_sheets_*.js` (all are in the `server-tests` list of `.github/workflows/pr-checks.yml`).
 They run the real service, validation, Socket.IO handlers, Express router, upload middleware and Excel code against an
 in-memory store (`_smart_sheets_test_support.js`), because CI has no database for these tests. The SQL itself was run against
-a real PostgreSQL (PGlite, outside the repository) -- see the PR notes.
+a real PostgreSQL: `_test_smart_sheets_pg.js` runs the migration, the store and the service (legacy `users.id` INTEGER and BIGINT,
+the full tenant schema, growth caps, concurrency) against a disposable PostgreSQL in the `migration-postgres` CI job.
+Regression tests for the review findings: `_test_smart_sheets_hardening.js` (room scopes, transport limit, growth caps, per-user
+limits, import isolation) and `_test_smart_sheets_resilience.js` (reconnect, retries, chunking).

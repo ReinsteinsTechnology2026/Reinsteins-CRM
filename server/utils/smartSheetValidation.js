@@ -35,11 +35,35 @@ const LIMITS = Object.freeze({
     MAX_UPLOAD_BYTES: 10 * 1024 * 1024,
     MAX_IMPORT_CELLS: 200000,
     MAX_ASSIGNEES_PER_REQUEST: 200,
+
+    // ---- growth limits: one Node process serves every tenant, so a single sheet must stay bounded ----
+    MAX_CELLS_PER_SHEET: 200000,
+    MAX_SHEET_DATA_BYTES: 25 * 1024 * 1024, // total stored cell JSON per spreadsheet = the largest workbook response
+
+    // ---- import isolation ----
+    MAX_UNCOMPRESSED_IMPORT_BYTES: 50 * 1024 * 1024, // declared size of everything inside the .xlsx (zip) archive
+    MAX_ZIP_ENTRIES: 2000,
+    IMPORT_MEMORY_LIMIT_MB: 768, // heap limit of the child process that parses a workbook
+    IMPORT_TIMEOUT_MS: 60 * 1000,
+    MAX_CONCURRENT_IMPORTS: 2, // across all users and tenants
+    IMPORTS_PER_USER: 5, // per user ...
+    IMPORT_WINDOW_MS: 10 * 60 * 1000, // ... per 10 minutes
+
+    // ---- live-edit transport ----
+    MAX_SOCKET_MESSAGE_BYTES: 2 * 1024 * 1024, // Socket.IO maxHttpBufferSize: above MAX_OPERATION_BYTES so the validator can answer
+    OPERATION_TARGET_BYTES: 256 * 1024, // the client splits one change into pieces of about this size
+    USER_OPERATIONS: 600, // per USER, across all of their sockets ...
+    USER_OPERATION_WINDOW_MS: 10 * 1000, // ... per 10 seconds
+    USER_CELLS: 100000, // cells written per USER, across all of their sockets ...
+    USER_CELLS_WINDOW_MS: 60 * 1000, // ... per minute
 });
 
 const WORKSHEET_KEY_PATTERN = /^[A-Za-z0-9_-]{1,36}$/;
 const FORBIDDEN_WORKSHEET_NAME_CHARS = /[\\/?*[\]:]/;
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
+// PostgreSQL jsonb cannot store U+0000 ("unsupported Unicode escape sequence"); a single such character
+// would fail the WHOLE change with a 500, so it is refused up front in every string that is stored.
+const NUL_CHAR = /\u0000/;
 const POISON_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 const isPlainObject = (value) =>
@@ -116,7 +140,13 @@ function assertPlainJson(value, depth = 0) {
     if (depth > 8) {
         throw invalid("INVALID_CELL", "A cell is too deeply nested.");
     }
-    if (value === null || typeof value === "string" || typeof value === "boolean") {
+    if (typeof value === "string") {
+        if (NUL_CHAR.test(value)) {
+            throw invalid("INVALID_CELL", "A cell contains a character that cannot be stored.");
+        }
+        return;
+    }
+    if (value === null || typeof value === "boolean") {
         return;
     }
     if (typeof value === "number") {
@@ -131,7 +161,7 @@ function assertPlainJson(value, depth = 0) {
     }
     if (isPlainObject(value)) {
         for (const key of Object.keys(value)) {
-            if (POISON_KEYS.has(key)) {
+            if (POISON_KEYS.has(key) || NUL_CHAR.test(key)) {
                 throw invalid("INVALID_CELL", "A cell contains a reserved key.");
             }
             assertPlainJson(value[key], depth + 1);
@@ -142,6 +172,10 @@ function assertPlainJson(value, depth = 0) {
 }
 
 const byteLength = (value) => Buffer.byteLength(JSON.stringify(value), "utf8");
+
+// What one stored cell counts as against LIMITS.MAX_SHEET_DATA_BYTES: the size of its JSON text. The same
+// function is used on every write and on import, so the running per-sheet total never drifts.
+const cellStorageBytes = (cell) => byteLength(cell);
 
 // "|" is not an Excel operator (concatenation is &); outside a quoted string it only appears in
 // DDE payloads such as =cmd|'/c calc'!A0, which Excel can be talked into running when an exported
@@ -165,6 +199,9 @@ function sanitizeCell(raw) {
 
     if (raw.v !== undefined && raw.v !== null) {
         if (typeof raw.v === "string") {
+            if (NUL_CHAR.test(raw.v)) {
+                throw invalid("INVALID_CELL", "A cell contains a character that cannot be stored.");
+            }
             if (raw.v.length > LIMITS.MAX_CELL_TEXT_LENGTH) {
                 throw invalid("CELL_TOO_LARGE", `A cell can hold at most ${LIMITS.MAX_CELL_TEXT_LENGTH} characters.`);
             }
@@ -186,6 +223,9 @@ function sanitizeCell(raw) {
     if (raw.f !== undefined && raw.f !== null) {
         if (typeof raw.f !== "string" || !raw.f.startsWith("=") || raw.f.length > LIMITS.MAX_FORMULA_LENGTH) {
             throw invalid("INVALID_CELL", "A formula is not valid.");
+        }
+        if (NUL_CHAR.test(raw.f)) {
+            throw invalid("INVALID_CELL", "A formula contains a character that cannot be stored.");
         }
         if (hasDdeLikePipe(raw.f)) {
             throw invalid("INVALID_CELL", "That formula is not allowed.");
@@ -344,4 +384,5 @@ module.exports = {
     sanitizeCell,
     validateOperation,
     isPlainObject,
+    cellStorageBytes,
 };

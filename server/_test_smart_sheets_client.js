@@ -133,12 +133,15 @@ test("the editor and the server speak the same socket protocol", () => {
         assert.ok(editor.includes(`"${event}"`), `editor uses ${event}`);
         assert.ok(realtime.includes(`"${event}"`), `server handles/emits ${event}`);
     }
-    // the editor joins before it loads the saved state, so nothing is missed in between
-    assert.ok(editor.indexOf("await join();") < editor.indexOf("await getSmartSheetWorkbook(sheetId)"));
-    // and after a reconnect it flushes its own unsaved edits BEFORE replacing the sheet with the saved state
-    const reconnect = editor.slice(editor.indexOf('on("connect"'));
-    assert.ok(reconnect.indexOf("queue.whenDrained()") > 0 && reconnect.indexOf("queue.whenDrained()") < reconnect.indexOf("getSmartSheetWorkbook"));
-    assert.match(appJs, /registerSmartSheetHandlers\(\{\s*io,\s*socket,\s*onTenantEvent,\s*companySlug,\s*service: smartSheetService,\s*\}\)/, "registered per connection, inside the tenant context wrapper");
+    // first load AND every reconnect go through ONE controller; it joins before loading the saved state
+    assert.ok(editor.includes("createSyncController({"));
+    assert.ok(editor.includes(`controller.synchronise("open")`));
+    assert.ok(editor.includes(`controller.synchronise("reconnect")`));
+    assert.ok(!editor.includes("await getSmartSheetWorkbook(sheetId)"), "the editor has no second, hand-written load path");
+    const session = fs.readFileSync(path.join(root, "client", "src", "utils", "smartSheetSession.js"), "utf8");
+    const body = session.slice(session.indexOf("async function attemptLoop"));
+    assert.ok(body.indexOf("await join()") < body.indexOf("queue.whenDrained") && body.indexOf("queue.whenDrained") < body.indexOf("await fetchState()"), "join, flush unsaved edits, THEN load saved state");
+    assert.match(appJs, /registerSmartSheetHandlers\(\{\s*io,\s*socket,\s*onTenantEvent,\s*roomScope,\s*service: smartSheetService,\s*\}\)/, "registered per connection, inside the tenant context wrapper");
     assert.match(appJs, /"\/api\/smart-sheets",\s*smartSheetRoutes/);
 });
 

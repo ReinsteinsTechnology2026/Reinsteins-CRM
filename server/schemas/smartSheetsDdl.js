@@ -14,13 +14,16 @@
 //   smart_sheets            one row per spreadsheet; `revision` is bumped inside every write
 //                           transaction and doubles as the per-sheet write lock, which is what
 //                           makes concurrent edits apply in one well-defined order (see
-//                           services/smartSheetStore.js).
+//                           services/smartSheetStore.js). `cell_count` / `data_bytes` are the running
+//                           totals the growth limits are enforced against (LIMITS.MAX_CELLS_PER_SHEET /
+//                           MAX_SHEET_DATA_BYTES) before a write is stored.
 //   smart_sheet_access      explicit employee assignments (view | edit). Admins are never listed
 //                           here: admin-tier access comes from role/system_access.
 //   smart_sheet_worksheets  the tabs. ws_key is the editor's worksheet id (client-generated for
 //                           new tabs, validated server-side).
 //   smart_sheet_cells       one row per non-empty cell; `cell` is the editor's cell JSON
-//                           (value, formula, inline style).
+//                           (value, formula, inline style); `bytes` is its stored size, so totals can be
+//                           kept exact without re-measuring.
 // ==========================================
 
 const SMART_SHEETS_SCHEMA_STATEMENTS = [
@@ -29,6 +32,8 @@ const SMART_SHEETS_SCHEMA_STATEMENTS = [
   "name" varchar(150) NOT NULL,
   "status" varchar NOT NULL DEFAULT 'active' CHECK ("status" IN ('active', 'archived')),
   "revision" bigint NOT NULL DEFAULT 0,
+  "cell_count" integer NOT NULL DEFAULT 0,
+  "data_bytes" bigint NOT NULL DEFAULT 0,
   "source_file_name" varchar(255) DEFAULT NULL,
   "source_file_path" varchar(500) DEFAULT NULL,
   "created_by" integer DEFAULT NULL,
@@ -72,6 +77,7 @@ const SMART_SHEETS_SCHEMA_STATEMENTS = [
   "col_idx" integer NOT NULL,
   "sheet_id" integer NOT NULL,
   "cell" jsonb NOT NULL,
+  "bytes" integer NOT NULL DEFAULT 0,
   "revision" bigint NOT NULL DEFAULT 0,
   "updated_by" integer DEFAULT NULL,
   "updated_at" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,

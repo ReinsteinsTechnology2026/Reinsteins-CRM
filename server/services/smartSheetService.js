@@ -6,7 +6,9 @@ const {
     parsePositiveId,
     validateSheetName,
     validateOperation,
+    cellStorageBytes,
 } = require("../utils/smartSheetValidation");
+const { createWindowLimiter, createConcurrencyGate } = require("../utils/smartSheetLimiter");
 const xlsxService = require("./smartSheetXlsxService");
 
 // ==========================================
@@ -84,12 +86,38 @@ function toUniverWorkbook(state) {
 // not leak internals.
 function describeError(error) {
     if (error instanceof SmartSheetError) {
-        return { status: error.status, code: error.code, message: error.message };
+        const description = { status: error.status, code: error.code, message: error.message };
+        if (error.retryAfterMs !== undefined) description.retryAfterMs = error.retryAfterMs;
+        return description;
     }
     return { status: 500, code: "SERVER_ERROR", message: "Something went wrong. Please try again." };
 }
 
-function createSmartSheetService({ store, xlsx = xlsxService }) {
+// The ambient database scope ("legacy-db" or the tenant slug). Lazy so the service has no import-time
+// dependency on the database configuration.
+function defaultScopeKey() {
+    return require("../utils/socketRooms").getCurrentRoomScope();
+}
+
+// A spreadsheet that is somehow over the growth limits (only possible by editing the database directly) is
+// refused instead of being loaded whole into the one shared Node process.
+function assertOpenable(sheet, limits) {
+    if (
+        (Number(sheet.cell_count) || 0) > limits.MAX_CELLS_PER_SHEET ||
+        (Number(sheet.data_bytes) || 0) > limits.MAX_SHEET_DATA_BYTES
+    ) {
+        throw new SmartSheetError(413, "WORKBOOK_TOO_LARGE", "This spreadsheet is too large to open. Ask an administrator to split it.");
+    }
+}
+
+function createSmartSheetService({
+    store,
+    xlsx = xlsxService,
+    scopeKey = defaultScopeKey,
+    importLimiter = createWindowLimiter({ limit: LIMITS.IMPORTS_PER_USER, windowMs: LIMITS.IMPORT_WINDOW_MS }),
+    importGate = createConcurrencyGate({ max: Infinity }),
+    limits = LIMITS, // injectable so tests can use small caps; must be the same object the store was given
+}) {
     async function requireActiveAccount(userId) {
         const account = await store.getAccount(userId);
         if (!isActiveAccount(account)) {
@@ -153,22 +181,59 @@ function createSmartSheetService({ store, xlsx = xlsxService }) {
             return { id: sheetId, name };
         },
 
-        // `file`: { buffer, originalName, storedPath } -- already size-limited by the upload middleware.
+        // `file`: { path | buffer, originalName, storedPath } -- already size-limited by the upload middleware.
+        // Production passes `path`: the workbook is then parsed in an isolated child process (directory check,
+        // memory limit, timeout), never inside the CRM process. `buffer` is the in-process path used by tests.
         async importSheet(userId, rawName, file) {
             await requireAdminAccount(userId);
 
             const fallbackName = String(file.originalName || "").replace(/\.xlsx$/i, "");
             const name = validateSheetName(rawName && String(rawName).trim() ? rawName : fallbackName);
 
-            const parsed = await xlsx.parseXlsxBuffer(file.buffer);
-            const sheetId = await store.createSheet({
-                name,
-                userId,
-                worksheets: parsed.worksheets,
-                source: { fileName: String(file.originalName || "").slice(0, 255), filePath: file.storedPath ? String(file.storedPath).slice(0, 500) : null },
-            });
+            // Per-USER limits (keyed by database scope + user id, since ids restart at 1 in every database).
+            const key = `${scopeKey()}:${userId}`;
+            const allowance = importLimiter.hit(key);
+            if (!allowance.allowed) {
+                throw new SmartSheetError(
+                    429,
+                    "IMPORT_RATE_LIMITED",
+                    `You have imported several workbooks recently. Please wait ${Math.ceil(allowance.retryAfterMs / 60000)} minute(s) and try again.`,
+                    { retryAfterMs: allowance.retryAfterMs }
+                );
+            }
+            const release = importGate.acquire(key, 1);
+            if (!release) {
+                throw new SmartSheetError(429, "IMPORT_BUSY", "One of your workbooks is still being imported. Please wait for it to finish.", { retryAfterMs: 15000 });
+            }
 
-            return { id: sheetId, name, warnings: parsed.warnings, worksheetCount: parsed.worksheets.length };
+            try {
+                const parsed = file.path ? await xlsx.parseXlsxFile(file.path) : await xlsx.parseXlsxBuffer(file.buffer);
+
+                // The same growth limits as live editing, applied before anything is stored.
+                let totalCells = 0;
+                let totalBytes = 0;
+                for (const worksheet of parsed.worksheets) {
+                    for (const entry of worksheet.cells) {
+                        entry.bytes = cellStorageBytes(entry.cell);
+                        totalCells += 1;
+                        totalBytes += entry.bytes;
+                    }
+                }
+                if (totalCells > limits.MAX_CELLS_PER_SHEET || totalBytes > limits.MAX_SHEET_DATA_BYTES) {
+                    throw invalid("IMPORT_TOO_LARGE", "This workbook holds more data than one spreadsheet can store. Split it into smaller workbooks.");
+                }
+
+                const sheetId = await store.createSheet({
+                    name,
+                    userId,
+                    worksheets: parsed.worksheets,
+                    source: { fileName: String(file.originalName || "").slice(0, 255), filePath: file.storedPath ? String(file.storedPath).slice(0, 500) : null },
+                });
+
+                return { id: sheetId, name, warnings: parsed.warnings, worksheetCount: parsed.worksheets.length };
+            } finally {
+                release();
+            }
         },
 
         async getSheet(userId, rawSheetId) {
@@ -181,6 +246,7 @@ function createSmartSheetService({ store, xlsx = xlsxService }) {
         // after a reconnect -- always the database's latest committed state.
         async getWorkbook(userId, rawSheetId) {
             const access = await authorize(userId, rawSheetId, "view");
+            assertOpenable(await store.getSheet(access.sheetId), limits); // cheap metadata check BEFORE any cell is loaded
             const state = await store.loadWorkbook(access.sheetId);
             if (!state || state.sheet.deleted_at) throw notFound();
             return {
@@ -269,6 +335,7 @@ function createSmartSheetService({ store, xlsx = xlsxService }) {
 
         async exportXlsx(userId, rawSheetId) {
             const access = await authorize(userId, rawSheetId, "view");
+            assertOpenable(await store.getSheet(access.sheetId), limits);
             const state = await store.loadWorkbook(access.sheetId);
             if (!state || state.sheet.deleted_at) throw notFound();
             return { buffer: await xlsx.buildXlsxBuffer(state), fileName: safeFileName(state.sheet.name) };

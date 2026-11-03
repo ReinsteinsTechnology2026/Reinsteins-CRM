@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 
-const { LIMITS } = require("../utils/smartSheetValidation");
+const { LIMITS, cellStorageBytes } = require("../utils/smartSheetValidation");
 const { SmartSheetError, invalid } = require("../utils/smartSheetErrors");
 
 // ==========================================
@@ -45,6 +45,8 @@ function sheetRow(row) {
         name: row.name,
         status: row.status,
         revision: toNumber(row.revision),
+        cell_count: row.cell_count === undefined ? undefined : toNumber(row.cell_count),
+        data_bytes: row.data_bytes === undefined ? undefined : toNumber(row.data_bytes),
         created_by: row.created_by ?? null,
         created_by_name: row.created_by_name ?? null,
         created_at: row.created_at,
@@ -75,21 +77,25 @@ async function withTransaction(pool, work) {
     }
 }
 
+// `bytes` per cell = the size counted against the sheet's data limit; entries may already carry it (import).
+const bytesOf = (entry) => (entry.bytes !== undefined ? entry.bytes : cellStorageBytes(entry.cell));
+
 async function upsertCells(connection, { sheetId, worksheetId, cells, revision, userId }) {
     for (let start = 0; start < cells.length; start += CELL_CHUNK) {
         const chunk = cells.slice(start, start + CELL_CHUNK);
         await connection.query(
-            `INSERT INTO smart_sheet_cells (worksheet_id, row_idx, col_idx, sheet_id, cell, revision, updated_by)
-             SELECT ?::int, t.r, t.c, ?::int, t.cell::jsonb, ?::bigint, ?::int
-             FROM unnest(?::int[], ?::int[], ?::text[]) AS t(r, c, cell)
+            `INSERT INTO smart_sheet_cells (worksheet_id, row_idx, col_idx, sheet_id, cell, bytes, revision, updated_by)
+             SELECT ?::int, t.r, t.c, ?::int, t.cell::jsonb, t.bytes, ?::bigint, ?::int
+             FROM unnest(?::int[], ?::int[], ?::text[], ?::int[]) AS t(r, c, cell, bytes)
              ON CONFLICT (worksheet_id, row_idx, col_idx)
-             DO UPDATE SET cell = EXCLUDED.cell, revision = EXCLUDED.revision,
+             DO UPDATE SET cell = EXCLUDED.cell, bytes = EXCLUDED.bytes, revision = EXCLUDED.revision,
                            updated_by = EXCLUDED.updated_by, updated_at = CURRENT_TIMESTAMP`,
             [
                 worksheetId, sheetId, revision, userId,
                 chunk.map((entry) => entry.r),
                 chunk.map((entry) => entry.c),
                 chunk.map((entry) => JSON.stringify(entry.cell)),
+                chunk.map(bytesOf),
             ]
         );
     }
@@ -107,7 +113,8 @@ async function deleteCells(connection, { worksheetId, cells }) {
     }
 }
 
-function createPgStore({ pool }) {
+// `limits` is injectable so tests can exercise the growth caps without writing 200,000 rows.
+function createPgStore({ pool, limits = LIMITS }) {
     return {
         // The user's account row (role / system_access / employment_status), fresh from the DB.
         async getAccount(userId) {
@@ -115,7 +122,9 @@ function createPgStore({ pool }) {
                 `SELECT id, role, system_access, employment_status FROM users WHERE id = ? LIMIT 1`,
                 [userId]
             );
-            return rows[0] || null;
+            // users.id may be BIGINT (the legacy database came from MySQL `int unsigned`), which node-pg returns as a
+            // STRING: always hand back a number so ids compare correctly everywhere downstream.
+            return rows[0] ? { ...rows[0], id: Number(rows[0].id) } : null;
         },
 
         // Everything resolveAccess() needs, in ONE round trip.
@@ -137,7 +146,7 @@ function createPgStore({ pool }) {
                 return { account: null, sheet: null, assignment: null };
             }
             return {
-                account: { id: row.user_id, role: row.role, system_access: row.system_access, employment_status: row.employment_status },
+                account: { id: Number(row.user_id), role: row.role, system_access: row.system_access, employment_status: row.employment_status },
                 sheet: row.sheet_id
                     ? { id: row.sheet_id, name: row.sheet_name, status: row.sheet_status, revision: toNumber(row.sheet_revision), deleted_at: row.sheet_deleted_at }
                     : null,
@@ -174,7 +183,7 @@ function createPgStore({ pool }) {
 
         async getSheet(sheetId) {
             const [rows] = await pool.query(
-                `SELECT s.id, s.name, s.status, s.revision, s.created_by, s.created_at, s.updated_at,
+                `SELECT s.id, s.name, s.status, s.revision, s.cell_count, s.data_bytes, s.created_by, s.created_at, s.updated_at,
                         s.deleted_at, s.source_file_name, u.full_name AS created_by_name
                  FROM smart_sheets s LEFT JOIN users u ON u.id = s.created_by
                  WHERE s.id = ? LIMIT 1`,
@@ -192,6 +201,8 @@ function createPgStore({ pool }) {
                     [name, userId, userId, source ? source.fileName : null, source ? source.filePath : null]
                 );
                 const sheetId = created[0].id;
+                let totalCells = 0;
+                let totalBytes = 0;
 
                 for (let position = 0; position < worksheets.length; position += 1) {
                     const sheet = worksheets[position];
@@ -205,11 +216,21 @@ function createPgStore({ pool }) {
                         ]
                     );
                     if (sheet.cells && sheet.cells.length) {
+                        for (const entry of sheet.cells) {
+                            entry.bytes = bytesOf(entry);
+                            totalCells += 1;
+                            totalBytes += entry.bytes;
+                        }
                         await upsertCells(connection, {
                             sheetId, worksheetId: inserted[0].id, cells: sheet.cells, revision: 0, userId,
                         });
                     }
                 }
+
+                await connection.query(
+                    `UPDATE smart_sheets SET cell_count = ?::int, data_bytes = ?::bigint WHERE id = ?`,
+                    [totalCells, totalBytes, sheetId]
+                );
 
                 return sheetId;
             });
@@ -219,6 +240,9 @@ function createPgStore({ pool }) {
         async loadWorkbook(sheetId) {
             const sheet = await this.getSheet(sheetId);
             if (!sheet) return null;
+            if (sheet.cell_count > limits.MAX_CELLS_PER_SHEET || sheet.data_bytes > limits.MAX_SHEET_DATA_BYTES) {
+                throw new SmartSheetError(413, "WORKBOOK_TOO_LARGE", "This spreadsheet is too large to open. Ask an administrator to split it.");
+            }
 
             const [worksheetRows] = await pool.query(
                 `SELECT id, ws_key, name, position, row_count, column_count, layout
@@ -284,7 +308,7 @@ function createPgStore({ pool }) {
                  WHERE a.sheet_id = ? ORDER BY u.full_name, u.id`,
                 [sheetId]
             );
-            return rows;
+            return rows.map((row) => ({ ...row, user_id: Number(row.user_id) }));
         },
 
         // Only ACTIVE accounts can be assigned. Returns the user ids that were granted/updated.
@@ -323,7 +347,7 @@ function createPgStore({ pool }) {
                  WHERE ${where} ORDER BY full_name, id LIMIT ?`,
                 [...params, limit]
             );
-            return rows;
+            return rows.map((row) => ({ ...row, id: Number(row.id) })); // bigint ids arrive as strings
         },
 
         // Applies ONE validated operation and returns { revision } AFTER the transaction commits.
@@ -333,13 +357,15 @@ function createPgStore({ pool }) {
                     // Locks the spreadsheet row: all writes to this sheet are serialized here.
                     const [locked] = await connection.query(
                         `UPDATE smart_sheets SET revision = revision + 1, updated_by = ?, updated_at = CURRENT_TIMESTAMP
-                         WHERE id = ? AND status = 'active' AND deleted_at IS NULL RETURNING revision`,
+                         WHERE id = ? AND status = 'active' AND deleted_at IS NULL RETURNING revision, cell_count, data_bytes`,
                         [userId, sheetId]
                     );
                     if (locked.length === 0) {
                         throw new SmartSheetError(409, "SHEET_NOT_WRITABLE", "This spreadsheet is archived or no longer available.");
                     }
                     const revision = toNumber(locked[0].revision);
+                    const sheetCellCount = toNumber(locked[0].cell_count);
+                    const sheetDataBytes = toNumber(locked[0].data_bytes);
 
                     const findWorksheet = async () => {
                         const [rows] = await connection.query(
@@ -359,10 +385,36 @@ function createPgStore({ pool }) {
                         if (outside) {
                             throw invalid("INVALID_CELL_COORDINATE", "A cell is outside this worksheet.");
                         }
-                        await upsertCells(connection, {
-                            sheetId, worksheetId: worksheet.id, cells: op.cells.filter((entry) => entry.cell !== null), revision, userId,
-                        });
-                        await deleteCells(connection, { worksheetId: worksheet.id, cells: op.cells.filter((entry) => entry.cell === null) });
+                        const writes = op.cells.filter((entry) => entry.cell !== null);
+                        const deletes = op.cells.filter((entry) => entry.cell === null);
+                        writes.forEach((entry) => { entry.bytes = bytesOf(entry); });
+
+                        // GROWTH LIMITS, enforced BEFORE anything is stored: compare what these positions hold now with
+                        // what they will hold, against the sheet's locked running totals.
+                        const [existing] = await connection.query(
+                            `SELECT COUNT(*)::int AS n, COALESCE(SUM(bytes), 0)::bigint AS b FROM smart_sheet_cells
+                             WHERE worksheet_id = ?::int AND (row_idx, col_idx) IN (SELECT t.r, t.c FROM unnest(?::int[], ?::int[]) AS t(r, c))`,
+                            [worksheet.id, op.cells.map((entry) => entry.r), op.cells.map((entry) => entry.c)]
+                        );
+                        const deltaCells = writes.length - toNumber(existing[0].n);
+                        const deltaBytes = writes.reduce((sum, entry) => sum + entry.bytes, 0) - toNumber(existing[0].b);
+                        if (
+                            (deltaCells > 0 && sheetCellCount + deltaCells > limits.MAX_CELLS_PER_SHEET) ||
+                            (deltaBytes > 0 && sheetDataBytes + deltaBytes > limits.MAX_SHEET_DATA_BYTES)
+                        ) {
+                            throw new SmartSheetError(
+                                413,
+                                "SHEET_FULL",
+                                `This spreadsheet has reached its size limit (${limits.MAX_CELLS_PER_SHEET.toLocaleString("en-US")} cells). Clear some cells or use another spreadsheet.`
+                            );
+                        }
+
+                        await upsertCells(connection, { sheetId, worksheetId: worksheet.id, cells: writes, revision, userId });
+                        await deleteCells(connection, { worksheetId: worksheet.id, cells: deletes });
+                        await connection.query(
+                            `UPDATE smart_sheets SET cell_count = cell_count + ?::int, data_bytes = data_bytes + ?::bigint WHERE id = ?`,
+                            [deltaCells, deltaBytes, sheetId]
+                        );
                     } else if (op.type === "addWorksheet") {
                         const [existingKey] = await connection.query(
                             `SELECT 1 FROM smart_sheet_worksheets WHERE sheet_id = ? AND ws_key = ? LIMIT 1`, [sheetId, op.ws]

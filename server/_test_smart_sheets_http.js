@@ -196,15 +196,15 @@ test("the controller tells Socket.IO to evict sockets when access is removed, ar
         });
         const id = (await harness.service.createBlankSheet(SUPER, "Evict")).id;
         await harness.service.assign(SUPER, id, { userIds: [EMP_A, EMP_B], permission: "edit" });
-        const room = `tenant:reinsteins:smartsheet:${id}`;
+        const room = `tenant:legacy-db:smartsheet:${id}`;
 
         await harness.request("PUT", `/${id}/access`, { user: SUPER, body: { userIds: [EMP_A], permission: "view" } });
-        assert.ok(log.some(([k, r, e, p]) => k === "emit" && r === `tenant:reinsteins:user:${EMP_A}` && e === "smartsheet:access-changed" && p.permission === "view"));
+        assert.ok(log.some(([k, r, e, p]) => k === "emit" && r === `tenant:legacy-db:user:${EMP_A}` && e === "smartsheet:access-changed" && p.permission === "view"));
 
         log.length = 0;
         await harness.request("DELETE", `/${id}/access/${EMP_A}`, { user: SUPER });
-        assert.ok(log.some(([k, r, e, p]) => k === "emit" && r === `tenant:reinsteins:user:${EMP_A}` && e === "smartsheet:access-revoked" && p.reason === "unassigned"));
-        assert.ok(log.some(([k, r, target]) => k === "leave" && r === `tenant:reinsteins:user:${EMP_A}` && target === room), "the user's sockets leave the spreadsheet room");
+        assert.ok(log.some(([k, r, e, p]) => k === "emit" && r === `tenant:legacy-db:user:${EMP_A}` && e === "smartsheet:access-revoked" && p.reason === "unassigned"));
+        assert.ok(log.some(([k, r, target]) => k === "leave" && r === `tenant:legacy-db:user:${EMP_A}` && target === room), "the user's sockets leave the spreadsheet room");
 
         log.length = 0;
         await harness.request("PATCH", `/${id}`, { user: SUPER, body: { status: "archived" } });

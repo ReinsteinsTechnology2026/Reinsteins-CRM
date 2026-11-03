@@ -2,6 +2,7 @@ const ExcelJS = require("exceljs");
 
 const { LIMITS, sanitizeCell } = require("../utils/smartSheetValidation");
 const { invalid } = require("../utils/smartSheetErrors");
+const { inspectZipBuffer } = require("../utils/zipInspect");
 
 // ==========================================
 // SMART SHEETS -- EXCEL (.xlsx) IMPORT / EXPORT (ExcelJS)
@@ -219,8 +220,11 @@ function assertLooksLikeXlsx(buffer) {
     }
 }
 
+// In-process parse of a workbook that is already in memory. Production imports use parseXlsxFile() below, which
+// runs this in a child process; this is also what that child runs.
 async function parseXlsxBuffer(buffer) {
     assertLooksLikeXlsx(buffer);
+    inspectZipBuffer(buffer); // refuse a decompression bomb before ExcelJS inflates anything
 
     const workbook = new ExcelJS.Workbook();
     try {
@@ -421,8 +425,27 @@ async function buildXlsxBuffer(state) {
     return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
+// The production import path: directory check, concurrency slot, then the parse in an isolated child process
+// with its own memory limit and timeout (services/smartSheetImportRunner.js).
+async function parseXlsxFile(filePath, options) {
+    // Same first check as the in-process path, so a legacy .xls / password-protected file still gets its specific
+    // message: only the first bytes are read here.
+    const handle = await require("fs").promises.open(filePath, "r");
+    try {
+        const head = Buffer.alloc(8);
+        const { bytesRead } = await handle.read(head, 0, 8, 0);
+        assertLooksLikeXlsx(head.subarray(0, bytesRead));
+    } finally {
+        await handle.close();
+    }
+
+    const { parseXlsxFileIsolated } = require("./smartSheetImportRunner"); // lazy: the worker itself requires this file
+    return parseXlsxFileIsolated(filePath, options);
+}
+
 module.exports = {
     parseXlsxBuffer,
+    parseXlsxFile,
     buildXlsxBuffer,
     assertLooksLikeXlsx,
     // exposed for tests

@@ -1,6 +1,7 @@
 const { smartSheetRoom, userRoom } = require("../utils/socketRooms");
 const { SmartSheetError, invalid } = require("../utils/smartSheetErrors");
-const { parseSheetId, isPlainObject } = require("../utils/smartSheetValidation");
+const { LIMITS, parseSheetId, isPlainObject } = require("../utils/smartSheetValidation");
+const { createWindowLimiter } = require("../utils/smartSheetLimiter");
 const { describeError } = require("./smartSheetService");
 
 // ==========================================
@@ -25,6 +26,11 @@ const { describeError } = require("./smartSheetService");
 //      validate -> persist), requires the socket to be in the room, and is rate-limited.
 //   4. The change is broadcast ONLY after the database transaction committed. A failed save is
 //      never announced.
+//   4b. Writes are limited per SOCKET and per USER (summed over all of that user's sockets, keyed by database
+//      scope + user id), in operations and in cells, so opening many tabs does not multiply the allowance.
+//   4c. An operation may carry an opId. A repeat of an opId the server already saved (a client retry after a
+//      lost acknowledgement or a dropped connection) is answered with the original revision and is NOT applied
+//      or broadcast again, so a retry can never duplicate a change or overwrite a newer value.
 //   5. Persist+broadcast is serialized per spreadsheet inside this process, so other clients see
 //      changes in exactly the order the database committed them (the last one received is the
 //      database's winner). This relies on one Node process -- the current deployment. Running
@@ -35,6 +41,45 @@ const { describeError } = require("./smartSheetService");
 // Room names come only from socketRooms.js, so they carry the tenant slug and can never collide
 // across companies.
 // ==========================================
+
+const OP_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+const DEDUPE_TTL_MS = 10 * 60 * 1000;
+const DEDUPE_MAX_ENTRIES = 20000;
+
+// Remembers which opIds were already saved: key -> { revision, at }. Insertion-ordered, so the oldest go first.
+function createOpDedupe({ ttlMs = DEDUPE_TTL_MS, max = DEDUPE_MAX_ENTRIES, now = Date.now } = {}) {
+    const saved = new Map();
+    return {
+        get(key) {
+            const entry = saved.get(key);
+            if (!entry) return null;
+            if (now() - entry.at > ttlMs) {
+                saved.delete(key);
+                return null;
+            }
+            return entry;
+        },
+        set(key, revision) {
+            saved.delete(key);
+            saved.set(key, { revision, at: now() });
+            while (saved.size > max) saved.delete(saved.keys().next().value);
+        },
+        get size() {
+            return saved.size;
+        },
+    };
+}
+
+function createUserLimits() {
+    return {
+        operations: createWindowLimiter({ limit: LIMITS.USER_OPERATIONS, windowMs: LIMITS.USER_OPERATION_WINDOW_MS }),
+        cells: createWindowLimiter({ limit: LIMITS.USER_CELLS, windowMs: LIMITS.USER_CELLS_WINDOW_MS }),
+    };
+}
+
+// Process-wide (one Node process serves every tenant); tests inject their own.
+const defaultUserLimits = createUserLimits();
+const defaultDedupe = createOpDedupe();
 
 const MAX_JOINED_SHEETS_PER_SOCKET = 5;
 const RATE_LIMIT_OPERATIONS = 300;
@@ -65,8 +110,7 @@ function reply(ack, body) {
 }
 
 function failure(error) {
-    const { code, message, status } = describeError(error);
-    return { ok: false, code, message, status };
+    return { ok: false, ...describeError(error) };
 }
 
 // Everyone currently in the room, one entry per person (several tabs collapse to one).
@@ -104,14 +148,17 @@ function makeRateLimiter(limit = RATE_LIMIT_OPERATIONS, windowMs = RATE_LIMIT_WI
 // Registers the three events on one connected socket. `onTenantEvent` is app.js's wrapper that
 // runs the handler inside the socket's tenant database context (so the store resolves to the right
 // tenant); tests pass a plain socket.on adapter.
-function registerSmartSheetHandlers({ io, socket, onTenantEvent, companySlug, service, rateLimit }) {
+function registerSmartSheetHandlers({
+    io, socket, onTenantEvent, roomScope, service, rateLimit,
+    userLimits = defaultUserLimits, dedupe = defaultDedupe,
+}) {
     const user = { id: socket.user.id, name: socket.user.fullName };
     socket.data.smartSheetUser = user;
     const allowOperation = makeRateLimiter(rateLimit && rateLimit.limit, rateLimit && rateLimit.windowMs);
     const joined = new Set();
 
     const leaveRoom = async (sheetId, { announce = true } = {}) => {
-        const room = smartSheetRoom(companySlug, sheetId);
+        const room = smartSheetRoom(roomScope, sheetId);
         joined.delete(sheetId);
         await socket.leave(room);
         if (announce) await broadcastPresence(io, room, sheetId);
@@ -124,7 +171,7 @@ function registerSmartSheetHandlers({ io, socket, onTenantEvent, companySlug, se
 
             // Forget sheets this socket was removed from (unassigned / archived) before counting.
             for (const openId of [...joined]) {
-                if (!socket.rooms.has(smartSheetRoom(companySlug, openId))) joined.delete(openId);
+                if (!socket.rooms.has(smartSheetRoom(roomScope, openId))) joined.delete(openId);
             }
 
             if (!joined.has(sheetId) && joined.size >= MAX_JOINED_SHEETS_PER_SOCKET) {
@@ -133,7 +180,7 @@ function registerSmartSheetHandlers({ io, socket, onTenantEvent, companySlug, se
 
             await service.authorizeJoin(user.id, sheetId);
 
-            const room = smartSheetRoom(companySlug, sheetId);
+            const room = smartSheetRoom(roomScope, sheetId);
             await socket.join(room);
             joined.add(sheetId);
 
@@ -170,18 +217,40 @@ function registerSmartSheetHandlers({ io, socket, onTenantEvent, companySlug, se
         try {
             if (!isPlainObject(payload)) throw invalid("INVALID_OPERATION", "Invalid change.");
             const sheetId = parseSheetId(payload.sheetId);
-            const room = smartSheetRoom(companySlug, sheetId);
+            const room = smartSheetRoom(roomScope, sheetId);
 
             if (!joined.has(sheetId) || !socket.rooms.has(room)) {
                 throw new SmartSheetError(409, "NOT_JOINED", "This spreadsheet is not open. Reload it to continue editing.");
             }
             if (!allowOperation()) {
-                throw new SmartSheetError(429, "RATE_LIMITED", "You are making changes too quickly. Please slow down.");
+                throw new SmartSheetError(429, "RATE_LIMITED", "You are making changes too quickly. Please slow down.", { retryAfterMs: 2000 });
+            }
+
+            // Per-USER limits across all of this user's sockets (a new tab does not get a fresh allowance).
+            const userKey = `${roomScope}:${user.id}`;
+            const operationsAllowance = userLimits.operations.hit(userKey);
+            const cellCount = payload.op && Array.isArray(payload.op.cells) ? Math.min(payload.op.cells.length, LIMITS.MAX_CELLS_PER_OPERATION + 1) : 0;
+            const cellsAllowance = cellCount > 0 ? userLimits.cells.hit(userKey, cellCount) : { allowed: true };
+            if (!operationsAllowance.allowed || !cellsAllowance.allowed) {
+                const retryAfterMs = Math.max(operationsAllowance.retryAfterMs || 0, cellsAllowance.retryAfterMs || 0);
+                throw new SmartSheetError(429, "RATE_LIMITED", "You are making changes too quickly. Please slow down.", { retryAfterMs });
+            }
+
+            // Optional idempotency key (see rule 4c).
+            let dedupeKey = null;
+            if (payload.opId !== undefined) {
+                if (typeof payload.opId !== "string" || !OP_ID_PATTERN.test(payload.opId)) {
+                    throw invalid("INVALID_OPERATION", "Invalid change.");
+                }
+                dedupeKey = `${roomScope}:${sheetId}:${user.id}:${payload.opId}`;
             }
 
             // persist (inside applyOperation, after authorize + validate) -> then broadcast
             const result = await runExclusive(room, async () => {
+                const prior = dedupeKey && dedupe.get(dedupeKey);
+                if (prior) return { revision: prior.revision, duplicate: true }; // already saved: answer, do not redo
                 const saved = await service.applyOperation(user.id, sheetId, payload.op);
+                if (dedupeKey) dedupe.set(dedupeKey, saved.revision);
                 socket.to(room).emit("smartsheet:op", {
                     sheetId,
                     revision: saved.revision,
@@ -191,7 +260,7 @@ function registerSmartSheetHandlers({ io, socket, onTenantEvent, companySlug, se
                 return saved;
             });
 
-            reply(ack, { ok: true, revision: result.revision });
+            reply(ack, result.duplicate ? { ok: true, revision: result.revision, duplicate: true } : { ok: true, revision: result.revision });
         } catch (error) {
             // Lost access mid-session: drop the socket from the room too.
             if (error instanceof SmartSheetError && error.code === "NOT_FOUND") {
@@ -207,7 +276,7 @@ function registerSmartSheetHandlers({ io, socket, onTenantEvent, companySlug, se
 
     socket.on("disconnecting", () => {
         for (const sheetId of joined) {
-            const room = smartSheetRoom(companySlug, sheetId);
+            const room = smartSheetRoom(roomScope, sheetId);
             getPresence(io, room, { excludeSocketId: socket.id })
                 .then((users) => io.to(room).emit("smartsheet:presence", { sheetId, users }))
                 .catch(() => {});
@@ -218,29 +287,31 @@ function registerSmartSheetHandlers({ io, socket, onTenantEvent, companySlug, se
 // ---- called by the REST controller after the database change committed ----
 
 // One employee was unassigned: every socket that user has open leaves the room NOW.
-async function evictUser(io, companySlug, sheetId, userId, reason = "unassigned") {
-    const room = smartSheetRoom(companySlug, sheetId);
-    const personal = userRoom(companySlug, userId);
+async function evictUser(io, roomScope, sheetId, userId, reason = "unassigned") {
+    const room = smartSheetRoom(roomScope, sheetId);
+    const personal = userRoom(roomScope, userId);
     io.to(personal).emit("smartsheet:access-revoked", { sheetId: Number(sheetId), reason });
     io.in(personal).socketsLeave(room);
     await broadcastPresence(io, room, Number(sheetId));
 }
 
 // The sheet was archived or deleted: nobody stays in the room.
-async function evictAll(io, companySlug, sheetId, reason = "closed") {
-    const room = smartSheetRoom(companySlug, sheetId);
+async function evictAll(io, roomScope, sheetId, reason = "closed") {
+    const room = smartSheetRoom(roomScope, sheetId);
     io.to(room).emit("smartsheet:access-revoked", { sheetId: Number(sheetId), reason });
     io.in(room).socketsLeave(room);
 }
 
 // A grant changed (e.g. edit -> view): tell that user's open tabs, no eviction needed because every
 // update is re-checked anyway.
-function notifyAccessChanged(io, companySlug, sheetId, userId, permission) {
-    io.to(userRoom(companySlug, userId)).emit("smartsheet:access-changed", { sheetId: Number(sheetId), permission });
+function notifyAccessChanged(io, roomScope, sheetId, userId, permission) {
+    io.to(userRoom(roomScope, userId)).emit("smartsheet:access-changed", { sheetId: Number(sheetId), permission });
 }
 
 module.exports = {
     registerSmartSheetHandlers,
+    createUserLimits,
+    createOpDedupe,
     evictUser,
     evictAll,
     notifyAccessChanged,

@@ -21,11 +21,11 @@ const express = require("express");
 const { Server } = require("socket.io");
 
 const { SmartSheetError, invalid } = require("./utils/smartSheetErrors");
-const { LIMITS } = require("./utils/smartSheetValidation");
+const { LIMITS, cellStorageBytes } = require("./utils/smartSheetValidation");
 const { createSmartSheetService } = require("./services/smartSheetService");
 const { createSmartSheetController } = require("./controllers/smartSheetController");
 const { createSmartSheetRouter } = require("./routes/smartSheetRoutes");
-const { registerSmartSheetHandlers } = require("./services/smartSheetRealtime");
+const { registerSmartSheetHandlers, createUserLimits, createOpDedupe } = require("./services/smartSheetRealtime");
 const { userRoom } = require("./utils/socketRooms");
 const { isAdminTier } = require("./utils/smartSheetAccess");
 
@@ -85,14 +85,19 @@ function createMemoryStore(accounts) {
 
         async createSheet({ name, userId, worksheets: sheetDefs, source = null }) {
             const id = nextSheetId++;
-            sheets.set(id, { id, name, status: "active", revision: 0, created_by: userId, deleted_at: null, source_file_name: source ? source.fileName : null, source_file_path: source ? source.filePath : null });
+            sheets.set(id, { id, name, status: "active", revision: 0, cell_count: 0, data_bytes: 0, created_by: userId, deleted_at: null, source_file_name: source ? source.fileName : null, source_file_path: source ? source.filePath : null });
             sheetDefs.forEach((def, position) => {
                 const worksheet = {
                     id: nextWorksheetId++, sheet_id: id, ws_key: `ws${id}x${position}`, name: def.name, position,
                     row_count: def.rowCount || LIMITS.DEFAULT_ROWS, column_count: def.columnCount || LIMITS.DEFAULT_COLUMNS, layout: def.layout || {},
                 };
                 worksheets.push(worksheet);
-                for (const { r, c, cell } of def.cells || []) cells.set(`${worksheet.id}:${r}:${c}`, { cell, revision: 0 });
+                for (const entry of def.cells || []) {
+                    const bytes = entry.bytes !== undefined ? entry.bytes : cellStorageBytes(entry.cell);
+                    cells.set(`${worksheet.id}:${entry.r}:${entry.c}`, { cell: entry.cell, revision: 0, bytes });
+                    sheets.get(id).cell_count += 1;
+                    sheets.get(id).data_bytes += bytes;
+                }
             });
             return id;
         },
@@ -100,6 +105,9 @@ function createMemoryStore(accounts) {
         async loadWorkbook(sheetId) {
             const sheet = sheets.get(sheetId);
             if (!sheet) return null;
+            if (sheet.cell_count > LIMITS.MAX_CELLS_PER_SHEET || sheet.data_bytes > LIMITS.MAX_SHEET_DATA_BYTES) {
+                throw new SmartSheetError(413, "WORKBOOK_TOO_LARGE", "This spreadsheet is too large to open. Ask an administrator to split it.");
+            }
             return {
                 sheet: { ...sheet },
                 worksheets: worksheets.filter((w) => w.sheet_id === sheetId).sort((a, b) => a.position - b.position).map((w) => ({
@@ -180,11 +188,29 @@ function createMemoryStore(accounts) {
                     if (op.cells.some((e) => e.r >= worksheet.row_count || e.c >= worksheet.column_count)) {
                         throw invalid("INVALID_CELL_COORDINATE", "A cell is outside this worksheet.");
                     }
+                    // growth limits, checked BEFORE anything is stored (same arithmetic as the PostgreSQL store)
+                    const limits = store.limits || LIMITS;
+                    let existingCount = 0;
+                    let existingBytes = 0;
+                    let newCount = 0;
+                    let newBytes = 0;
+                    for (const { r, c, cell } of op.cells) {
+                        const old = cells.get(`${worksheet.id}:${r}:${c}`);
+                        if (old) { existingCount += 1; existingBytes += old.bytes; }
+                        if (cell !== null) { newCount += 1; newBytes += cellStorageBytes(cell); }
+                    }
+                    const deltaCells = newCount - existingCount;
+                    const deltaBytes = newBytes - existingBytes;
+                    if ((deltaCells > 0 && sheet.cell_count + deltaCells > limits.MAX_CELLS_PER_SHEET) || (deltaBytes > 0 && sheet.data_bytes + deltaBytes > limits.MAX_SHEET_DATA_BYTES)) {
+                        throw new SmartSheetError(413, "SHEET_FULL", "This spreadsheet has reached its size limit. Clear some cells or use another spreadsheet.");
+                    }
                     apply = (revision) => {
                         for (const { r, c, cell } of op.cells) {
                             const key = `${worksheet.id}:${r}:${c}`;
-                            if (cell === null) cells.delete(key); else cells.set(key, { cell, revision });
+                            if (cell === null) cells.delete(key); else cells.set(key, { cell, revision, bytes: cellStorageBytes(cell) });
                         }
+                        sheet.cell_count += deltaCells;
+                        sheet.data_bytes += deltaBytes;
                     };
                 } else if (op.type === "addWorksheet") {
                     const exists = own.some((w) => w.ws_key === op.ws);
@@ -237,23 +263,41 @@ function loadSocketClient() {
     return require(require.resolve("socket.io-client", { paths: [clientDir, __dirname] }));
 }
 
-async function startRealtimeHarness(store, { rateLimit } = {}) {
-    const service = createSmartSheetService({ store });
+// store: the default database. options.databases lets one server host several databases at once, each with its
+// own store and its own ROOM SCOPE -- used to reproduce the legacy-database / tenant-database situation.
+// A client picks its database with the token "<db>/user:<id>" (or just "user:<id>" for the default one).
+async function startRealtimeHarness(store, { rateLimit, databases, userLimits, dedupe, maxHttpBufferSize } = {}) {
+    const dbs = {};
+    if (databases) {
+        for (const [name, definition] of Object.entries(databases)) dbs[name] = { store: definition.store, scope: definition.scope, service: createSmartSheetService({ store: definition.store }) };
+    } else {
+        dbs.default = { store, scope: COMPANY_SLUG, service: createSmartSheetService({ store }) };
+    }
+    const defaultName = databases ? Object.keys(dbs)[0] : "default";
+    const service = dbs[defaultName].service;
+    store = dbs[defaultName].store;
+
     const httpServer = http.createServer();
-    const io = new Server(httpServer, { cors: { origin: true } });
+    // Mirrors server/app.js: the SAME message ceiling, so what the tests see is what production does.
+    const io = new Server(httpServer, { cors: { origin: true }, maxHttpBufferSize: maxHttpBufferSize || LIMITS.MAX_SOCKET_MESSAGE_BYTES });
+    const sharedLimits = userLimits || createUserLimits();
+    const sharedDedupe = dedupe || createOpDedupe();
 
     io.use(async (socket, next) => {
-        const match = /^user:(\d+)$/.exec(String(socket.handshake.auth && socket.handshake.auth.token));
-        const account = match && (await store.getAccount(Number(match[1])));
+        const match = /^(?:([a-z]+)\/)?user:(\d+)$/.exec(String(socket.handshake.auth && socket.handshake.auth.token));
+        const db = match && dbs[match[1] || defaultName];
+        const account = db && (await db.store.getAccount(Number(match[2])));
         if (!account) return next(new Error("Invalid or expired authentication token"));
-        socket.user = { id: account.id, fullName: store.users.get(account.id).full_name };
+        socket.user = { id: account.id, fullName: db.store.users.get(account.id).full_name };
+        socket.database = db;
         next();
     });
 
     io.on("connection", (socket) => {
-        socket.join(userRoom(COMPANY_SLUG, socket.user.id)); // exactly what app.js does on connect
+        const { scope, service: databaseService } = socket.database;
+        socket.join(userRoom(scope, socket.user.id)); // exactly what app.js does on connect
         registerSmartSheetHandlers({
-            io, socket, companySlug: COMPANY_SLUG, service, rateLimit,
+            io, socket, roomScope: scope, service: databaseService, rateLimit, userLimits: sharedLimits, dedupe: sharedDedupe,
             onTenantEvent: (name, handler) => socket.on(name, handler),
         });
     });
@@ -264,9 +308,9 @@ async function startRealtimeHarness(store, { rateLimit } = {}) {
     const clients = [];
 
     return {
-        io, service, store, url, companySlug: COMPANY_SLUG,
-        async client(userId, { token } = {}) {
-            const socket = connect(url, { auth: { token: token || `user:${userId}` }, transports: ["websocket"], reconnection: false, forceNew: true });
+        io, service, store, url, companySlug: COMPANY_SLUG, databases: dbs, userLimits: sharedLimits, dedupe: sharedDedupe,
+        async client(userId, { token, db } = {}) {
+            const socket = connect(url, { auth: { token: token || (db ? `${db}/user:${userId}` : `user:${userId}`) }, transports: ["websocket"], reconnection: false, forceNew: true });
             clients.push(socket);
             await new Promise((resolve, reject) => {
                 socket.once("connect", resolve);

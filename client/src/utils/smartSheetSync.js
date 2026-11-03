@@ -142,6 +142,34 @@ export function diffCell(current, next) {
   return Object.keys(patch).length > 0 ? patch : null;
 }
 
+// The size of a value as it travels over the socket (its JSON text, in bytes).
+const encoder = new TextEncoder();
+export const byteLength = (value) => encoder.encode(JSON.stringify(value)).length;
+
+// One change can be very large (a pasted table of long text). Socket.IO has a hard per-message ceiling and the server
+// validator refuses anything above MAX_OPERATION_BYTES (512 KB), so a change is split by SERIALIZED SIZE as well as by
+// cell count: every piece stays near OPERATION_TARGET_BYTES. (A single cell is at most 64 KB, so one always fits.)
+export const OPERATION_TARGET_BYTES = 256 * 1024;
+const OPERATION_ENVELOPE_BYTES = 200; // {"type":"cells","ws":"...","cells":[...]}
+
+export function chunkCellsByBytes(cells, { maxCells = MAX_CELLS_PER_OPERATION, maxBytes = OPERATION_TARGET_BYTES } = {}) {
+  const chunks = [];
+  let current = [];
+  let bytes = OPERATION_ENVELOPE_BYTES;
+  for (const entry of cells) {
+    const size = byteLength(entry) + 1; // +1: the comma
+    if (current.length > 0 && (current.length >= maxCells || bytes + size > maxBytes)) {
+      chunks.push(current);
+      current = [];
+      bytes = OPERATION_ENVELOPE_BYTES;
+    }
+    current.push(entry);
+    bytes += size;
+  }
+  if (current.length > 0) chunks.push(current);
+  return chunks;
+}
+
 function chunk(list, size) {
   const out = [];
   for (let start = 0; start < list.length; start += size) out.push(list.slice(start, start + size));
@@ -168,7 +196,7 @@ export function opsFromMutation(commandId, params, io) {
         cells.push({ r: Number(row), c: Number(column), cell: io.readCell(worksheetKey, Number(row), Number(column)) });
       }
     }
-    return chunk(cells, MAX_CELLS_PER_OPERATION).map((part) => ({ type: "cells", ws: worksheetKey, cells: part }));
+    return chunkCellsByBytes(cells).map((part) => ({ type: "cells", ws: worksheetKey, cells: part }));
   }
 
   if (commandId === SET_NUMFMT || commandId === REMOVE_NUMFMT) {
@@ -188,7 +216,7 @@ export function opsFromMutation(commandId, params, io) {
         }
       }
     }
-    return chunk(cells, MAX_CELLS_PER_OPERATION).map((part) => ({ type: "cells", ws: worksheetKey, cells: part }));
+    return chunkCellsByBytes(cells).map((part) => ({ type: "cells", ws: worksheetKey, cells: part }));
   }
 
   if (commandId === INSERT_SHEET) {
@@ -380,7 +408,10 @@ export const SHARED_DATA_MUTATIONS = new Set([
   REMOVE_NUMFMT,
 ]);
 
-export const READ_ONLY_MESSAGE = "You have view-only access to this spreadsheet, so it can't be changed.";
+export const SYNC_PAUSED_MESSAGE =
+  "Editing is paused while this spreadsheet synchronises with the latest saved version. It resumes in a moment.";
+
+export const READ_ONLY_MESSAGE ="You have view-only access to this spreadsheet, so it can't be changed.";
 
 // ---------- unsupported (unsynchronised) edits ----------
 
@@ -407,16 +438,50 @@ export const BLOCKED_MESSAGE =
 
 // ---------- the save queue ----------
 
-const RETRYABLE_CODES = new Set(["SERVER_ERROR", "RATE_LIMITED", "CONFLICT"]);
+// Server answers worth retrying on the SAME connection: a transient server error or a conflict. (A refused change --
+// validation, no access, read-only, sheet full -- is final and is never retried.)
+const RETRYABLE_CODES = new Set(["SERVER_ERROR", "CONFLICT"]);
+const MAX_RATE_LIMITED_RETRIES = 20;
+const MAX_RATE_LIMITED_WAIT_MS = 15000;
+const IDLE_RESUME_MS = 30000; // last-resort timer so a queue can never sit idle forever
 
-// Sends operations to the server strictly in order, one at a time, keeps them until the server
-// confirms they were SAVED, resumes after a reconnect, and tells the UI the state:
-//   'connecting' | 'saved' | 'saving' | 'offline' | 'error'
+export const SAVE_QUEUE_TIMEOUT_MESSAGE =
+  "The connection kept dropping while this change was being sent, so it could not be saved. Reload the spreadsheet to continue.";
+
+function defaultOpId() {
+  const uuid = typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function" ? globalThis.crypto.randomUUID() : null;
+  return uuid || `op${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+}
+
+// Sends operations to the server strictly in order, one at a time, keeps them until the server confirms they were
+// SAVED, resumes after a reconnect, and tells the UI the state:  'connecting' | 'saved' | 'saving' | 'offline' | 'error'
 //
-// send(op) must resolve to the server's ack ({ ok:true, revision } | { ok:false, code, message }) or
-// reject (no connection / timeout). A rejected operation is DROPPED (never retried forever) and
-// reported through onRejected, because the editor's local state may no longer match the server.
-export function createSaveQueue({ send, onStatus = () => {}, onRejected = () => {}, onNeedsRejoin = () => {}, retryDelaysMs = [400, 1200, 3000], wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }) {
+// send(op, opId) must resolve to the server's ack ({ ok:true, revision } | { ok:false, code, message, retryAfterMs? })
+// or reject (no connection / acknowledgement timeout).
+//
+// SAFE RETRIES. Every operation carries a stable opId, and a retry reuses it. The server remembers the opIds it has
+// already saved and answers a repeat with the original result WITHOUT applying it again, so a retry after a lost
+// acknowledgement can neither duplicate a change nor overwrite a newer value written by somebody else in between.
+//
+// NEVER STUCK. A send that gets no answer (timeout / dead socket) is retried with backoff on the same connection;
+// if that keeps failing, onTransportFailure() is called so the owner can force a controlled reconnect, and a
+// last-resort timer resumes the queue regardless. An operation that fails in transit again and again across
+// reconnects (for example one the transport can never carry) is REFUSED after maxTransportFailures instead of looping
+// forever -- it is reported through onRejected and the user is told to reload.
+export function createSaveQueue({
+  send,
+  onStatus = () => {},
+  onRejected = () => {},
+  onNeedsRejoin = () => {},
+  onTransportFailure = () => {},
+  retryDelaysMs = [400, 1200, 3000],
+  transportRetryDelaysMs = [500, 1500, 4000, 8000],
+  maxTransportFailures = 5,
+  idleResumeMs = IDLE_RESUME_MS,
+  maxOperationBytes = 1.5 * 1024 * 1024,
+  makeOpId = defaultOpId,
+  wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+}) {
   const queue = [];
   const pending = new Map();
   let connected = false;
@@ -424,6 +489,7 @@ export function createSaveQueue({ send, onStatus = () => {}, onRejected = () => 
   let running = false;
   let failed = null;
   let drainWaiters = [];
+  let idleTimer = null;
 
   const status = () => {
     if (!connected) return everConnected ? "offline" : "connecting";
@@ -443,8 +509,24 @@ export function createSaveQueue({ send, onStatus = () => {}, onRejected = () => 
     if (queue.length === 0 && drainWaiters.length > 0) {
       const waiters = drainWaiters;
       drainWaiters = [];
-      waiters.forEach((resolve) => resolve());
+      waiters.forEach((resolve) => resolve(true));
     }
+  };
+
+  const drop = (item, error) => {
+    queue.shift();
+    release(item);
+    failed = error;
+    onRejected(item.op, error);
+    publish();
+  };
+
+  const armIdleResume = () => {
+    if (idleTimer || queue.length === 0) return;
+    idleTimer = setTimeout(() => {
+      idleTimer = null;
+      run();
+    }, idleResumeMs);
   };
 
   async function run() {
@@ -453,9 +535,15 @@ export function createSaveQueue({ send, onStatus = () => {}, onRejected = () => 
     try {
       while (queue.length > 0 && connected) {
         const item = queue[0];
+
+        if (item.bytes > maxOperationBytes) {
+          drop(item, { code: "OPERATION_TOO_LARGE", message: "That change is too large to save in one step. Try a smaller selection." });
+          continue;
+        }
+
         let ack;
         try {
-          ack = await send(item.op);
+          ack = await send(item.op, item.opId);
         } catch {
           ack = { ok: false, code: "NETWORK" };
         }
@@ -463,7 +551,6 @@ export function createSaveQueue({ send, onStatus = () => {}, onRejected = () => 
         if (ack && ack.ok) {
           queue.shift();
           release(item);
-          item.attempts = 0;
           failed = null;
           publish();
           continue;
@@ -471,13 +558,39 @@ export function createSaveQueue({ send, onStatus = () => {}, onRejected = () => 
 
         const code = ack && ack.code;
 
-        if (code === "NETWORK" || !connected) {
-          break; // keep it; the next connect resumes from here
-        }
-        if (code === "NOT_JOINED") {
-          onNeedsRejoin();
+        if (code === "NETWORK") {
+          item.transportFailures += 1;
+          if (item.transportFailures >= maxTransportFailures) {
+            drop(item, { code: "TRANSPORT_FAILED", message: SAVE_QUEUE_TIMEOUT_MESSAGE });
+            continue;
+          }
+          if (!connected) break; // the socket went away: the next connect resumes from here
+          if (item.transportAttempts < transportRetryDelaysMs.length) {
+            const delay = transportRetryDelaysMs[item.transportAttempts];
+            item.transportAttempts += 1;
+            await wait(delay);
+            continue; // same operation, same opId
+          }
+          // The connection claims to be up but answers nothing: ask the owner for a controlled reconnect.
+          item.transportAttempts = 0;
+          publish();
+          onTransportFailure();
+          armIdleResume();
           break;
         }
+
+        if (code === "NOT_JOINED") {
+          onNeedsRejoin();
+          armIdleResume();
+          break;
+        }
+
+        if (code === "RATE_LIMITED" && item.rateLimited < MAX_RATE_LIMITED_RETRIES) {
+          item.rateLimited += 1;
+          await wait(Math.min(Math.max(ack.retryAfterMs || 1000, 250), MAX_RATE_LIMITED_WAIT_MS));
+          continue;
+        }
+
         if (RETRYABLE_CODES.has(code) && item.attempts < retryDelaysMs.length) {
           const delay = retryDelaysMs[item.attempts];
           item.attempts += 1;
@@ -485,17 +598,14 @@ export function createSaveQueue({ send, onStatus = () => {}, onRejected = () => 
           continue;
         }
 
-        // refused for good (validation, no access, read-only, archived, ...)
-        queue.shift();
-        release(item);
-        failed = { code: code || "UNKNOWN", message: (ack && ack.message) || "The change could not be saved." };
-        onRejected(item.op, failed);
-        publish();
+        // refused for good (validation, no access, read-only, sheet full, ...)
+        drop(item, { code: code || "UNKNOWN", message: (ack && ack.message) || "The change could not be saved." });
       }
     } finally {
       running = false;
       publish();
       settleDrain();
+      if (queue.length > 0) armIdleResume();
     }
   }
 
@@ -503,13 +613,26 @@ export function createSaveQueue({ send, onStatus = () => {}, onRejected = () => 
     enqueue(op) {
       const cellKeys = op.type === "cells" ? op.cells.map((entry) => cellKey(op.ws, entry.r, entry.c)) : [];
       for (const key of cellKeys) pending.set(key, (pending.get(key) || 0) + 1);
-      queue.push({ op, cellKeys, attempts: 0 });
+      queue.push({
+        op,
+        opId: makeOpId(),
+        cellKeys,
+        bytes: byteLength(op),
+        attempts: 0,
+        rateLimited: 0,
+        transportAttempts: 0,
+        transportFailures: 0,
+      });
       publish();
       run();
     },
     setConnected(value) {
       connected = Boolean(value);
-      if (connected) everConnected = true;
+      if (connected) {
+        everConnected = true;
+        // A fresh connection: the in-connection backoff starts over (the per-operation failure count does NOT).
+        queue.forEach((item) => { item.transportAttempts = 0; });
+      }
       publish();
       if (connected) run();
     },
@@ -521,10 +644,28 @@ export function createSaveQueue({ send, onStatus = () => {}, onRejected = () => 
       publish();
     },
     isPending: (worksheetKey, row, column) => pending.has(cellKey(worksheetKey, row, column)),
-    // resolves when everything queued so far has been saved (or immediately when nothing is queued)
-    whenDrained() {
-      if (queue.length === 0) return Promise.resolve();
-      return new Promise((resolve) => drainWaiters.push(resolve));
+    // Resolves true when everything queued so far has been saved (immediately if nothing is queued), or false after
+    // timeoutMs -- so a stuck queue can never block the caller forever.
+    whenDrained({ timeoutMs } = {}) {
+      if (queue.length === 0) return Promise.resolve(true);
+      return new Promise((resolve) => {
+        let timer = null;
+        const done = (value) => {
+          if (timer) clearTimeout(timer);
+          resolve(value);
+        };
+        drainWaiters.push(done);
+        if (timeoutMs) {
+          timer = setTimeout(() => {
+            drainWaiters = drainWaiters.filter((waiter) => waiter !== done);
+            resolve(false);
+          }, timeoutMs);
+        }
+      });
+    },
+    dispose() {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = null;
     },
     get size() {
       return queue.length;

@@ -17,6 +17,7 @@ import {
   BLOCKED_MESSAGE,
   READ_ONLY_MESSAGE,
   SAVE_STATUS_LABELS,
+  SYNC_PAUSED_MESSAGE,
   SHARED_DATA_MUTATIONS,
   collaboratorColor,
   collaboratorInitials,
@@ -27,6 +28,7 @@ import {
   numfmtMutationsForWorkbook,
   opsFromMutation,
 } from "../../utils/smartSheetSync";
+import { createSyncController } from "../../utils/smartSheetSession";
 
 import "./SmartSheetEditor.css";
 
@@ -43,6 +45,10 @@ import "./SmartSheetEditor.css";
 //                                      -- applies other people's saved changes without echoing them.
 //   * univerAPI.onBeforeCommandExecute -- refuses the few structural edits that are not synchronised
 //                                         yet, instead of letting screens silently diverge.
+//
+// Synchronising (first load AND every reconnect) is ONE code path, utils/smartSheetSession.js: it joins the live
+// room, flushes this tab's unsaved edits, loads the saved state, replays what arrived meanwhile, and keeps retrying
+// with backoff. Editing is paused while it runs, and the view is flagged "out of date" while it cannot finish.
 //
 // Data flow for one edit:  type -> Univer mutation -> operation -> Socket.IO -> server checks access
 // and VALIDATES -> server SAVES to PostgreSQL -> server broadcasts -> other clients apply.
@@ -63,9 +69,10 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
   const [rejected, setRejected] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [syncState, setSyncState] = useState({ phase: "syncing", attempt: 0 });
 
   // Everything the Univer callbacks need lives in a ref, so effects never capture stale state.
-  const runtime = useRef({ queue: null, univerAPI: null });
+  const runtime = useRef({ queue: null, univerAPI: null, controller: null });
 
   const me = (() => {
     try {
@@ -86,12 +93,13 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
     const disposers = [];
     let univer = null;
     let applyingRemote = false;
-    let firstSync = true;
-    let buffering = true; // remote operations that arrive while the saved state is still loading
-    let bufferedOps = [];
-    let loadedRevision = 0;
     let workbookRef = null;
-    let canEdit = false; // mirrors the server-confirmed permission; flipped by access-changed
+    let permissionAllowsEdit = false; // the server-confirmed permission; flipped by access-changed
+    let syncGateOpen = false; // closed whenever the workbook is out of step with the server (utils/smartSheetSession.js)
+    const canEditNow = () => permissionAllowsEdit && syncGateOpen;
+    const refreshEditable = () => {
+      if (workbookRef) workbookRef.setEditable(canEditNow());
+    };
 
     setLoading(true);
     setLoadError("");
@@ -109,10 +117,20 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
       });
 
     const queue = createSaveQueue({
-      send: (op) => emitWithAck("smartsheet:op", { sheetId, op }),
+      send: (op, opId) => emitWithAck("smartsheet:op", { sheetId, opId, op }),
       onStatus: (state, details) => !cancelled && setSaveStatus({ state, ...details }),
       onRejected: (op, error) => !cancelled && setRejected(error),
       onNeedsRejoin: () => join().then(() => queue.resume()).catch(() => {}),
+      // The socket says "connected" but nothing is answering: force a controlled reconnect (the sync controller
+      // then flushes unsaved edits and reloads the saved state).
+      onTransportFailure: () => {
+        if (cancelled) return;
+        try {
+          socket.disconnect();
+        } finally {
+          socket.connect();
+        }
+      },
     });
     runtime.current.queue = queue;
 
@@ -167,7 +185,6 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
         workbookRef = null;
       }
       workbookRef = api.createWorkbook(state.workbook);
-      loadedRevision = state.revision;
 
       // Number formats live in their own Univer model: hand the saved ones over (local only, never echoed).
       applyingRemote = true;
@@ -181,8 +198,8 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
         applyingRemote = false;
       }
 
-      canEdit = state.permission === "edit";
-      workbookRef.setEditable(canEdit);
+      permissionAllowsEdit = state.permission === "edit";
+      refreshEditable(); // stays read-only until the sync controller opens the gate (after buffered changes are replayed)
       setMeta({
         name: state.sheet.name,
         permission: state.permission,
@@ -203,28 +220,28 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
       return answer;
     }
 
-    // Join the room (so nothing is missed), THEN fetch the saved state, THEN replay whatever arrived meanwhile.
-    async function synchronise() {
-      buffering = true;
-      bufferedOps = [];
-      await join();
-      const state = await getSmartSheetWorkbook(sheetId);
-      if (cancelled) return;
-      mountWorkbook(state);
-      buffering = false;
-      const missed = bufferedOps.filter((message) => message.revision > loadedRevision);
-      bufferedOps = [];
-      missed.forEach((message) => applyRemoteOp(message.op));
-    }
+    // ONE synchronisation path for the first load and every reconnect (see utils/smartSheetSession.js).
+    const controller = createSyncController({
+      join,
+      fetchState: () => getSmartSheetWorkbook(sheetId),
+      mount: mountWorkbook,
+      applyOp: applyRemoteOp,
+      queue,
+      setEditing: (open) => {
+        syncGateOpen = open;
+        refreshEditable();
+      },
+      onStatus: (status) => !cancelled && setSyncState({ phase: status.phase, attempt: status.attempt || 0 }),
+      onRevoked: () => !cancelled && setRevoked("unassigned"),
+      isCancelled: () => cancelled,
+    });
+    runtime.current.controller = controller;
+    let firstSyncDone = false;
 
     // ---- socket events ----
     on("smartsheet:op", (message) => {
       if (!message || Number(message.sheetId) !== Number(sheetId)) return;
-      if (buffering) {
-        bufferedOps.push(message);
-        return;
-      }
-      applyRemoteOp(message.op);
+      controller.receive(message); // held back while out of step, applied when in step
     });
 
     on("smartsheet:presence", (message) => {
@@ -240,31 +257,19 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
     on("smartsheet:access-changed", (message) => {
       if (!message || Number(message.sheetId) !== Number(sheetId)) return;
       const editable = message.permission === "edit";
-      canEdit = editable;
-      if (workbookRef) workbookRef.setEditable(editable);
+      permissionAllowsEdit = editable;
+      refreshEditable();
       setMeta((current) => ({ ...current, permission: message.permission }));
       toast.info(editable ? "You can now edit this spreadsheet." : "Your access was changed to view only.");
     });
 
     on("disconnect", () => queue.setConnected(false));
 
-    on("connect", async () => {
-      if (cancelled) return;
-      try {
-        if (firstSync) return; // the initial join is done by start() below
-        await join();
-        queue.setConnected(true);
-        await queue.whenDrained(); // our unsaved edits go first...
-        buffering = true;
-        const state = await getSmartSheetWorkbook(sheetId); // ...then pick up everything we missed while offline
-        if (cancelled) return;
-        mountWorkbook(state);
-        buffering = false;
-      } catch (error) {
-        buffering = false;
-        if (!cancelled) setRevoked(error.code === "NOT_FOUND" ? "unassigned" : null);
-        if (!cancelled && error.code !== "NOT_FOUND") toast.error("Could not reconnect to the spreadsheet. Retrying…");
-      }
+    // Every reconnect runs the SAME synchronisation as the first load: join, flush unsaved edits, reload the saved
+    // state, replay what arrived meanwhile -- retrying with backoff until it works.
+    on("connect", () => {
+      if (cancelled || !firstSyncDone) return; // the very first connect is handled by start() below
+      controller.synchronise("reconnect");
     });
 
     const beforeUnload = (event) => {
@@ -294,10 +299,11 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
           if (isBlockedCommand(event.id)) {
             event.cancel = true;
             toast.info(BLOCKED_MESSAGE, { toastId: "smart-sheet-blocked" });
-          } else if (!canEdit && SHARED_DATA_MUTATIONS.has(event.id)) {
+          } else if (!canEditNow() && SHARED_DATA_MUTATIONS.has(event.id)) {
             // Univer's own read-only switch does not stop typing into a cell, so veto the change itself.
             event.cancel = true;
-            toast.info(READ_ONLY_MESSAGE, { toastId: "smart-sheet-read-only" });
+            if (permissionAllowsEdit) toast.info(SYNC_PAUSED_MESSAGE, { toastId: "smart-sheet-sync-paused" });
+            else toast.info(READ_ONLY_MESSAGE, { toastId: "smart-sheet-read-only" });
           }
         });
         disposers.push(() => beforeListener.dispose());
@@ -321,9 +327,8 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
           });
         }
         if (cancelled) return;
-        queue.setConnected(true);
-        await synchronise();
-        firstSync = false;
+        await controller.synchronise("open"); // joins, loads the saved state, retries with backoff if needed
+        firstSyncDone = true;
         if (!cancelled) setLoading(false);
       } catch (error) {
         if (cancelled) return;
@@ -368,7 +373,8 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
           }
         }, 0);
       }
-      runtime.current = { queue: null, univerAPI: null };
+      queue.dispose();
+      runtime.current = { queue: null, univerAPI: null, controller: null };
     };
   }, [sheetId, reloadToken]);
 
@@ -379,7 +385,7 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
       const queue = runtime.current.queue;
       if (queue && queue.size > 0) {
         toast.info("Saving your latest changes first…");
-        await Promise.race([queue.whenDrained(), new Promise((resolve) => setTimeout(resolve, 10000))]);
+        await queue.whenDrained({ timeoutMs: 10000 });
       }
       const { blob, filename } = await exportSmartSheet(sheetId);
       const url = URL.createObjectURL(blob);
@@ -453,6 +459,12 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
           {SAVE_STATUS_LABELS[status]}
         </span>
 
+        {syncState.phase !== "live" && !revoked && !loading && (
+          <span className="smart-sheet-status smart-sheet-status-offline" role="status" data-testid="smart-sheet-sync-status">
+            {syncState.phase === "stale" ? "Out of date" : "Synchronising…"}
+          </span>
+        )}
+
         <div className="smart-sheet-collaborators" aria-label="People viewing this spreadsheet" data-testid="smart-sheet-collaborators">
           {others.length === 0 ? (
             <span className="smart-sheet-alone">Only you</span>
@@ -488,6 +500,19 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
         </div>
       )}
 
+      {syncState.phase === "stale" && !revoked && !loading && (
+        <div className="smart-sheet-banner smart-sheet-banner-warn" role="status" data-testid="smart-sheet-stale-banner">
+          <FaExclamationTriangle />
+          <span>
+            This spreadsheet may be out of date{syncState.attempt > 0 ? ` — reconnecting (attempt ${syncState.attempt})` : ""}. Editing is paused until
+            it is back in step.{saveStatus.pendingOperations > 0 ? " Your unsaved changes are kept." : ""}
+          </span>
+          <button type="button" onClick={() => runtime.current.controller && runtime.current.controller.retryNow()}>
+            Retry now
+          </button>
+        </div>
+      )}
+
       {status === "offline" && !revoked && (
         <div className="smart-sheet-banner smart-sheet-banner-warn" role="status">
           You're offline. Your changes are kept on this page and will be saved when the connection returns. Don't close this tab until then.
@@ -497,7 +522,11 @@ function SmartSheetEditor({ sheetId, backPath, onBack }) {
       <div className="smart-sheet-stage">
         <div key={`${sheetId}-${reloadToken}`} ref={containerRef} className="smart-sheet-univer" data-testid="smart-sheet-univer" />
 
-        {loading && !loadError && <div className="smart-sheet-overlay">Opening spreadsheet…</div>}
+        {loading && !loadError && (
+          <div className="smart-sheet-overlay" data-testid="smart-sheet-opening">
+            {syncState.phase === "stale" ? `Still connecting… (attempt ${syncState.attempt})` : "Opening spreadsheet…"}
+          </div>
+        )}
 
         {loadError && (
           <div className="smart-sheet-overlay smart-sheet-overlay-error" role="alert">
