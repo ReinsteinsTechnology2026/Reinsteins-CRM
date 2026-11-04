@@ -516,3 +516,25 @@ BEGIN
     ALTER TABLE "mailbox_settings" ADD CONSTRAINT "fk_mailboxsettings_mailbox_id" FOREIGN KEY ("mailbox_id") REFERENCES "mailboxes" ("id") ON DELETE CASCADE;
   END IF;
 END $$;
+
+-- ---------- Tenant feature selection: which CRM modules each company may use. One row per (company, feature);
+-- feature_id is a stable identifier from config/tenantFeatures.js. A company with NO rows has never been configured and
+-- is treated as having every module (so a company created before this table existed keeps working). ----------
+CREATE TABLE IF NOT EXISTS "company_features" (
+  "company_id" integer NOT NULL,
+  "feature_id" varchar(64) NOT NULL,
+  "enabled" boolean NOT NULL DEFAULT TRUE,
+  "updated_by" integer DEFAULT NULL,
+  "updated_at" timestamp DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY ("company_id", "feature_id")
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_company_features_company_id') THEN
+    ALTER TABLE "company_features"
+      ADD CONSTRAINT "fk_company_features_company_id"
+      FOREIGN KEY ("company_id") REFERENCES "companies" ("id")
+      ON DELETE CASCADE;
+  END IF;
+END $$;

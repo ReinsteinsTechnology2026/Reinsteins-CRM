@@ -18,6 +18,9 @@ const {
     updateBillingContact,
     removeBillingContact,
     deleteCompany,
+    getFeatureCatalog,
+    getCompanyFeatures,
+    updateCompanyFeatures,
 } = require("../controllers/platformCompanyController");
 const { platformProtect } = require("../middleware/platformAuthMiddleware");
 const { billingContactLimiter } = require("../middleware/rateLimiters");
@@ -36,6 +39,8 @@ const { uploadCompanyLogo } = require("../middleware/companyLogoUploadMiddleware
 
 router.get("/", platformProtect, listCompanies);
 router.get("/stats", platformProtect, getStats);
+// Must stay above "/:id" so "features" is not read as a company id.
+router.get("/features/catalog", platformProtect, getFeatureCatalog);
 
 router.post("/", platformProtect, createCompany);
 
@@ -46,6 +51,8 @@ router.post("/:companyId/admin", platformProtect, createFirstAdmin);
 
 // Phase 4 -- company management (Platform Owner Dashboard).
 router.get("/:id", platformProtect, getCompanyDetails);
+router.get("/:id/features", platformProtect, getCompanyFeatures);
+router.put("/:id/features", platformProtect, updateCompanyFeatures);
 router.patch("/:id/status", platformProtect, updateStatus);
 router.patch("/:id/access-type", platformProtect, updateAccessType);
 

@@ -13,6 +13,9 @@ const platformAuditService = require("../services/platformAuditService");
 const subscriptionHistoryService = require("../services/subscriptionHistoryService");
 const emailDeliveryService = require("../services/emailDeliveryService");
 const emailDomainService = require("../services/emailDomainService");
+const companyFeatureService = require("../services/companyFeatureService");
+const featureRealtimeService = require("../services/featureRealtimeService");
+const { FEATURE_IDS, publicCatalog, validateSelection } = require("../config/tenantFeatures");
 const { getTenantPoolForCompany } = require("../config/tenantConnectionManager");
 const { isValidSlug, buildTenantDbName } = require("../utils/tenantDbName");
 const { __LEGACY_COMPANY_SLUG: LEGACY_COMPANY_SLUG } = require("../config/db");
@@ -77,6 +80,13 @@ const createCompany = async (req, res) => {
         const companyNameRaw = req.body?.companyName;
         const companySlugRaw = req.body?.companySlug;
         const accessTypeRaw = req.body?.accessType;
+
+        // Modules this company may use. Omitted = every module (what a caller that predates feature selection expects);
+        // the Owner Portal always sends the explicit selection. Validated BEFORE anything is created.
+        const featureSelection = req.body?.features === undefined ? { ok: true, features: [...FEATURE_IDS] } : validateSelection(req.body.features);
+        if (!featureSelection.ok) {
+            return res.status(400).json({ success: false, code: featureSelection.code, message: featureSelection.message, missing: featureSelection.missing, unknown: featureSelection.unknown });
+        }
 
         if (
             typeof companyNameRaw !== "string" ||
@@ -153,6 +163,16 @@ const createCompany = async (req, res) => {
             throw createError;
         }
 
+        // ---------- Step 1b: record the selected modules ----------
+        // Written BEFORE the company can become active: a company with no rows would be read as "every module".
+        try {
+            await companyFeatureService.setCompanyFeatures(company.id, featureSelection.features, req.platformUser.id);
+        } catch (featureError) {
+            await platformCompanyService.deletePendingCompany(company.id);
+            console.error(`[platform] Saving features failed for company id=${company.id}: ${featureError.message}`);
+            return res.status(500).json({ success: false, message: "Failed to save the selected features. The company was not created." });
+        }
+
         // ---------- Step 2: provision the tenant database ----------
         const provisionResult = await tenantProvisioningService.provisionTenantDatabase({
             databaseName: tenantDbName,
@@ -196,7 +216,7 @@ const createCompany = async (req, res) => {
             targetType: "company",
             targetId: activated.id,
             companyId: activated.id,
-            metadata: { companyName: activated.company_name, companySlug: activated.company_slug, accessType: activated.access_type },
+            metadata: { companyName: activated.company_name, companySlug: activated.company_slug, accessType: activated.access_type, features: featureSelection.features },
         }).catch((auditError) => console.error("[platform] audit log failed (company_created):", auditError.message));
 
         return res.status(201).json({
@@ -209,6 +229,7 @@ const createCompany = async (req, res) => {
                 accessType: activated.access_type,
                 tenantDbName: activated.tenant_db_name,
                 createdAt: activated.created_at,
+                features: featureSelection.features,
             },
         });
 
@@ -757,6 +778,7 @@ const getCompanyDetails = async (req, res) => {
                 adminEmail,
                 newUsersThisMonth,
                 email: emailSummary,
+                features: (await companyFeatureService.getFeatureStates(companyId)).enabled,
             },
         });
     } catch (error) {
@@ -1418,7 +1440,85 @@ const deleteCompany = async (req, res) => {
     }
 };
 
+// ==========================================
+// TENANT FEATURE MANAGEMENT (Owner only; mounted behind platformProtect)
+//
+//   GET /api/platform/companies/features/catalog   every module (id, name, description, requires)
+//   GET /api/platform/companies/:id/features       { features: [enabled ids], configured }
+//   PUT /api/platform/companies/:id/features       { features: [ids] } -- the COMPLETE new selection
+//
+// A selection that enables a module without the modules it requires is refused (400 MISSING_DEPENDENCIES) with the exact
+// list -- nothing is ever enabled silently. Switching a module off only flips a flag: no tenant data is touched, and
+// switching it back on restores access to everything that was there.
+// ==========================================
+
+const getFeatureCatalog = async (_req, res) => res.status(200).json({ success: true, features: publicCatalog() });
+
+const parseCompanyId = (req, res) => {
+    const companyId = Number(req.params.id);
+    if (!Number.isInteger(companyId) || companyId <= 0) {
+        res.status(400).json({ success: false, message: "Invalid company id." });
+        return null;
+    }
+    return companyId;
+};
+
+const getCompanyFeatures = async (req, res) => {
+    try {
+        const companyId = parseCompanyId(req, res);
+        if (companyId === null) return undefined;
+        const company = await platformCompanyService.getCompanyById(companyId);
+        if (!company) return res.status(404).json({ success: false, message: "Company not found." });
+        const states = await companyFeatureService.getFeatureStates(companyId);
+        return res.status(200).json({ success: true, features: states.enabled, configured: states.configured });
+    } catch (error) {
+        console.error("[platform] getCompanyFeatures failed:", error);
+        return res.status(500).json({ success: false, message: "Failed to load the company's features." });
+    }
+};
+
+const updateCompanyFeatures = async (req, res) => {
+    try {
+        const companyId = parseCompanyId(req, res);
+        if (companyId === null) return undefined;
+        const company = await platformCompanyService.getCompanyById(companyId);
+        if (!company) return res.status(404).json({ success: false, message: "Company not found." });
+
+        const selection = validateSelection(req.body?.features);
+        if (!selection.ok) {
+            return res.status(400).json({ success: false, code: selection.code, message: selection.message, missing: selection.missing, unknown: selection.unknown });
+        }
+
+        const { before, after } = await companyFeatureService.setCompanyFeatures(companyId, selection.features, req.platformUser.id);
+
+        // Revalidate everyone who has this company open (sockets are told, live module rooms are left).
+        const live = featureRealtimeService.applyFeatureChange(req.app.get("io"), company.company_slug, { before, after });
+
+        await platformAuditService.logAction({
+            platformUserId: req.platformUser.id,
+            actionType: "company_features_updated",
+            targetType: "company",
+            targetId: company.id,
+            companyId: company.id,
+            metadata: {
+                companySlug: company.company_slug,
+                enabled: after.filter((id) => !before.includes(id)),
+                disabled: before.filter((id) => !after.includes(id)),
+                features: after,
+            },
+        }).catch((auditError) => console.error("[platform] audit log failed (company_features_updated):", auditError.message));
+
+        return res.status(200).json({ success: true, features: after, notified: live.notified });
+    } catch (error) {
+        console.error("[platform] updateCompanyFeatures failed:", error);
+        return res.status(500).json({ success: false, message: "Failed to update the company's features." });
+    }
+};
+
 module.exports = {
+    getFeatureCatalog,
+    getCompanyFeatures,
+    updateCompanyFeatures,
     createCompany,
     createFirstAdmin,
     listCompanies,

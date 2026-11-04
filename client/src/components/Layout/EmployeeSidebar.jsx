@@ -44,6 +44,8 @@ import socket, {
 import { isExecutiveDashboardUser } from "../../utils/executiveAccess";
 import { hasProjectAccess } from "../../utils/projectAccess";
 import { getShiftNavItem } from "../../utils/shiftAccess";
+import { useTenantFeatures } from "../../context/tenantFeaturesContext";
+import { featureForMenuPath } from "../../utils/tenantFeatures";
 
 function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) {
   const navigate =
@@ -55,6 +57,10 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
   // fix and full reasoning).
   const { companySlug } = useParams();
   const basePath = companySlug ? `/${companySlug}/employee` : "/employee";
+
+  // Which modules this company has (the server enforces it; the menu only hides what would be refused).
+  const { isEnabled } = useTenantFeatures();
+  const chatEnabled = isEnabled("chat");
 
   // Tenant-aware company name, cached at login time (Login.jsx) from
   // the same /tenant-auth/:companySlug/info call already used for the
@@ -174,6 +180,12 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
   const fetchUnreadChatCount =
     useCallback(
       async () => {
+        // No chat module for this company: nothing to count, and nothing to ask the server.
+        if (!chatEnabled) {
+          setUnreadChatCount(0);
+          return;
+        }
+
         try {
           const response =
             await api.get(
@@ -229,7 +241,7 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
           );
         }
       },
-      []
+      [chatEnabled]
     );
 
   // ==========================================
@@ -519,9 +531,10 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
     },
   ];
 
-  const menuItems = isExecutive
-    ? executiveMenuItems
-    : standardMenuItems;
+  // A menu entry whose module the company does not have is not shown (the first entry is the home page).
+  const menuItems = (isExecutive ? executiveMenuItems : standardMenuItems).filter((item, index) =>
+    index === 0 ? true : isEnabled(featureForMenuPath(item.path, basePath))
+  );
 
   // ==========================================
   // CHECK ACTIVE PAGE

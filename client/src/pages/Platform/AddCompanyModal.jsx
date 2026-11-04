@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import platformApi from "../../services/platformApi";
+import FeatureSelector from "./FeatureSelector";
 
 // ==========================================
 // ADD COMPANY MODAL
@@ -35,6 +36,11 @@ function AddCompanyModal({ onClose, onCreated, onPartialSuccess }) {
   const [planId, setPlanId] = useState("");
 
   const [plans, setPlans] = useState([]);
+  // Feature Configuration: the CRM modules this company gets. Starts with everything selected; the Owner removes what the
+  // company should not have. The server stores exactly this selection and enforces it.
+  const [featureCatalog, setFeatureCatalog] = useState(null);
+  const [features, setFeatures] = useState([]);
+  const [featureError, setFeatureError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [step, setStep] = useState("form"); // "form" | "creating"
@@ -46,6 +52,15 @@ function AddCompanyModal({ onClose, onCreated, onPartialSuccess }) {
         setPlans(activePlans);
       })
       .catch(() => setPlans([]));
+  }, []);
+
+  useEffect(() => {
+    platformApi.get("/companies/features/catalog")
+      .then((response) => {
+        setFeatureCatalog(response.data.features);
+        setFeatures(response.data.features.map((feature) => feature.id));
+      })
+      .catch(() => setFeatureError("The feature list could not be loaded. Close this window and try again."));
   }, []);
 
   const handleSubmit = async (event) => {
@@ -64,6 +79,14 @@ function AddCompanyModal({ onClose, onCreated, onPartialSuccess }) {
       setError("Admin password must be at least 8 characters.");
       return;
     }
+    if (!featureCatalog) {
+      setError("The feature list has not loaded yet.");
+      return;
+    }
+    if (features.length === 0) {
+      setError("Select at least one feature for this company.");
+      return;
+    }
 
     let createdCompanyId = null;
 
@@ -76,6 +99,7 @@ function AddCompanyModal({ onClose, onCreated, onPartialSuccess }) {
         companyName: companyName.trim(),
         companySlug: companySlug.trim().toLowerCase(),
         accessType,
+        features,
       });
       const company = companyRes.data.company;
       createdCompanyId = company.id;
@@ -238,6 +262,16 @@ function AddCompanyModal({ onClose, onCreated, onPartialSuccess }) {
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
+              </div>
+
+              <div className="platform-form-group">
+                <label>Feature Configuration</label>
+                <p className="platform-form-hint" style={{ marginTop: 0 }}>
+                  Choose the modules this company can use. Anything left unselected is hidden and blocked for the company; you can change this later from the company's details page.
+                </p>
+                {featureError && <div className="platform-alert platform-alert-danger">{featureError}</div>}
+                {featureCatalog && <FeatureSelector catalog={featureCatalog} value={features} onChange={setFeatures} />}
+                {!featureCatalog && !featureError && <div className="platform-empty-state">Loading features…</div>}
               </div>
 
               <div className="platform-form-group">

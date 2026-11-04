@@ -12,7 +12,7 @@ const platformAuditService = require("../services/platformAuditService");
 // ==========================================
 
 const VALID_ACTION_TYPES = [
-    "company_created", "company_suspended", "company_reactivated", "company_deleted",
+    "company_created", "company_suspended", "company_reactivated", "company_deleted", "company_features_updated",
     "plan_created", "plan_updated", "plan_disabled", "plan_enabled",
     "subscription_changed", "payment_recorded", "payment_status_changed", "platform_password_changed",
     "billing_contact_updated", "billing_contact_removed", "email_retried", "smtp_test_triggered",

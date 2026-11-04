@@ -15,6 +15,7 @@ import api from "../../services/api";
 
 import { getTasks } from "../../services/taskManagementService";
 import { getMyActiveSprints } from "../../services/sprintService";
+import { useTenantFeatures } from "../../context/tenantFeaturesContext";
 
 import {
   TASK_STATUS_LABELS,
@@ -89,6 +90,11 @@ function AdminHome() {
 
   const [loadError, setLoadError] = useState("");
 
+  // Only the modules this company has are fetched and shown (the server refuses the rest anyway).
+  const { isEnabled } = useTenantFeatures();
+  const hasTasks = isEnabled("task_management");
+  const hasTechops = isEnabled("techops");
+
   useEffect(() => {
 
     const loadDashboard = async () => {
@@ -143,11 +149,11 @@ function AdminHome() {
       }
     };
 
-    Promise.allSettled([loadDashboard(), loadTasks(), loadSprints()]).then(() => {
+    Promise.allSettled([loadDashboard(), hasTasks ? loadTasks() : null, hasTechops ? loadSprints() : null]).then(() => {
       setLoading(false);
     });
 
-  }, []);
+  }, [hasTasks, hasTechops]);
 
   // ==========================================
   // TASK DERIVATIONS (org-wide, already
@@ -173,6 +179,7 @@ function AdminHome() {
 
       <div className="stats-grid">
 
+        {isEnabled("employee_management") && (
         <div className="stat-card">
 
           <div className="stat-icon">
@@ -196,7 +203,9 @@ function AdminHome() {
           </div>
 
         </div>
+        )}
 
+        {isEnabled("attendance") && (
         <div className="stat-card">
 
           <div className="stat-icon">
@@ -220,7 +229,9 @@ function AdminHome() {
           </div>
 
         </div>
+        )}
 
+        {isEnabled("leave_management") && (
         <div className="stat-card">
 
           <div className="stat-icon">
@@ -244,7 +255,9 @@ function AdminHome() {
           </div>
 
         </div>
+        )}
 
+        {isEnabled("task_management") && (
         <div className="stat-card">
 
           <div className="stat-icon">
@@ -268,6 +281,7 @@ function AdminHome() {
           </div>
 
         </div>
+        )}
 
       </div>
 
@@ -278,6 +292,7 @@ function AdminHome() {
           pattern as AdminTasksList.
       ================================== */}
 
+        {isEnabled("task_management") && (
       <section className="dashboard-panel dashboard-panel-wide">
 
         <div className="panel-header panel-header-row">
@@ -337,9 +352,11 @@ function AdminHome() {
         )}
 
       </section>
+        )}
 
       <div className="dashboard-panels">
 
+        {isEnabled("employee_management") && (
         <section className="dashboard-panel">
 
           <div className="panel-header">
@@ -453,12 +470,14 @@ function AdminHome() {
           }
 
         </section>
+        )}
 
         {/* ==================================
             OVERDUE — replaces the previous dead
             "Today's Attendance" placeholder panel.
         ================================== */}
 
+        {isEnabled("task_management") && (
         <section className="dashboard-panel">
 
           <div className="panel-header">
@@ -500,6 +519,7 @@ function AdminHome() {
           )}
 
         </section>
+        )}
 
       </div>
 
@@ -509,6 +529,7 @@ function AdminHome() {
             ACTIVE SPRINTS
         ================================== */}
 
+        {isEnabled("techops") && (
         <section className="dashboard-panel">
 
           <div className="panel-header">
@@ -561,11 +582,13 @@ function AdminHome() {
           )}
 
         </section>
+        )}
 
         {/* ==================================
             TEAM TASK STATUS SUMMARY
         ================================== */}
 
+        {isEnabled("task_management") && (
         <section className="dashboard-panel">
 
           <div className="panel-header">
@@ -615,6 +638,7 @@ function AdminHome() {
           )}
 
         </section>
+        )}
 
       </div>
 

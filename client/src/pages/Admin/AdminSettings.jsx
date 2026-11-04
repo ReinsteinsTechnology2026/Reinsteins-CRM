@@ -12,10 +12,12 @@ import {
 
 import api from "../../services/api";
 import AdminEmailSettings from "./AdminEmailSettings";
+import { useTenantFeatures } from "../../context/tenantFeaturesContext";
 
 import "./AdminSettings.css";
 
 function AdminSettings() {
+  const { isEnabled } = useTenantFeatures();
   // ==========================================
   // SETTINGS STATE
   // ==========================================
@@ -579,7 +581,7 @@ return (
                 BUSINESS EMAIL (Phase 16A)
             ================================== */}
 
-            <AdminEmailSettings />
+            {isEnabled("email") && <AdminEmailSettings />}
 
           </div>
 

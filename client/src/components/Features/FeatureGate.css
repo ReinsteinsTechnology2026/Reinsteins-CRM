@@ -1,0 +1,12 @@
+.feature-disabled {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 55vh;
+  padding: 24px 16px;
+}
+
+.feature-disabled .ui-empty-state {
+  max-width: 460px;
+  text-align: center;
+}

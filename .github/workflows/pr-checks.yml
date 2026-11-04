@@ -97,6 +97,8 @@ jobs:
             _test_smart_sheets_client.js \
             _test_smart_sheets_hardening.js \
             _test_smart_sheets_resilience.js \
+            _test_tenant_features.js \
+            _test_tenant_features_rendered.js \
             _test_portal_design.js \
             _test_employee_creation_domain_fallback.js \
             _test_company_logo_upload_error_handling.js \
@@ -156,7 +158,7 @@ jobs:
         working-directory: server
         run: |
           set -o pipefail
-          node --test --test-reporter=spec _test_password_change_pg.js _test_smart_sheets_pg.js 2>&1 | tee "$RUNNER_TEMP/migration-pg.log"
+          node --test --test-reporter=spec _test_password_change_pg.js _test_smart_sheets_pg.js _test_company_features_pg.js 2>&1 | tee "$RUNNER_TEMP/migration-pg.log"
           if ! grep -Eq 'skipped 0$' "$RUNNER_TEMP/migration-pg.log"; then
             echo "::error::Some migration tests were skipped (the PostgreSQL service was not configured)."
             exit 1

@@ -1,12 +1,22 @@
 const pool = require("../config/db");
+const companyFeatureService = require("../services/companyFeatureService");
+const { FEATURE_IDS } = require("../config/tenantFeatures");
+
+// The dashboard summarises several modules. A company only sees (and only has queried for it) the sections of the modules
+// it has: a legacy request has every module; a tenant request is limited to its company's features.
+const enabledFeaturesFor = async (req) =>
+  req.tenantCompany ? companyFeatureService.getEnabledFeatureIds(req.tenantCompany.id) : [...FEATURE_IDS];
 
 const getDashboardStats = async (req, res) => {
   try {
+    const enabled = await enabledFeaturesFor(req);
+    const has = (featureId) => enabled.includes(featureId);
+
     // ==========================================
     // TOTAL ACTIVE EMPLOYEES
     // ==========================================
 
-    const [employeeResult] = await pool.query(
+    const [employeeResult] = !has("employee_management") ? [[{ totalEmployees: 0 }]] : await pool.query(
       `
       SELECT COUNT(*) AS "totalEmployees"
       FROM users
@@ -20,7 +30,7 @@ const getDashboardStats = async (req, res) => {
     // Employees who logged attendance today
     // ==========================================
 
-    const [presentResult] = await pool.query(
+    const [presentResult] = !has("attendance") ? [[{ presentToday: 0 }]] : await pool.query(
       `
       SELECT COUNT(DISTINCT user_id) AS "presentToday"
       FROM attendance
@@ -32,7 +42,7 @@ const getDashboardStats = async (req, res) => {
     // EMPLOYEES ON APPROVED LEAVE TODAY
     // ==========================================
 
-    const [onLeaveResult] = await pool.query(
+    const [onLeaveResult] = !has("leave_management") ? [[{ onLeave: 0 }]] : await pool.query(
       `
       SELECT COUNT(DISTINCT user_id) AS "onLeave"
       FROM leave_requests
@@ -45,7 +55,7 @@ const getDashboardStats = async (req, res) => {
     // ACTIVE TASKS
     // ==========================================
 
-    const [activeTaskResult] = await pool.query(
+    const [activeTaskResult] = !has("task_management") ? [[{ activeTasks: 0 }]] : await pool.query(
       `
       SELECT COUNT(*) AS "activeTasks"
       FROM tasks
@@ -58,7 +68,7 @@ const getDashboardStats = async (req, res) => {
     // RECENT EMPLOYEES
     // ==========================================
 
-    const [recentEmployees] = await pool.query(
+    const [recentEmployees] = !has("employee_management") ? [[]] : await pool.query(
       `
       SELECT
         id,
@@ -93,6 +103,14 @@ const getDashboardStats = async (req, res) => {
 
         activeTasks:
           Number(activeTaskResult[0].activeTasks),
+      },
+
+      // Which sections the browser should show (a disabled module's section is hidden, not shown as zero).
+      sections: {
+        employees: has("employee_management"),
+        attendance: has("attendance"),
+        leave: has("leave_management"),
+        tasks: has("task_management"),
       },
 
       recentEmployees,

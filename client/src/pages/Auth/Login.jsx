@@ -196,11 +196,14 @@ function Login() {
       );
 
       if (companySlug && companyInfo) {
+        // The sign-in response carries the modules this company may use; keep them with the company so the
+        // portal shows the right menu from the first render.
         sessionStorage.setItem(
           "company",
-          JSON.stringify(
-            companyInfo
-          )
+          JSON.stringify({
+            ...companyInfo,
+            features: response.data.company?.features,
+          })
         );
       } else {
         sessionStorage.removeItem(
