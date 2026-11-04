@@ -8,6 +8,7 @@ import { API_ORIGIN } from "../../config";
 import { formatMoney } from "../../utils/formatMoney";
 import { computeSubscriptionBadge } from "../../utils/subscriptionStatusBadge";
 import CreateAdminModal from "./CreateAdminModal";
+import CompanyFeaturesCard from "./CompanyFeaturesCard";
 import DeleteCompanyModal from "./DeleteCompanyModal";
 import RecordPaymentModal from "./RecordPaymentModal";
 import PaymentDetailsModal from "./PaymentDetailsModal";
@@ -589,6 +590,8 @@ function PlatformCompanyDetails() {
           </div>
         </form>
       </div>
+
+      {company.status !== "pending" && <CompanyFeaturesCard companyId={company.id} />}
 
       <div className="platform-card" style={{ padding: 24, marginBottom: 20 }}>
         <h2 style={{ fontSize: 15, marginTop: 0, marginBottom: 6 }}>Access Type</h2>

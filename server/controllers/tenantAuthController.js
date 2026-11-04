@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 
 const platformCompanyService = require("../services/platformCompanyService");
+const companyFeatureService = require("../services/companyFeatureService");
 const { getTenantPoolForCompany } = require("../config/tenantConnectionManager");
 const { isValidSlug } = require("../utils/tenantDbName");
 const { UPLOADS_ROOT } = require("../utils/tenantUploadPath");
@@ -38,7 +39,9 @@ const { describePasswordPolicy } = require("../utils/passwordPolicy");
 const TENANT_JWT_ISSUER = "groworgs-tenant";
 const TENANT_JWT_AUDIENCE = "groworgs-tenant-user";
 
-const buildTenantSession = (user, company) => ({
+// `features`: the module ids this company may use (services/companyFeatureService.js). The browser only uses it to decide what to
+// SHOW; every API route and socket event is enforced on the server regardless (middleware/featureGate.js).
+const buildTenantSession = (user, company, features) => ({
     token: jwt.sign(
         {
             userId: user.id,
@@ -66,6 +69,7 @@ const buildTenantSession = (user, company) => ({
         id: company.id,
         name: company.company_name,
         slug: company.company_slug,
+        features,
     },
 });
 
@@ -194,7 +198,7 @@ const login = async (req, res) => {
         // ---------- Issue tenant-aware JWT ----------
         await tenantPool.query(`UPDATE users SET last_login = NOW() WHERE id = ?`, [user.id]);
 
-        return res.status(200).json({ success: true, ...buildTenantSession(user, company) });
+        return res.status(200).json({ success: true, ...buildTenantSession(user, company, await companyFeatureService.getEnabledFeatureIds(company.id)) });
 
     } catch (error) {
         console.error("[tenant-auth] login failed:", error);
@@ -268,7 +272,7 @@ const forceChangePassword = async (req, res) => {
 
         await tenantPool.query(`UPDATE users SET last_login = NOW() WHERE id = ?`, [result.user.id]);
 
-        return res.status(200).json({ ...result.body, ...buildTenantSession(result.user, company) });
+        return res.status(200).json({ ...result.body, ...buildTenantSession(result.user, company, await companyFeatureService.getEnabledFeatureIds(company.id)) });
 
     } catch (error) {
         console.error("[tenant-auth] force-change-password failed:", error.message);

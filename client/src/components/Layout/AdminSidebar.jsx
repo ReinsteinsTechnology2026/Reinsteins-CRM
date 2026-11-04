@@ -37,6 +37,7 @@ import socket, {
   connectSocket,
 } from "../../services/socket";
 
+import { useTenantFeatures } from "../../context/tenantFeaturesContext";
 import "./AdminSidebar.css";
 
 function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) {
@@ -58,6 +59,10 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
   // completely unaffected.
   const { companySlug } = useParams();
   const basePath = companySlug ? `/${companySlug}/admin` : "/admin";
+
+  // Which modules this company has (the server enforces it; the menu only hides what would be refused).
+  const { isEnabled } = useTenantFeatures();
+  const chatEnabled = isEnabled("chat");
 
   // Tenant-aware company name, cached at login time (Login.jsx) from
   // the same /tenant-auth/:companySlug/info call already used for the
@@ -117,6 +122,12 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
   const fetchUnreadChatCount =
     useCallback(
       async () => {
+        // No chat module for this company: nothing to count, and nothing to ask the server.
+        if (!chatEnabled) {
+          setUnreadChatCount(0);
+          return;
+        }
+
         try {
           const response =
             await api.get(
@@ -172,7 +183,7 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           );
         }
       },
-      []
+      [chatEnabled]
     );
 
   // ==========================================
@@ -372,6 +383,7 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
 
         <div className="sidebar-item-row">
 
+          {isEnabled("dashboard") && (
           <button
             type="button"
             className={`sidebar-item ${
@@ -393,6 +405,7 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
               Dashboard
             </span>
           </button>
+          )}
 
           <button
             type="button"
@@ -412,6 +425,7 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             company-structure area (Org Chart / Departments /
             Designations). */}
 
+        {isEnabled("techops") && (
         <button
           type="button"
           className={`sidebar-item ${
@@ -433,9 +447,11 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             TechOps
           </span>
         </button>
+ )}
 
         {/* TASKS */}
 
+        {isEnabled("task_management") && (
         <button
           type="button"
           className={`sidebar-item ${
@@ -457,9 +473,11 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             Tasks
           </span>
         </button>
+ )}
 
         {/* EMPLOYEES */}
 
+        {isEnabled("employee_management") && (
         <button
           type="button"
           className={`sidebar-item ${
@@ -481,9 +499,11 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             Employees
           </span>
         </button>
+ )}
 
         {/* ATTENDANCE */}
 
+        {isEnabled("attendance") && (
         <button
           type="button"
           className={`sidebar-item ${
@@ -505,9 +525,11 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             Attendance
           </span>
         </button>
+ )}
 
         {/* SHIFT MANAGEMENT */}
 
+        {isEnabled("shift_management") && (
         <button
           type="button"
           className={`sidebar-item ${
@@ -529,9 +551,11 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             Shift Management
           </span>
         </button>
+ )}
 
         {/* SMART SHEETS */}
 
+        {isEnabled("smart_sheets") && (
         <button
           type="button"
           className={`sidebar-item ${
@@ -553,9 +577,11 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             Smart Sheets
           </span>
         </button>
+ )}
 
         {/* SOP LIBRARY */}
 
+        {isEnabled("sops") && (
         <button
           type="button"
           className={`sidebar-item ${
@@ -577,9 +603,11 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             SOPs
           </span>
         </button>
+ )}
 
         {/* LEAVE MANAGEMENT */}
 
+        {isEnabled("leave_management") && (
         <button
           type="button"
           className={`sidebar-item ${
@@ -601,9 +629,11 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             Leave Management
           </span>
         </button>
+ )}
 
         {/* REPORTS */}
 
+        {isEnabled("reports") && (
         <button
           type="button"
           className={`sidebar-item ${
@@ -625,9 +655,11 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             Reports
           </span>
         </button>
+ )}
 
         {/* CHAT */}
 
+        {isEnabled("chat") && (
         <button
           type="button"
           className={`sidebar-item ${
@@ -664,9 +696,11 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           )}
 
         </button>
+ )}
 
         {/* MEETINGS */}
 
+        {isEnabled("meetings") && (
         <button
           type="button"
           className={`sidebar-item ${
@@ -688,10 +722,12 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             Meetings
           </span>
         </button>
+ )}
 
         {/* HIERARCHY -- personal reporting position (see
             client/src/pages/Employee/EmployeeHierarchy.jsx) */}
 
+        {isEnabled("employee_management") && (
         <button
           type="button"
           className={`sidebar-item ${
@@ -705,7 +741,10 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
             Hierarchy
           </span>
         </button>
+ )}
 
+        {isEnabled("employee_management") && (
+          <>
         {/* ORGANIZATION -- internal company structure (Org
             Chart / Departments / Designations). Distinct from
             TechOps above. Expandable: the parent button only
@@ -803,6 +842,8 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
 
           </div>
 
+        )}
+          </>
         )}
 
         {/* SETTINGS */}

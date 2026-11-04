@@ -124,6 +124,17 @@ jobs:
           # `--dry-run` previews it (never used here).
           node server/_migrate_add_smart_sheets.js
 
+          # Tenant feature management. Safe, idempotent, additive-only: creates
+          # company_features on the PLATFORM database (CREATE TABLE IF NOT EXISTS + a
+          # guarded foreign key) and gives every EXISTING company every module, so no
+          # existing company loses anything when the feature gate goes live. Only
+          # companies with no rows are backfilled, so a re-run never re-enables a
+          # module the Owner switched off. Touches no tenant database and no existing
+          # row of any other table. Must run BEFORE the restart below: the new code
+          # reads this table on every request. Same `set -e` reasoning as the steps
+          # above: a non-zero exit stops the deploy before the build/restart.
+          node server/_migrate_add_company_features.js
+
           cd client
           npm ci
           VITE_API_URL=https://crm.zioventure.com npm run build

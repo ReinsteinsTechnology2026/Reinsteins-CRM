@@ -22,6 +22,7 @@ const ACTION_LABELS = {
   company_suspended: "Company suspended",
   company_reactivated: "Company reactivated",
   company_deleted: "Company deleted",
+  company_features_updated: "Company features updated",
   plan_created: "Plan created",
   plan_updated: "Plan updated",
   plan_disabled: "Plan disabled",

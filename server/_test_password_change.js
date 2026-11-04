@@ -84,6 +84,8 @@ const tenantStores = { 1: makeUserStore([]), 2: makeUserStore([]) };
 platformCompanyService.getCompanyBySlug = async (slug) => companies[slug] || null;
 platformCompanyService.getCompanyById = async (id) => Object.values(companies).find((c) => c.id === id) || null;
 platformCompanyService.isCompanyAccessAllowed = () => true;
+// sign-in now also returns the company's module list (tenant feature management); these companies have every module
+require('./services/companyFeatureService').getEnabledFeatureIds = async () => require('./config/tenantFeatures').FEATURE_IDS;
 tenantConnectionManager.getTenantPoolForCompany = (company) => tenantStores[company.id];
 
 const tenantAuth = require('./controllers/tenantAuthController');

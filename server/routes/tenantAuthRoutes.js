@@ -4,6 +4,7 @@ const router = express.Router();
 
 const { login, forceChangePassword, getCompanyInfo, getCompanyLogo } = require("../controllers/tenantAuthController");
 const { tenantProtect } = require("../middleware/tenantAuthMiddleware");
+const companyFeatureService = require("../services/companyFeatureService");
 const { tenantLoginLimiter } = require("../middleware/rateLimiters");
 
 // ==========================================
@@ -37,16 +38,23 @@ router.get("/:companySlug/logo", getCompanyLogo);
 // Deliberately takes NO companySlug/companyId from the request --
 // the company context comes entirely from the token, proving it
 // cannot be overridden by anything the caller sends.
-router.get("/me", tenantProtect, (req, res) => {
-    return res.json({
-        success: true,
-        user: req.user,
-        company: {
-            id: req.tenantCompany.id,
-            name: req.tenantCompany.company_name,
-            slug: req.tenantCompany.company_slug,
-        },
-    });
+router.get("/me", tenantProtect, async (req, res) => {
+    try {
+        return res.json({
+            success: true,
+            user: req.user,
+            company: {
+                id: req.tenantCompany.id,
+                name: req.tenantCompany.company_name,
+                slug: req.tenantCompany.company_slug,
+                // Re-read on every call: the browser refreshes this to notice that the Owner changed the company's modules.
+                features: await companyFeatureService.getEnabledFeatureIds(req.tenantCompany.id),
+            },
+        });
+    } catch (error) {
+        console.error("[tenant-auth] /me failed:", error.message);
+        return res.status(500).json({ success: false, message: "Unable to load your session." });
+    }
 });
 
 // ==========================================

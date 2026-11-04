@@ -33,6 +33,7 @@ import api from "../../services/api";
 
 import { getTasks } from "../../services/taskManagementService";
 import { getMyActiveSprints } from "../../services/sprintService";
+import { useTenantFeatures } from "../../context/tenantFeaturesContext";
 
 import TagChips from "../../components/TagChips";
 
@@ -135,6 +136,13 @@ function EmployeeHome() {
   // under a company-prefixed route (/:companySlug/employee/...).
   const { companySlug } = useParams();
   const basePath = companySlug ? `/${companySlug}/employee` : "/employee";
+
+  // Only the modules this company has are fetched and shown (the server refuses the rest anyway).
+  const { isEnabled } = useTenantFeatures();
+  const hasAttendance = isEnabled("attendance");
+  const hasTasks = isEnabled("task_management");
+  const hasTechops = isEnabled("techops");
+  const hasLeave = isEnabled("leave_management");
 
   const currentUserId = getCurrentUserId();
 
@@ -424,11 +432,11 @@ function EmployeeHome() {
   // ==========================================
 
   useEffect(() => {
-    loadAttendanceStatus();
-    loadAllTasks();
-    loadActiveSprints();
-    loadMyLeaves();
-  }, []);
+    if (hasAttendance) loadAttendanceStatus();
+    if (hasTasks) loadAllTasks();
+    if (hasTechops) loadActiveSprints();
+    if (hasLeave) loadMyLeaves();
+  }, [hasAttendance, hasTasks, hasTechops, hasLeave]);
 
   // ==========================================
   // TASK STATISTICS
@@ -933,6 +941,7 @@ function EmployeeHome() {
 
   const shiftNav = getShiftNavItem(sessionUser, basePath);
 
+  const quickActionFeatures = { attendance: "attendance", schedule: "shift_management", leave: "leave_management", tasks: "task_management" };
   const quickActions = [
     {
       key: "attendance",
@@ -962,7 +971,7 @@ function EmployeeHome() {
       tone: "green",
       onClick: () => navigate(`${basePath}/tasks`),
     },
-  ];
+  ].filter((action) => isEnabled(quickActionFeatures[action.key]));
 
   // ==========================================
   // RENDER
@@ -1016,10 +1025,12 @@ function EmployeeHome() {
                   </div>
                 </div>
 
+        {isEnabled("attendance") && (
                 <div className={`dash-chip dash-chip-status dash-status-${getStatusClass()}`}>
                   <span className="status-dot" />
                   <span>{onlineChipLabel}</span>
                 </div>
+        )}
 
               </div>
 
@@ -1032,6 +1043,7 @@ function EmployeeHome() {
             <div className="employee-stats-grid dash-kpi-grid">
 
               {/* TODAY WORK HOURS */}
+        {isEnabled("attendance") && (
 
               <div className="employee-stat-card dash-kpi-card">
 
@@ -1052,8 +1064,10 @@ function EmployeeHome() {
                 </div>
 
               </div>
+        )}
 
               {/* COMPLETED TASKS */}
+        {isEnabled("task_management") && (
 
               <div className="employee-stat-card dash-kpi-card">
 
@@ -1074,8 +1088,10 @@ function EmployeeHome() {
                 </div>
 
               </div>
+        )}
 
               {/* PENDING TASKS */}
+        {isEnabled("task_management") && (
 
               <div className="employee-stat-card dash-kpi-card">
 
@@ -1096,8 +1112,10 @@ function EmployeeHome() {
                 </div>
 
               </div>
+        )}
 
               {/* LEAVE REQUESTS */}
+        {isEnabled("leave_management") && (
 
               <div className="employee-stat-card dash-kpi-card">
 
@@ -1118,6 +1136,7 @@ function EmployeeHome() {
                 </div>
 
               </div>
+        )}
 
             </div>
 
@@ -1140,6 +1159,7 @@ function EmployeeHome() {
                   filtering logic is duplicated here.
               ================================== */}
 
+        {isEnabled("task_management") && (
               <section className="employee-panel employee-panel-wide dash-mywork-panel">
 
                 <div className="dash-mywork-header">
@@ -1243,6 +1263,7 @@ function EmployeeHome() {
                 )}
 
               </section>
+        )}
 
             </div>
 
@@ -1338,6 +1359,7 @@ function EmployeeHome() {
                 ATTENDANCE
             ================================== */}
 
+        {isEnabled("attendance") && (
             <section className="employee-panel attendance-control-panel">
 
               <div className="employee-panel-header">
@@ -1582,6 +1604,7 @@ function EmployeeHome() {
               </div>
 
             </section>
+        )}
 
             {/* ==================================
                 CURRENT SPRINT — reuses the exact
@@ -1590,6 +1613,7 @@ function EmployeeHome() {
                 just rendered compactly here.
             ================================== */}
 
+        {isEnabled("techops") && (
             <section className="employee-panel">
 
               <div className="employee-panel-header">
@@ -1637,6 +1661,7 @@ function EmployeeHome() {
               )}
 
             </section>
+        )}
 
             {/* ==================================
                 RECENTLY UPDATED — simple recency
@@ -1644,6 +1669,7 @@ function EmployeeHome() {
                 above, not a separate activity feed.
             ================================== */}
 
+        {isEnabled("task_management") && (
             <section className="employee-panel">
 
               <div className="employee-panel-header">
@@ -1680,6 +1706,7 @@ function EmployeeHome() {
               )}
 
             </section>
+        )}
 
             {/* ==================================
                 PENDING REVIEW — my own submissions
@@ -1687,6 +1714,7 @@ function EmployeeHome() {
                 reviewer's decision.
             ================================== */}
 
+        {isEnabled("task_management") && (
             <section className="employee-panel">
 
               <div className="employee-panel-header">
@@ -1723,6 +1751,7 @@ function EmployeeHome() {
               )}
 
             </section>
+        )}
 
           </div>
 

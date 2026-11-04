@@ -12,6 +12,9 @@ import {
 
 import "react-toastify/dist/ReactToastify.css";
 import ChatNotificationListener from "./components/ChatNotificationListener";
+import FeatureGate from "./components/Features/FeatureGate";
+import { TenantFeaturesProvider } from "./context/TenantFeatures";
+import { featureForSubPath } from "./utils/tenantFeatures";
 import PersistentMeetingBar from "./components/Meetings/PersistentMeetingBar";
 import EmployeeTasks from "./pages/Employee/EmployeeTasks";
 // ==========================================
@@ -239,21 +242,33 @@ function buildRoleRoutes(basePath, IndexComponent, routeDefs, allowedRole, Layou
       key={basePath}
       element={
         <ProtectedRoute allowedRole={allowedRole}>
-          <Layout />
+          <TenantFeaturesProvider>
+            <Layout />
+          </TenantFeaturesProvider>
         </ProtectedRoute>
       }
     >
 
+      {/* The home page is the dashboard; if the company has no dashboard, the gate sends the user to its first module. */}
       <Route
         path={basePath}
-        element={<IndexComponent />}
+        element={
+          <FeatureGate feature="dashboard" landing portal={allowedRole}>
+            <IndexComponent />
+          </FeatureGate>
+        }
       />
 
+      {/* Every module page sits behind a gate: a module the company does not have is never mounted (see utils/tenantFeatures.js). */}
       {routeDefs.map(({ path, Component }) => (
         <Route
           key={path}
           path={`${basePath}/${path}`}
-          element={<Component />}
+          element={
+            <FeatureGate feature={featureForSubPath(path)}>
+              <Component />
+            </FeatureGate>
+          }
         />
       ))}
 

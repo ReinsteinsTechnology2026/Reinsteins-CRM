@@ -48,6 +48,16 @@ api.interceptors.response.use(
     response,
 
   (error) => {
+    // The Owner switched a module off while it was open: tell the portal so it re-reads the company's modules and
+    // replaces the module with the "not enabled" notice (context/TenantFeatures.jsx listens).
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.code === "FEATURE_NOT_ENABLED" &&
+      typeof window !== "undefined"
+    ) {
+      window.dispatchEvent(new Event("tenant-features-denied"));
+    }
+
     if (
       error.response?.status ===
       401

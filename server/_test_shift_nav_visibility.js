@@ -123,7 +123,8 @@ test('menus: only the Shift entry changed (plus the Smart Sheets entry right aft
     names(await menu('standardMenuItems', plain)));
   // executive-menu selection is still the existing designation check (explicitly unchanged in this task)
   assert.match(employeeSidebar, /const isExecutive = isExecutiveDashboardUser\(currentUser\);/);
-  assert.match(employeeSidebar, /const menuItems = isExecutive\s*\? executiveMenuItems\s*: standardMenuItems;/);
+  // (the selection itself is unchanged; the result is now also filtered by the company's enabled modules)
+  assert.match(employeeSidebar, /\(isExecutive \? executiveMenuItems : standardMenuItems\)\.filter\(/);
   // ...and the Shift entry itself never consults it
   assert.match(employeeSidebar, /const shiftNav = getShiftNavItem\(currentUser, basePath\);/);
   assert.equal((employeeSidebar.match(/\.\.\.shiftNav/g) || []).length, 2);

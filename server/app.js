@@ -35,6 +35,10 @@ const {
   __roomScopeOf: roomScopeOf,
 } = require("./config/db");
 const platformCompanyService = require("./services/platformCompanyService");
+const companyFeatureService = require("./services/companyFeatureService");
+const { featureGate, disabledBody: featureDisabledBody } = require("./middleware/featureGate");
+const { createOnTenantEvent } = require("./services/socketFeatureGate");
+const { featureForUploadPath } = require("./config/tenantFeatures");
 const { getTenantPoolForCompany } = require("./config/tenantConnectionManager");
 const { globalApiLimiter } = require("./middleware/rateLimiters");
 const { JSON_BODY_LIMIT } = require("./config/securityConfig");
@@ -454,7 +458,8 @@ async function authenticateTenantSocket(token) {
       // here -- see the matching comment in authenticateLegacySocket.
       systemAccess: user.system_access,
     },
-    tenantContext: { tenantPool, companySlug: company.company_slug },
+    // companyId is what the per-event feature check (onTenantEvent) uses: it comes from the verified token, never from the client.
+    tenantContext: { tenantPool, companySlug: company.company_slug, companyId: company.id },
   };
 
 }
@@ -551,14 +556,13 @@ io.on(
     // getCurrentCompanySlug() resolves to this socket's own tenant.
     // ========================================
 
-    function onTenantEvent(eventName, handler) {
-      socket.on(eventName, (...args) => {
-        return runWithTenantContext(
-          socket.tenantContext,
-          () => handler(...args)
-        );
-      });
-    }
+    // Every event registered through this wrapper is feature-gated first (services/socketFeatureGate.js): an event of a module
+    // the company does not have is refused before its handler runs.
+    const onTenantEvent = createOnTenantEvent({
+      socket,
+      getEnabledFeatureIds: (companyId) => companyFeatureService.getEnabledFeatureIds(companyId),
+      runWithTenantContext,
+    });
 
     // ========================================
     // JOIN PERSONAL USER ROOM (tenant-namespaced)
@@ -2131,6 +2135,12 @@ app.get(
         if (!company || !platformCompanyService.isCompanyAccessAllowed(company)) {
           return res.status(403).json({ success: false, message: "This company is not currently active" });
         }
+
+        // A file written by a module the company no longer has is not served either (an already-signed link stops working).
+        const owningFeature = featureForUploadPath(requestedPath);
+        if (owningFeature && !(await companyFeatureService.getEnabledFeatureIds(company.id)).includes(owningFeature)) {
+          return res.status(403).json(featureDisabledBody([owningFeature]));
+        }
       }
 
       if (!fs.existsSync(resolvedPath) || !fs.statSync(resolvedPath).isFile()) {
@@ -2205,6 +2215,12 @@ app.get(
     });
   }
 );
+
+// ==========================================
+// TENANT FEATURE GATE -- one gate for every /api route (see middleware/featureGate.js and config/tenantFeatures.js).
+// Must stay BEFORE the route mounts below.
+// ==========================================
+app.use("/api", featureGate);
 
     // TASKS
 
