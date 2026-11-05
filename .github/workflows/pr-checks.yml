@@ -99,6 +99,7 @@ jobs:
             _test_smart_sheets_resilience.js \
             _test_tenant_features.js \
             _test_tenant_features_rendered.js \
+            _test_ziovault_crypto.js \
             _test_portal_design.js \
             _test_employee_creation_domain_fallback.js \
             _test_company_logo_upload_error_handling.js \
