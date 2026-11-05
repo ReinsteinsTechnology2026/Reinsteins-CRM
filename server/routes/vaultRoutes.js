@@ -27,6 +27,12 @@ function createVaultRouter({ controller = getDefaultController(), authenticate, 
     router.post("/account/envelope-history/:id/restore", limiters.recovery, controller.restoreEnvelope);
     router.get("/directory", limiters.write, controller.directory);
 
+    // folders (personal)
+    router.get("/folders", controller.listFolders);
+    router.post("/folders", limiters.write, controller.createFolder);
+    router.patch("/folders/:uid", limiters.write, controller.renameFolder);
+    router.delete("/folders/:uid", limiters.write, controller.deleteFolder);
+
     // items (personal; items in collections are created under /collections/:uid/items)
     router.get("/items", controller.listItems);
     router.get("/items/trash", controller.listTrash);

@@ -21,6 +21,7 @@ const LIMITS = Object.freeze({
     MAX_GRANT_DAYS: 365,
     MAX_ROTATION_INTERVAL_DAYS: 3650,
     MAX_ROTATION_BATCH_ITEMS: 2000,
+    MAX_FOLDERS: 200,
 });
 
 const B64URL = /^[A-Za-z0-9_-]*$/;

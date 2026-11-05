@@ -215,7 +215,7 @@ test("FEATURE: every route of the vault router sits under the gated prefix and r
     const routes = read("routes", "vaultRoutes.js");
     assert.match(routes, /router\.use\(\.\.\.authenticate\);\n\n\s*\/\/ account/, "authentication is the first thing on the router");
     const verbs = [...routes.matchAll(/router\.(get|post|put|patch|delete)\("([^"]+)"/g)];
-    assert.ok(verbs.length >= 33, `found ${verbs.length} routes`);
+    assert.ok(verbs.length >= 37, `found ${verbs.length} routes`);
     for (const [, , route] of verbs) assert.ok(route.startsWith("/"), route);
     assert.ok(routes.includes('router.get("/items/trash"') && routes.indexOf('"/items/trash"') < routes.indexOf('"/items/:uid"'), "/items/trash is declared before /items/:uid");
 });

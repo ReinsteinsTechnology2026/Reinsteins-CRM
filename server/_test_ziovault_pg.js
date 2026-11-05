@@ -950,6 +950,7 @@ test("ROUTE PROTECTION: every route of the router refuses a request without auth
         ["GET", `/items/${id}/grants`], ["POST", `/items/${id}/grants`], ["PATCH", `/items/${id}/grants/1`], ["DELETE", `/items/${id}/grants/1`], ["GET", "/collections"], ["POST", "/collections"],
         ["GET", `/collections/${id}`], ["POST", `/collections/${id}/items`], ["POST", `/collections/${id}/members`], ["PATCH", `/collections/${id}/members/1`], ["DELETE", `/collections/${id}/members/1`],
         ["POST", `/collections/${id}/rotate`], ["GET", "/audit"],
+        ["GET", "/folders"], ["POST", "/folders"], ["PATCH", `/folders/${id}`], ["DELETE", `/folders/${id}`],
     ];
     for (const [method, route] of routes) {
         const res = await fetch(`${world.api.url}/api/ziovault${route}`, { method, headers: { "Content-Type": "application/json" }, body: method === "GET" || method === "DELETE" ? undefined : "{}" });

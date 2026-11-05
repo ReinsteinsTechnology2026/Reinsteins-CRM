@@ -762,6 +762,47 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
         });
     }
 
+    // ------------------------------------------------------------------ folders (personal; names are ciphertext)
+    const presentFolder = (row) => ({ uid: row.uid, name: V.encode(row.name_ciphertext), createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
+
+    async function listFolders(userId) {
+        await actorOf(userId);
+        return (await store.listFolders(pool, userId)).map(presentFolder);
+    }
+
+    async function createFolder(userId, body) {
+        await actorOf(userId);
+        return store.tx(async (db) => {
+            if ((await store.countFolders(db, userId)) >= V.LIMITS.MAX_FOLDERS) throw conflict("TOO_MANY_FOLDERS", "That is the most folders one vault can have.");
+            const uid = V.uuid(body.uid, "uid");
+            const name = V.aeadEnvelope(body.name, "name", { max: V.LIMITS.NAME_BYTES });
+            try {
+                await store.insertFolder(db, { uid, ownerUserId: userId, name });
+            } catch (error) {
+                if (error.code === "23505") throw conflict("UID_IN_USE", "That id is already used.");
+                throw error;
+            }
+            return { uid };
+        });
+    }
+
+    async function renameFolder(userId, uid, body) {
+        await actorOf(userId);
+        const name = V.aeadEnvelope(body.name, "name", { max: V.LIMITS.NAME_BYTES });
+        const row = await store.renameFolder(pool, userId, V.uuid(uid, "folder"), name);
+        if (!row) throw notFound();
+        return { uid: row.uid };
+    }
+
+    // Deleting a folder never touches an item: the folder id sits inside each item's ENCRYPTED details, and an item whose folder no
+    // longer exists is simply shown as unfiled.
+    async function deleteFolder(userId, uid) {
+        await actorOf(userId);
+        const row = await store.deleteFolder(pool, userId, V.uuid(uid, "folder"));
+        if (!row) throw notFound();
+        return { uid: row.uid };
+    }
+
     // ------------------------------------------------------------------ audit and maintenance
     async function auditTrail(userId, { itemUid, collectionUid } = {}) {
         await actorOf(userId);
@@ -800,6 +841,7 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
         listItems, listTrash, getItem, getSecret, reportAccess, createPersonalItem, createCompanyItem, updateItem, setDeleted, rotateItem,
         createCollection, listCollections, getCollection, addMember, updateMember, removeMember, rotateCollection,
         createGrant, listGrants, updateGrant, revokeGrant,
+        listFolders, createFolder, renameFolder, deleteFolder,
         auditTrail, sweepExpired,
         deleteItem: (userId, uid) => setDeleted(userId, uid, true),
         restoreItem: (userId, uid) => setDeleted(userId, uid, false),

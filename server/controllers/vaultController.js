@@ -40,6 +40,11 @@ function createVaultController(service = createVaultService({ pool: require("../
         restoreEnvelope: handle((req) => service.restoreEnvelope(uid(req), req.params.id, body(req))),
         directory: handle((req) => service.directory(uid(req))),
 
+        listFolders: handle((req) => service.listFolders(uid(req))),
+        createFolder: handle((req) => service.createFolder(uid(req), body(req)), 201),
+        renameFolder: handle((req) => service.renameFolder(uid(req), req.params.uid, body(req))),
+        deleteFolder: handle((req) => service.deleteFolder(uid(req), req.params.uid)),
+
         listItems: handle((req) => service.listItems(uid(req))),
         listTrash: handle((req) => service.listTrash(uid(req))),
         createItem: handle((req) => service.createPersonalItem(uid(req), body(req)), 201),

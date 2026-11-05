@@ -36,6 +36,7 @@ import Employees from "./pages/Admin/Employees";
 import AdminAttendance from "./pages/Admin/AdminAttendance";
 import AdminShiftManagement from "./pages/Admin/AdminShiftManagement";
 import SmartSheetsList from "./pages/SmartSheets/SmartSheetsList";
+import VaultPage from "./pages/Vault/VaultPage";
 import AdminLeave from "./pages/Admin/AdminLeave";
 import AdminReports from "./pages/Admin/AdminReports";
 import AdminSettings from "./pages/Admin/AdminSettings";
@@ -168,6 +169,7 @@ const ADMIN_ROUTES = [
   // Smart Sheets: the list is small; the editor (Univer) is a lazily loaded chunk.
   { path: "smart-sheets", Component: SmartSheetsList },
   { path: "smart-sheets/:sheetId", Component: SmartSheetEditorRoute },
+  { path: "ziovault", Component: VaultPage },
   { path: "tasks", Component: AdminTasksList },
   { path: "task-workspace/:taskId", Component: TaskWorkspace },
   { path: "projects", Component: ProjectsList },
@@ -199,6 +201,7 @@ const EMPLOYEE_ROUTES = [
   // Spreadsheets shared with this employee (the server decides what is listed and what is editable).
   { path: "smart-sheets", Component: SmartSheetsList },
   { path: "smart-sheets/:sheetId", Component: SmartSheetEditorRoute },
+  { path: "ziovault", Component: VaultPage },
   { path: "tasks", Component: EmployeeTasks },
   { path: "task-workspace/:taskId", Component: TaskWorkspace },
   { path: "leave", Component: EmployeeLeave },

@@ -252,3 +252,52 @@ stolen; the Owner/platform operator and tenant administrators are **not** truste
 ### API surface (all under `/api/ziovault`, behind the `ziovault` feature gate and `protect`)
 
 `account` status / register / unlock / recovery / recovery-confirmation / envelope (replace) / recovery-envelope / envelope-history (+restore) -- `directory` -- `items` list / trash / create / read / `secret` (the only route that returns a secret ciphertext; records `secret_delivered`) / access-reports / update / delete / restore / rotate -- `items/:uid/grants` list / create / change / revoke -- `collections` list / create / read / items / members (add, change, remove) / rotate -- `audit`.
+
+## 12. Stage 3 -- Personal Vault UI, as built
+
+Everything below lives in `client/src/vault/` (logic, no React) and `client/src/pages/Vault/` (screens). The screens call one object, the
+**vault session** (`vaultSession.js`), which uses only the Stage 1 crypto (`vault/crypto`) and the Stage 2 HTTP contract (`vaultApi.js`).
+
+**Where secrets live.** Vault key and private key: private variables of the session while unlocked, overwritten by `lock()`. Decrypted
+*details* (name, address, username, visible custom fields, folder) are cached in memory for instant local search. Decrypted *secrets*
+(password, notes, hidden fields) are fetched per reveal/edit/health scan and kept in memory only until lock; an item's secret is not cached
+after create/update, so every reveal is a server-side `secret_delivered`. Nothing decrypted is written to localStorage, sessionStorage,
+IndexedDB, cookies or a URL. The only browser storage (all in `vaultRuntime.js`, enforced by a source-scan test):
+`localStorage ziovault:prefs` (three numbers) and `sessionStorage ziovault:draft:<tenant>:<user>` (a *sealed* draft, see below).
+
+**Item layout (client-defined, opaque to the server).** meta = `{v,title,url,username,folderUid,fields[]}` (what "view details" shows);
+secret = `{v,password,notes,hidden[]}` (what "reveal" shows). The `kind` (login / secure note / API key / other) and `favorite` are
+server-visible metadata, a deliberate trade-off to allow the server to filter and for the UI to sort without decrypting. Folder membership
+is inside the *encrypted* meta; folder names are encrypted under the vault key (`folder-name` purpose, bound to tenant, user and folder).
+New AAD purpose `draft` was added to Stage 1 (additive; no existing purpose changed).
+
+**Stage 2 addition: folders.** `GET/POST /folders`, `PATCH/DELETE /folders/:uid` store only the encrypted name (cap 200 per user). Deleting
+a folder never deletes items. The server never learns which item is in which folder.
+
+**Lock behaviour.** Manual lock, configurable inactivity lock (1-60 min, default 5, 0 = never), lock on CRM sign-out or a different user
+(token watcher), lock on any 401 (`SESSION_EXPIRED`), and lock in other tabs of the same person and company (BroadcastChannel, scoped
+`tenant:user`; also after a master-password change). Locking clears items, folders, secrets and the health report, takes back what we
+copied to the clipboard, and, if an item was open for editing, seals the draft under the vault key (ciphertext) so the work can be offered
+back after unlock. A draft that cannot be sealed is dropped, never stored in clear.
+
+**Unlock.** Wrong password: the same message always; after 3 failures a local, growing delay (up to 30 s) with no request while waiting.
+(This is a convenience, not a security control: a stolen laptop attacker is limited by Argon2id cost, not by this UI.)
+
+**Generator.** libsodium `randombytes_uniform` (rejection sampling, no modulo bias), Fisher-Yates shuffle, at least one character of every
+selected set, EFF large wordlist (7776 words) for passphrases, honest entropy shown. Never transmitted until the user saves the item.
+
+**Password health.** Runs locally over decrypted data: weak (entropy estimate with common-password, pattern, date, personal-name and
+"one word + digits" penalties), reused (identical passwords inside this unlocked vault), old (`last_rotated_at`), missing. The report
+holds titles, counts and advice, never a password. No breach lookup is performed (it would require sending data to a third party; stated in
+the screen). Implication to know: the scan reveals every login's secret, so it creates one audited `secret_delivered` per item, bounded by
+the existing secret rate limit (concurrency 3).
+
+**Clipboard.** Copy is allowed only when the item's rights allow it. After the configured delay (default 30 s) the clipboard is cleared,
+only if it still holds what we copied when the browser lets us read it, otherwise overwritten with "". This is best effort and the screens
+say so.
+
+**Honest limitations of Stage 3.** (1) A compromised or malicious browser, extension or XSS in the CRM origin can read the vault while it is
+unlocked; the CSP and XSS hygiene of the host app are part of the trust base. (2) The password strength estimator is heuristic, not a
+guarantee. (3) The client-defined fields in meta are not schema-enforced by the server (it cannot read them). (4) The *kind* and *favorite* flag
+are visible to the server. (5) Attachments, company vaults and sharing screens are Stage 4 and have no UI here. (6) No automated real-browser
+(Playwright) run was part of this stage; screens are tested with React + jsdom against the real API and database.

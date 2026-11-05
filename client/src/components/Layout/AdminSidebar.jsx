@@ -17,6 +17,7 @@ import {
   FaCalendarCheck,
   FaCalendarWeek,
   FaTable,
+  FaKey,
   FaBook,
   FaTasks,
   FaCalendarAlt,
@@ -575,6 +576,22 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
 
           <span className="admin-sidebar-menu-name">
             Smart Sheets
+          </span>
+        </button>
+ )}
+
+        {/* ZIOVAULT */}
+
+        {isEnabled("ziovault") && (
+        <button
+          type="button"
+          className={`sidebar-item ${isActive(`${basePath}/ziovault`) ? "active" : ""}`}
+          onClick={() => handleNavigate(`${basePath}/ziovault`)}
+        >
+          <FaKey />
+
+          <span className="admin-sidebar-menu-name">
+            ZioVault
           </span>
         </button>
  )}

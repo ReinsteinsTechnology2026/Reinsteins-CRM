@@ -31,6 +31,7 @@ export const PURPOSES = Object.freeze([
   "box-item-secret-key",
   "box-collection-meta-key",
   "box-collection-secret-key",
+  "draft", // an unsaved item the user was editing when the vault locked (sealed under the vault key; see folders.js)
 ]);
 const PURPOSE_SET = new Set(PURPOSES);
 

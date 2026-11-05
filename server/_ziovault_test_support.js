@@ -130,7 +130,7 @@ function createLab() {
     };
 
     lab.close = async () => {
-        for (const server of lab.servers) await new Promise((resolve) => server.close(resolve));
+        for (const server of lab.servers) await new Promise((resolve) => { if (server.closeAllConnections) server.closeAllConnections(); server.close(resolve); }); // keep-alive connections would otherwise delay every close
         for (const pool of lab.pools) await Promise.resolve(pool.end()).catch(() => {});
         if (!lab.admin) return;
         for (const name of lab.databases) await lab.admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`).catch(() => {});

@@ -9,4 +9,5 @@ export { createAccount, unlockAccount, changeMasterPassword, recoverAccount, rot
 export * from "./items.js";
 export * from "./attachments.js";
 export * from "./collections.js";
+export * from "./folders.js";
 export { publicKeyFingerprint } from "./fingerprint.js";

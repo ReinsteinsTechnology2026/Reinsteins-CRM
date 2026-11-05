@@ -295,6 +295,13 @@ function createVaultStore({ pool }) {
     const revokeGrants = (db, seedIds, actor, reason) =>
         one(db, `SELECT zv_revoke_grants(?::integer[], ?, ?) AS revoked`, [seedIds, actor, reason]).then((r) => r.revoked);
 
+    // ------------------------------------------------------------------ folders (the name is ciphertext; membership lives inside the encrypted item details)
+    const listFolders = (db, userId) => rows(db, `SELECT uid, name_ciphertext, created_at, updated_at FROM zv_folders WHERE owner_user_id = ? ORDER BY id`, [userId]);
+    const countFolders = (db, userId) => one(db, `SELECT count(*)::int AS n FROM zv_folders WHERE owner_user_id = ?`, [userId]).then((r) => r.n);
+    const insertFolder = (db, a) => one(db, `INSERT INTO zv_folders (uid, owner_user_id, name_ciphertext) VALUES (?, ?, ?) RETURNING uid`, [a.uid, a.ownerUserId, a.name]);
+    const renameFolder = (db, userId, uid, name) => one(db, `UPDATE zv_folders SET name_ciphertext = ?, updated_at = now() WHERE uid = ? AND owner_user_id = ? RETURNING uid`, [name, uid, userId]);
+    const deleteFolder = (db, userId, uid) => one(db, `DELETE FROM zv_folders WHERE uid = ? AND owner_user_id = ? RETURNING uid`, [uid, userId]);
+
     // ------------------------------------------------------------------ audit reads
     const auditForItem = (db, itemUid) =>
         rows(db, `SELECT id, kind, actor_user_id, subject_user_id, detail, created_at FROM zv_audit_events WHERE item_uid = ? ORDER BY id DESC LIMIT 500`, [itemUid]);
@@ -316,6 +323,7 @@ function createVaultStore({ pool }) {
         getCollectionForUser, listCollectionsForUser, insertCollection, insertMember, listMembers, getMember, countManagers, removeMembers,
         lockCollection, liveItemsOfCollection, membersOfCollection,
         getActiveGrant, insertGrant, listGrants, revokeGrants,
+        listFolders, countFolders, insertFolder, renameFolder, deleteFolder,
         auditForItem, auditForCollection, auditAboutUser,
         expiredGrantIds, expiredMembers,
         query: (sql, params) => pool.query(sql, params),
