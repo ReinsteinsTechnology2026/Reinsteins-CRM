@@ -20,6 +20,7 @@ files); the browser only hides what the server would refuse.
 | `sops` | SOP Library | |
 | `smart_sheets` | Smart Sheets | |
 | `email` | Company Email | |
+| `ziovault` | ZioVault (client-side-encrypted password manager; see ZIOVAULT_ARCHITECTURE.md) | |
 
 Always available to a signed-in user, whatever is enabled: sign-in and password change, My Profile
 (`/api/employees/profile/*`), Settings, notifications, signed file access. Feature ids are stable identifiers; never rename or

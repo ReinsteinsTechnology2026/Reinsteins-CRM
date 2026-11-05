@@ -2352,6 +2352,13 @@ app.use(
   smartSheetRoutes
 );
 
+// ZIOVAULT (client-side-encrypted password manager). Behind the tenant feature gate for "ziovault" (mounted above on /api); the server
+// stores and serves ciphertext and key envelopes only. See server/ZIOVAULT_ARCHITECTURE.md.
+app.use(
+  "/api/ziovault",
+  require("./routes/vaultRoutes").createDefaultVaultRouter()
+);
+
 // SOP LIBRARY
 
 app.use(

@@ -135,6 +135,15 @@ jobs:
           # above: a non-zero exit stops the deploy before the build/restart.
           node server/_migrate_add_company_features.js
 
+          # ZioVault (client-side-encrypted password manager). Safe, idempotent, additive-only: creates the zv_* tables
+          # (CREATE TABLE/INDEX IF NOT EXISTS), the audit-immutability trigger and the offboarding trigger/functions
+          # (CREATE OR REPLACE / DROP TRIGGER IF EXISTS + CREATE TRIGGER) in the legacy database and EVERY registered tenant
+          # database, one transaction per database. Never reads or changes user data. It REFUSES to touch a database whose
+          # users table lacks status / employment_status (the trigger needs them) and fails the run, so the deploy stops
+          # before the restart. Must run BEFORE the restart below: the new routes query these tables. Same `set -e` reasoning
+          # as the steps above. `--dry-run` previews it (never used here).
+          node server/_migrate_add_ziovault.js
+
           cd client
           npm ci
           VITE_API_URL=https://crm.zioventure.com npm run build

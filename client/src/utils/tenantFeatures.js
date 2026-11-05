@@ -36,6 +36,7 @@ const SEGMENT_FEATURES = {
   sops: "sops",
   "smart-sheets": "smart_sheets",
   email: "email",
+  ziovault: "ziovault",
 };
 
 // "chat" or "meetings/12/room" or "team/leave-approvals" -> feature id, or null when the page is always available.

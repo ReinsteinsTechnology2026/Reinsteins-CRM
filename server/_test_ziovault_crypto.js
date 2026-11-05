@@ -533,3 +533,60 @@ test("DEPENDENCY: libsodium-wrappers-sumo is pinned to an exact version in clien
     assert.equal(entry.version, pkg.dependencies["libsodium-wrappers-sumo"]);
     assert.match(entry.integrity, /^sha512-/);
 });
+
+// ---------------------------------------------------------------------------------------------- company collections
+
+test("COLLECTIONS: member keys are authenticated boxes bound to collection, key version, tenant and member; a viewer receives the meta key only", async () => {
+    const v = await load();
+    const admin = await v.createAccount({ password: PASSWORD, tenantId: T, userId: 1, kdf: FAST });
+    const viewer = await v.createAccount({ password: PASSWORD, tenantId: T, userId: 2, kdf: FAST });
+    const stranger = await v.createAccount({ password: PASSWORD, tenantId: T, userId: 3, kdf: FAST });
+    const keys = await v.newCollectionKeys();
+    assert.notDeepEqual([...keys.metaKey], [...keys.secretKey]);
+
+    const sealed = await v.sealCollectionKeysForMember({ tenantId: T, collectionUid: "col-1", keyVersion: 1, memberUserId: 2, memberPublicKey: viewer.session.publicKey, senderPrivateKey: admin.session.privateKey, keys, include: { meta: true, secret: false } });
+    assert.equal(sealed.wrappedSecretKey, null, "the secret box is never even created for a viewer");
+    const open = (over = {}) => v.openCollectionKeys({ tenantId: T, collectionUid: "col-1", keyVersion: 1, memberUserId: 2, senderPublicKey: admin.session.publicKey, recipientPrivateKey: viewer.session.privateKey, ...sealed, ...over });
+    const opened = await open();
+    assert.ok(same(opened.metaKey, keys.metaKey));
+    assert.equal(opened.secretKey, null);
+    await rejects(open({ collectionUid: "col-2" }));
+    await rejects(open({ keyVersion: 2 }));
+    await rejects(open({ tenantId: T + 1 }));
+    await rejects(open({ memberUserId: 5 }));
+    await rejects(open({ senderPublicKey: stranger.session.publicKey }));
+    await rejects(open({ recipientPrivateKey: stranger.session.privateKey }));
+    for (let index = 0; index < sealed.wrappedMetaKey.length; index += 5) await rejects(open({ wrappedMetaKey: flip(sealed.wrappedMetaKey, index) }));
+
+    // a revealer receives both; the two box purposes cannot be swapped
+    const full = await v.sealCollectionKeysForMember({ tenantId: T, collectionUid: "col-1", keyVersion: 1, memberUserId: 2, memberPublicKey: viewer.session.publicKey, senderPrivateKey: admin.session.privateKey, keys, include: { meta: true, secret: true } });
+    const both = await open({ ...full });
+    assert.ok(same(both.secretKey, keys.secretKey));
+    await rejects(open({ wrappedSecretKey: full.wrappedMetaKey, wrappedMetaKey: full.wrappedSecretKey }));
+});
+
+test("COLLECTIONS: item keys are wrapped under the collection's keys, bound to the item, collection and item key version; names are bound to their collection", async () => {
+    const v = await load();
+    const collectionKeys = await v.newCollectionKeys();
+    const itemKeys = await v.newItemKeys();
+    const wrapped = await v.wrapItemKeysForCollection({ tenantId: T, collectionUid: "col-1", itemUid: "item-1", itemKeyVersion: 1, collectionKeys, itemKeys });
+    const unwrap = (over = {}) => v.unwrapItemKeysFromCollection({ tenantId: T, collectionUid: "col-1", itemUid: "item-1", itemKeyVersion: 1, collectionKeys, wrapped, ...over });
+    const ok = await unwrap();
+    assert.ok(same(ok.metaKey, itemKeys.metaKey) && same(ok.secretKey, itemKeys.secretKey));
+    await rejects(unwrap({ itemUid: "item-2" }));
+    await rejects(unwrap({ collectionUid: "col-2" }));
+    await rejects(unwrap({ itemKeyVersion: 2 }));
+    await rejects(unwrap({ tenantId: T + 1 }));
+    await rejects(unwrap({ collectionKeys: await v.newCollectionKeys() }));
+
+    // a viewer (meta key only) can unwrap the item's meta key but never its secret key
+    const viewerView = await unwrap({ collectionKeys: { metaKey: collectionKeys.metaKey, secretKey: null } });
+    assert.ok(same(viewerView.metaKey, itemKeys.metaKey));
+    assert.equal(viewerView.secretKey, null);
+
+    const name = await v.encryptCollectionName({ tenantId: T, collectionUid: "col-1", key: collectionKeys.metaKey, name: "IT Infrastructure" });
+    assert.equal(Buffer.from(name).includes(Buffer.from("IT Infrastructure")), false);
+    assert.equal(await v.decryptCollectionName({ tenantId: T, collectionUid: "col-1", key: collectionKeys.metaKey, envelope: name }), "IT Infrastructure");
+    await rejects(v.decryptCollectionName({ tenantId: T, collectionUid: "col-2", key: collectionKeys.metaKey, envelope: name }));
+    await rejects(v.decryptCollectionName({ tenantId: T + 1, collectionUid: "col-1", key: collectionKeys.metaKey, envelope: name }));
+});

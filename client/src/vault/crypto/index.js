@@ -8,4 +8,5 @@ export { generateKeyPair, publicKeyFromPrivate, sealKeyForRecipient, openKeyFrom
 export { createAccount, unlockAccount, changeMasterPassword, recoverAccount, rotateRecoverySecret, lockSession, accountAadIds } from "./account.js";
 export * from "./items.js";
 export * from "./attachments.js";
+export * from "./collections.js";
 export { publicKeyFingerprint } from "./fingerprint.js";
