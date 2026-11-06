@@ -2,6 +2,7 @@ import { VaultApiError, serverMaterialFromWire } from "./vaultApi.js";
 import { toB64, fromB64 } from "./encoding.js";
 import { draftToPayloads, parseMeta, parseSecret, payloadsToDraft, InvalidItemError, LIMITS as ITEM_LIMITS } from "./itemModel.js";
 import { analyzeVault, estimateStrength, THRESHOLDS } from "./health.js";
+import { createCompanyActions } from "./vaultCompany.js";
 
 // ==========================================
 // ZIOVAULT -- the personal-vault session (everything the user interface does goes through here)
@@ -67,11 +68,12 @@ export function createVaultSession({
   let draftProvider = null;
   let healthRun = 0;
   const secrets = new Map(); // uid -> parsed secret (memory only, until lock)
+  const collectionKeys = new Map(); // collection uid -> { keys, keyVersion } (memory only, until lock)
   const listeners = new Set();
 
   let state = {
     status: "idle", error: null, lockReason: null, retryAfterMs: 0,
-    recoverySecret: null, recoveryConfirmed: true, items: [], trash: [], folders: [],
+    recoverySecret: null, recoveryConfirmed: true, canCreateCollections: false, items: [], trash: [], folders: [], collections: [], companyItems: [], sharedItems: [], outgoing: [],
     prefs: sanitizePrefs(prefsStore.load()), health: null, draftAvailable: false, busy: false,
   };
 
@@ -156,12 +158,13 @@ export function createVaultSession({
     }
     session = null;
     secrets.clear();
+    companyActions.reset();
     draftProvider = null;
     if (wasOpen && broadcast && channel && ["manual", "logout", "password-changed", "expired"].includes(reason)) channel.post({ type: "lock", reason, scope: scopeKey() });
     if (state.status === "no-account") return;
     set({
       status: identity ? "locked" : "idle", lockReason: wasOpen ? reason : state.lockReason, error: null, recoverySecret: null,
-      items: [], trash: [], folders: [], health: null, busy: false,
+      items: [], trash: [], folders: [], collections: [], companyItems: [], sharedItems: [], outgoing: [], health: null, busy: false,
       draftAvailable: Boolean(draftStorage && identity && draftStorage.getItem(DRAFT_KEY(identity.tenantId, identity.userId))),
     });
   }
@@ -175,17 +178,52 @@ export function createVaultSession({
   }
 
   // ---------------------------------------------------------------- loading what is stored (decrypts only the DETAILS)
+  // The item's keys, opened from whichever way this person holds them: as owner (vault key), from a share (box from the sharer), or through
+  // a company collection (collection keys, themselves a box from whoever added this person). Missing keys stay null: that is the permission.
+  async function keysFor(item, secretResponse = null) {
+    const idBase = { ...scope(), itemUid: item.uid, keyVersion: item.keyVersion };
+    const out = { metaKey: null, secretKey: null };
+    const sources = [...item.keys, ...(secretResponse ? secretResponse.keys : [])];
+    const opened = [];
+    for (const source of sources) {
+      let got = null;
+      if (source.source === "owner") {
+        got = await vault.unwrapItemKeysForOwner({ ...idBase, ownerUserId: identity.userId, vaultKey: session.vaultKey, wrappedMetaKey: source.meta ? fromB64(source.meta) : null, wrappedSecretKey: source.secret ? fromB64(source.secret) : null });
+      } else if (source.source === "box") {
+        got = await vault.openItemKeysFromSender({ ...idBase, recipientUserId: identity.userId, senderPublicKey: fromB64(source.sender.publicKey), recipientPrivateKey: session.privateKey, boxedMetaKey: source.meta ? fromB64(source.meta) : null, boxedSecretKey: source.secret ? fromB64(source.secret) : null });
+      } else if (source.source === "collection") {
+        const c = source.collection;
+        const collection = await vault.openCollectionKeys({ tenantId: identity.tenantId, collectionUid: c.uid, keyVersion: c.keyVersion, memberUserId: identity.userId, senderPublicKey: fromB64(c.sender.publicKey), recipientPrivateKey: session.privateKey, wrappedMetaKey: fromB64(c.wrappedMetaKey), wrappedSecretKey: c.wrappedSecretKey ? fromB64(c.wrappedSecretKey) : null });
+        got = await vault.unwrapItemKeysFromCollection({ tenantId: identity.tenantId, collectionUid: c.uid, itemUid: item.uid, itemKeyVersion: item.keyVersion, collectionKeys: collection, wrapped: { meta: source.meta ? fromB64(source.meta) : null, secret: source.secret ? fromB64(source.secret) : null } });
+        wipeKeys(collection);
+      }
+      if (got) {
+        opened.push(got);
+        out.metaKey ||= got.metaKey;
+        out.secretKey ||= got.secretKey;
+      }
+    }
+    return out;
+  }
+
+  const wipeKeys = (keys) => {
+    for (const key of [keys && keys.metaKey, keys && keys.secretKey]) if (key) vault.lockSession({ vaultKey: key });
+  };
+
   async function viewOf(item) {
     const base = {
       uid: item.uid, kind: item.kind, favorite: item.favorite, version: item.version, keyVersion: item.keyVersion, hasSecret: item.hasSecret,
       createdAt: item.createdAt, updatedAt: item.updatedAt, lastRotatedAt: item.lastRotatedAt, rotationIntervalDays: item.rotationIntervalDays, deletedAt: item.deletedAt,
       canCopy: Boolean(item.rights && item.rights.copy), corrupt: false,
+      ownership: item.ownership, via: item.via, rights: item.rights, expiresAt: item.expiresAt, collectionUid: item.collectionUid,
+      sharedBy: (item.keys.find((key) => key.source === "box") || {}).sender ? item.keys.find((key) => key.source === "box").sender.userId : null,
+      rotationRequired: Boolean(item.rotationRequired),
     };
     try {
-      const source = item.keys.find((key) => key.source === "owner");
-      const keys = await vault.unwrapItemKeysForOwner({ ...scope(), itemUid: item.uid, keyVersion: item.keyVersion, ownerUserId: identity.userId, vaultKey: session.vaultKey, wrappedMetaKey: fromB64(source.meta), wrappedSecretKey: null });
+      const keys = await keysFor(item);
+      if (!keys.metaKey) throw new Error("no details key");
       const meta = parseMeta(await vault.decryptItemMeta({ ...scope(), itemUid: item.uid, keyVersion: item.keyVersion, metaKey: keys.metaKey, metaCiphertext: fromB64(item.meta) }));
-      vault.lockSession({ vaultKey: keys.metaKey });
+      wipeKeys(keys);
       return { ...base, ...meta };
     } catch {
       // an item that does not authenticate or does not match the schema is shown as unreadable; it never breaks the list
@@ -209,11 +247,19 @@ export function createVaultSession({
 
   async function reload() {
     const [items, folders] = await guard(() => Promise.all([api.listItems(), loadFolders()]));
-    const mine = items.filter((item) => item.ownership === "personal" && item.via === "owner");
-    const views = [];
-    for (const item of mine) views.push(await viewOf(item));
-    set({ items: views, folders });
-    return views;
+    const personal = [];
+    const companyList = [];
+    const shared = [];
+    for (const item of items) {
+      const view = await viewOf(item);
+      if (item.via === "owner") personal.push(view);
+      else if (item.via === "collection") companyList.push(view);
+      else shared.push(view);
+    }
+    const collections = await companyActions.loadCollections();
+    const counted = collections.map((c) => ({ ...c, itemCount: companyList.filter((i) => i.collectionUid === c.uid).length }));
+    set({ items: personal, companyItems: companyList, sharedItems: shared, collections: counted, folders });
+    return personal;
   }
 
   async function loadTrash() {
@@ -231,7 +277,9 @@ export function createVaultSession({
       identity = await getIdentity();
       const status = await api.accountStatus();
       account = status.exists ? { accountVersion: status.accountVersion, recoveryConfirmed: status.recoveryConfirmed } : null;
+      // only a company administrator can open a new collection (the server enforces it; this just decides whether to offer the button)
       set({
+        canCreateCollections: identity.role === "admin",
         status: status.exists ? "locked" : "no-account", recoveryConfirmed: status.exists ? status.recoveryConfirmed : true,
         draftAvailable: Boolean(draftStorage && draftStorage.getItem(DRAFT_KEY(identity.tenantId, identity.userId))),
       });
@@ -418,11 +466,9 @@ export function createVaultSession({
   // The item's keys, freshly unwrapped (and its current version), for an edit. The secret key requires fetching the secret envelope.
   async function openForEdit(uid, { withSecret }) {
     const item = await guard(() => api.getItem(uid));
-    const owner = item.keys.find((key) => key.source === "owner");
-    let secretResponse = null;
-    if (withSecret) secretResponse = await guard(() => api.getSecret(uid));
-    const ownerSecret = secretResponse ? secretResponse.keys.find((key) => key.source === "owner") : null;
-    const keys = await vault.unwrapItemKeysForOwner({ ...scope(), itemUid: uid, keyVersion: item.keyVersion, ownerUserId: identity.userId, vaultKey: session.vaultKey, wrappedMetaKey: fromB64(owner.meta), wrappedSecretKey: ownerSecret ? fromB64(ownerSecret.secret) : null });
+    const secretResponse = withSecret ? await guard(() => api.getSecret(uid)) : null;
+    const keys = await keysFor(item, secretResponse);
+    if (!keys.metaKey) throw new VaultUserError("You do not have access to this item.", "FORBIDDEN");
     return { item, keys, secretResponse };
   }
 
@@ -464,7 +510,10 @@ export function createVaultSession({
     const { item, keys } = await openForEdit(uid, { withSecret: true });
     if (expectedVersion !== undefined && item.version !== expectedVersion) throw new VaultApiError(409, "STALE_VERSION", "This item was changed elsewhere since you opened it. Your edits are still here: copy anything you need, then reopen the item.");
     const sealed = await sealParts(uid, item.keyVersion, keys, payloads);
-    await guard(() => api.updateItem(uid, { expectedVersion: item.version, meta: sealed.metaCiphertext, secret: sealed.secretCiphertext, kind: payloads.kind, rotationIntervalDays: draft.rotationIntervalDays === undefined ? undefined : draft.rotationIntervalDays, favorite: Boolean(draft.favorite) }));
+    // favorite belongs to the owner; the reminder interval to an owner or manager: other editors send neither (the server would refuse)
+    const mine = item.via === "owner";
+    const manages = mine || (item.rights && item.rights.manage);
+    await guard(() => api.updateItem(uid, { expectedVersion: item.version, meta: sealed.metaCiphertext, secret: sealed.secretCiphertext, kind: payloads.kind, rotationIntervalDays: manages && draft.rotationIntervalDays !== undefined ? draft.rotationIntervalDays : undefined, favorite: mine ? Boolean(draft.favorite) : undefined }));
     secrets.delete(uid);
     await reload();
   }
@@ -618,7 +667,14 @@ export function createVaultSession({
     if (channel) channel.close();
   }
 
+  const companyActions = createCompanyActions({
+    api, vault, scope: () => scope(), uuid, collectionKeys, guard: (work) => guard(work), requireOpen: () => requireOpen(), reload: () => reload(),
+    getSession: () => session, getState: () => state, set: (patch) => set(patch), openForEdit: (uid, options) => openForEdit(uid, options), wipeKeys: (keys) => wipeKeys(keys),
+    userError: (message, code) => new VaultUserError(message, code),
+  });
+
   return {
+    ...companyActions,
     snapshot, subscribe, init, setup, confirmRecovery, regenerateRecovery, unlock, lock, touch, changePassword, recover,
     createItem, loadForEditing, updateItem, updateDetails, moveToFolder, setFavorite, deleteItem, restoreItem, loadTrash, revealItem, noteCopy, reload,
     createFolder, renameFolder, deleteFolder, setPrefs, setDraftProvider, restoreDraft, discardDraft, runHealth, watchAuth, dispose,

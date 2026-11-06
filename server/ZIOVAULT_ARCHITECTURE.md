@@ -301,3 +301,40 @@ unlocked; the CSP and XSS hygiene of the host app are part of the trust base. (2
 guarantee. (3) The client-defined fields in meta are not schema-enforced by the server (it cannot read them). (4) The *kind* and *favorite* flag
 are visible to the server. (5) Attachments, company vaults and sharing screens are Stage 4 and have no UI here. (6) No automated real-browser
 (Playwright) run was part of this stage; screens are tested with React + jsdom against the real API and database.
+
+## 13. Stage 4 -- Company Vault and granular sharing, as built
+
+Everything reuses the Stage 1 crypto and the Stage 2 endpoints. The client side is `client/src/vault/vaultCompany.js` (key distribution and
+the actions), a generalised key-opening path in `vaultSession.js` (owner / share / collection), and the screens in `client/src/pages/Vault/`
+(`CompanyVault`, `CollectionDialogs`, `ShareDialog`, `SharedViews`, `Permissions`, `Modal`).
+
+**Server additions (three small endpoints, each authorised before its payload is read, uniform 404 for outsiders, every one audited or read-only).**
+`PATCH /collections/:uid` replaces the encrypted name envelope (manager only; audit `collection_renamed`). `POST /collections/:uid/archive`
+hides a collection and all its items from everyone and stops new members/items; nothing is deleted (manager only; audit `collection_archived`;
+items of an archived collection are unreachable through every read path). `GET /shares/outgoing` lists the shares the caller made (recipient, rights,
+expiry, status; revoked ones for 30 days) and returns no ciphertext or key. The two new audit kinds are in the DDL, the tenant schema file and a
+re-runnable `ALTER` in the migration (a no-op on a new table), because the audit vocabulary is a database CHECK.
+
+**Collection name and description** live in the one encrypted envelope (`{name, description}` under the collection's meta key; `decryptCollectionInfo`
+is additive, older `{name}` envelopes still open). Item counts are computed locally from the items the member can see.
+
+**Key distribution.** A member is added by a browser that already holds the collection keys: they are wrapped to the new member's PUBLIC key from
+the directory (X25519 box, context-bound). A details-only member receives only the meta key (the secret-key envelope does not exist, so "cannot reveal"
+is cryptographic, not a flag). Gaining reveal needs a new envelope made by a key holder; losing it deletes the envelope. An item share wraps
+only that item's two keys for the recipient, the secret key only if the share includes reveal/copy/edit. A person without a vault is not in the directory:
+the screens say to ask them to open ZioVault once, and the server refuses direct attempts (`RECIPIENT_UNAVAILABLE`).
+
+**Permissions (independent, server-enforced):** view details (always), reveal, copy (needs reveal), edit (needs reveal), manage access (share). Only an
+owner or a collection manager can hand on "manage access"; nobody can hand on more than they hold; nobody edits their own grant. Expiry is checked by the
+database clock on every request; the screens also hide expired items the moment the clock passes. Revocation deletes the recipient's key envelopes;
+removing a member or losing reveal flags the item/collection for rotation.
+
+**Employee views.** "Shared with me" (items other people shared, sender, rights, expiry; expired ones are not listed and only a count remains),
+"Shared by me" (table with status active / expired / ended; Manage opens the share dialog for that item), and the Company Vault dashboard. Items are
+labelled Personal / Company / Shared with you; the buttons offered follow the rights the server reported.
+
+**Remaining limitations (Stage 5 and beyond).** (1) Re-keying a whole collection after a member is removed (`POST /collections/:uid/rotate`, which exists
+and is tested server-side) has no screen yet: the screens say plainly that the keys should be rotated and that important passwords should be changed.
+(2) Item attachments have no screen. (3) Rotation reminders and the audit viewer for collection managers are not in the UI. (4) The directory lists
+only people who already have a vault (a company-wide list of everyone would need a separate, non-vault API). (5) A browser that is compromised while the
+vault is unlocked can read what that person can read. (6) Screens are tested with React + jsdom against the real API and database, not in a real browser.

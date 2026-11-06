@@ -6,7 +6,7 @@ import { StrengthMeter } from "./VaultGate";
 
 // Add / edit one item. The draft lives in this component's state only; if the vault locks while it is open, the session seals it
 // (encrypted) so the work can be offered again after unlocking.
-export default function ItemEditor({ session, state, initial, uid, version, onSaved, onCancel }) {
+export default function ItemEditor({ session, state, initial, uid, version, collectionUid = null, personal = true, onSaved, onCancel }) {
   const [draft, setDraft] = useState(() => ({ ...emptyDraft(), ...initial }));
   const [showPassword, setShowPassword] = useState(false);
   const [showGen, setShowGen] = useState(false);
@@ -17,9 +17,9 @@ export default function ItemEditor({ session, state, initial, uid, version, onSa
   draftRef.current = draft;
 
   useEffect(() => {
-    session.setDraftProvider(() => ({ ...draftRef.current, uid: uid || null, version: version ?? null }));
+    session.setDraftProvider(() => ({ ...draftRef.current, uid: uid || null, version: version ?? null, collectionUid: collectionUid || null }));
     return () => session.setDraftProvider(null);
-  }, [session, uid, version]);
+  }, [session, uid, version, collectionUid]);
 
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
   const isNote = draft.kind === "secure_note";
@@ -37,6 +37,7 @@ export default function ItemEditor({ session, state, initial, uid, version, onSa
     setSaving(true);
     try {
       if (uid) await session.updateItem(uid, draft, version);
+      else if (collectionUid) await session.createCompanyItem(collectionUid, draft);
       else await session.createItem(draft);
       session.discardDraft();
       onSaved(uid);
@@ -51,7 +52,8 @@ export default function ItemEditor({ session, state, initial, uid, version, onSa
 
   return (
     <form className="zv-editor" onSubmit={save} data-testid="vault-editor" autoComplete="off" noValidate>
-      <h2>{uid ? "Edit item" : "New item"}</h2>
+      <h2>{uid ? "Edit item" : collectionUid ? "New company item" : "New item"}</h2>
+      {!personal && <p className="zv-hint">This item is shared. It is encrypted in your browser with the item's own keys before it is saved.</p>}
 
       <label className="zv-field">Type
         <select data-testid="vault-field-kind" value={draft.kind} onChange={(e) => set({ kind: e.target.value })}>
@@ -91,12 +93,14 @@ export default function ItemEditor({ session, state, initial, uid, version, onSa
         {err("notes")}
       </label>
 
+      {personal && (
       <label className="zv-field">Folder
-        <select data-testid="vault-field-folder" value={draft.folderUid || ""} onChange={(e) => set({ folderUid: e.target.value || null })}>
-          <option value="">No folder</option>
-          {state.folders.map((f) => <option key={f.uid} value={f.uid}>{f.name}</option>)}
-        </select>
-      </label>
+          <select data-testid="vault-field-folder" value={draft.folderUid || ""} onChange={(e) => set({ folderUid: e.target.value || null })}>
+            <option value="">No folder</option>
+            {state.folders.map((f) => <option key={f.uid} value={f.uid}>{f.name}</option>)}
+          </select>
+        </label>
+      )}
 
       <fieldset className="zv-fields">
         <legend>Custom fields</legend>
@@ -113,7 +117,7 @@ export default function ItemEditor({ session, state, initial, uid, version, onSa
         <p className="zv-hint">Hidden fields are encrypted with the password and are only shown on request. Other fields appear with the item's details and can be searched.</p>
       </fieldset>
 
-      <label className="zv-check"><input type="checkbox" data-testid="vault-field-favorite" checked={draft.favorite} onChange={(e) => set({ favorite: e.target.checked })} /> <span>Favorite</span></label>
+      {personal && <label className="zv-check"><input type="checkbox" data-testid="vault-field-favorite" checked={draft.favorite} onChange={(e) => set({ favorite: e.target.checked })} /> <span>Favorite</span></label>}
 
       {saveError && <p className="zv-error" role="alert" data-testid="vault-error">{saveError}</p>}
       <div className="zv-row">

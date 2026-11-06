@@ -789,6 +789,83 @@ test("COLLECTION MEMBERS: add/change/remove, temporary membership, last manager 
     assert.equal((await alice.call("DELETE", `/collections/${col.uid}/members/${admin.userId}`)).status, 404, "she is not a member any more");
 });
 
+test("COLLECTION RENAME and ARCHIVE: only a manager, the server stores only the new ciphertext, an archived collection and its items disappear for everyone, nothing is deleted", { skip: SKIP }, async () => {
+    const world = await buildWorld();
+    const { admin, alice, bob, carol } = world;
+    const col = await admin.createCollection({ name: "Old name" });
+    const entry = (b) => world.who(admin, b);
+    assert.equal((await admin.addMember(col.uid, col.keys, 1, await entry(alice), { reveal: true, edit: true })).status, 201);
+    assert.equal((await admin.addMember(col.uid, col.keys, 1, await entry(bob), {})).status, 201);
+    const item = await admin.createCompanyItem(col.uid, col.keys, { meta: { title: "Shared login" }, secret: { password: "pw" } });
+    const envelope = async (name) => b64(await vault.encryptCollectionName({ tenantId: world.tenantId, collectionUid: col.uid, key: col.keys.metaKey, name, description: "About it" }));
+
+    // authorisation first: members who are not managers and outsiders cannot rename, whatever they send
+    assert.equal((await alice.call("PATCH", `/collections/${col.uid}`, { name: await envelope("Hijacked") })).status, 403);
+    assert.equal((await bob.call("PATCH", `/collections/${col.uid}`, { name: await envelope("Hijacked") })).status, 403);
+    assert.equal((await carol.call("PATCH", `/collections/${col.uid}`, { name: await envelope("Hijacked") })).status, 404, "an outsider cannot tell it exists");
+    assert.equal((await admin.call("PATCH", `/collections/${col.uid}`, { name: "not-an-envelope" })).status, 400, "malformed ciphertext is refused");
+    assert.equal((await admin.call("PATCH", `/collections/${col.uid}`, {})).status, 400);
+
+    const renamed = await envelope("New name MARKER-RENAME-91");
+    assert.equal((await admin.call("PATCH", `/collections/${col.uid}`, { name: renamed })).status, 200);
+    const seen = (await bob.call("GET", "/collections")).data.find((c) => c.uid === col.uid);
+    const bobKeys = await bob.openCollection(seen);
+    const info = await vault.decryptCollectionInfo({ tenantId: world.tenantId, collectionUid: col.uid, key: bobKeys.metaKey, envelope: unb64(seen.name) });
+    assert.deepEqual(info, { name: "New name MARKER-RENAME-91", description: "About it" }, "members read the new name and description with their own keys");
+    const dump = await dumpDatabase(world.pool);
+    assert.ok(!containsPlaintext(dump.raw, "MARKER-RENAME-91") && !containsPlaintext(dump.text, "MARKER-RENAME-91"), "the server never sees the name");
+
+    // archive
+    assert.equal((await alice.call("POST", `/collections/${col.uid}/archive`)).status, 403);
+    assert.equal((await carol.call("POST", `/collections/${col.uid}/archive`)).status, 404);
+    assert.equal((await admin.call("POST", `/collections/${col.uid}/archive`)).status, 200);
+    assert.equal((await admin.call("POST", `/collections/${col.uid}/archive`)).status, 404, "already archived");
+    for (const browser of [admin, alice, bob]) {
+        assert.deepEqual((await browser.call("GET", "/collections")).data, [], "archived collections are not listed");
+        assert.equal((await browser.call("GET", `/items/${item.uid}`)).status, 404, "its items are not reachable");
+        assert.ok(!(await browser.call("GET", "/items")).data.some((i) => i.uid === item.uid));
+    }
+    assert.equal((await admin.call("PATCH", `/collections/${col.uid}`, { name: renamed })).status, 404, "an archived collection cannot be renamed");
+    assert.equal((await admin.call("POST", `/collections/${col.uid}/members`, { userId: carol.userId, rights: {}, wrappedMetaKey: b64(new Uint8Array(100).fill(1)) })).status, 404);
+    assert.equal((await admin.createCompanyItem(col.uid, col.keys, { meta: { title: "late" }, secret: { password: "x" } })).res.status, 404);
+    const [stillThere] = await world.pool.query("SELECT count(*)::int AS n FROM zv_items WHERE uid = ?", [item.uid]);
+    assert.equal(stillThere[0].n, 1, "nothing was deleted");
+    const kinds = (await world.pool.query("SELECT kind FROM zv_audit_events WHERE collection_uid = ? ORDER BY id", [col.uid]))[0].map((r) => r.kind);
+    assert.ok(kinds.includes("collection_renamed") && kinds.includes("collection_archived"), `audited: ${kinds.join(",")}`);
+});
+
+test("SHARED BY ME: a person sees exactly the shares they made, with status; others never see them; no ciphertext or key leaves", { skip: SKIP }, async () => {
+    const world = await buildWorld();
+    const { alice, bob, carol } = world;
+    const item = await alice.createItem({ meta: { title: "Router admin" }, secret: { password: "pw-outgoing" } });
+    const pub = (b) => world.who(alice, b);
+    assert.equal((await alice.shareItem(item.uid, await pub(bob), { rights: { reveal: true, copy: true } })).status, 201);
+    assert.equal((await alice.shareItem(item.uid, await pub(carol), { rights: {} })).status, 201);
+
+    const list = (await alice.call("GET", "/shares/outgoing")).data;
+    assert.equal(list.length, 2);
+    assert.deepEqual(list.map((g) => g.name).sort(), ["Bob", "Carol"]);
+    const forBob = list.find((g) => g.recipientUserId === bob.userId);
+    assert.deepEqual(forBob.rights, { reveal: true, copy: true, edit: false, share: false });
+    assert.equal(forBob.status, "active");
+    assert.ok(!JSON.stringify(list).match(/meta|secret|key|ciphertext/i), "only access facts are returned, no ciphertext and no key material");
+    assert.deepEqual((await bob.call("GET", "/shares/outgoing")).data, [], "the recipient made no shares");
+    assert.deepEqual((await world.admin.call("GET", "/shares/outgoing")).data, [], "an administrator does not see other people's shares");
+
+    // expiry and revocation change the status; ended shares stay visible for a while and then drop out
+    await world.pool.query("UPDATE zv_grants SET expires_at = now() - interval '1 minute' WHERE recipient_user_id = ?", [carol.userId]);
+    assert.equal((await alice.call("GET", "/shares/outgoing")).data.find((g) => g.recipientUserId === carol.userId).status, "expired");
+    assert.equal((await alice.call("DELETE", `/items/${item.uid}/grants/${bob.userId}`)).status, 200);
+    const after = (await alice.call("GET", "/shares/outgoing")).data;
+    assert.equal(after.find((g) => g.recipientUserId === bob.userId).status, "revoked");
+    assert.ok(after.find((g) => g.recipientUserId === bob.userId).revokedAt);
+    await world.pool.query("UPDATE zv_grants SET revoked_at = now() - interval '31 days' WHERE recipient_user_id = ?", [bob.userId]);
+    assert.ok(!(await alice.call("GET", "/shares/outgoing")).data.some((g) => g.recipientUserId === bob.userId), "after 30 days a revoked share is no longer listed");
+    // a trashed item's shares are not listed
+    assert.equal((await alice.call("DELETE", `/items/${item.uid}`)).status, 200);
+    assert.deepEqual((await alice.call("GET", "/shares/outgoing")).data, []);
+});
+
 test("COLLECTION ROTATION: new collection keys + new item keys for everyone who remains; the removed member's old keys open nothing new; mismatches are refused", { skip: SKIP }, async () => {
     const world = await buildWorld();
     const { admin, alice, bob, carol } = world;
@@ -951,6 +1028,7 @@ test("ROUTE PROTECTION: every route of the router refuses a request without auth
         ["GET", `/collections/${id}`], ["POST", `/collections/${id}/items`], ["POST", `/collections/${id}/members`], ["PATCH", `/collections/${id}/members/1`], ["DELETE", `/collections/${id}/members/1`],
         ["POST", `/collections/${id}/rotate`], ["GET", "/audit"],
         ["GET", "/folders"], ["POST", "/folders"], ["PATCH", `/folders/${id}`], ["DELETE", `/folders/${id}`],
+        ["PATCH", `/collections/${id}`], ["POST", `/collections/${id}/archive`], ["GET", "/shares/outgoing"],
     ];
     for (const [method, route] of routes) {
         const res = await fetch(`${world.api.url}/api/ziovault${route}`, { method, headers: { "Content-Type": "application/json" }, body: method === "GET" || method === "DELETE" ? undefined : "{}" });

@@ -91,5 +91,29 @@ export function createVaultApi(http) {
       }),
     deleteItem: (uid) => call("delete", `/items/${uid}`),
     restoreItem: (uid) => call("post", `/items/${uid}/restore`),
+
+    // ---- company collections (Stage 2 endpoints; names and keys travel as ciphertext / envelopes)
+    directory: () => call("get", "/directory"),
+    listCollections: () => call("get", "/collections"),
+    getCollection: (uid) => call("get", `/collections/${uid}`),
+    createCollection: ({ uid, kind, name, keys }) => call("post", "/collections", { uid, kind, name: toB64(name), keys: { meta: toB64(keys.meta), secret: toB64(keys.secret) } }),
+    renameCollection: (uid, name) => call("patch", `/collections/${uid}`, { name: toB64(name) }),
+    archiveCollection: (uid) => call("post", `/collections/${uid}/archive`),
+    addMember: (uid, { userId, rights, expiresAt, wrappedMetaKey, wrappedSecretKey }) =>
+      call("post", `/collections/${uid}/members`, { userId, rights, expiresAt: expiresAt || undefined, wrappedMetaKey: toB64(wrappedMetaKey), wrappedSecretKey: wrappedSecretKey ? toB64(wrappedSecretKey) : undefined }),
+    updateMember: (uid, userId, { rights, expiresAt, wrappedSecretKey }) =>
+      call("patch", `/collections/${uid}/members/${userId}`, { ...(rights ? { rights } : {}), ...(expiresAt !== undefined ? { expiresAt } : {}), ...(wrappedSecretKey ? { wrappedSecretKey: toB64(wrappedSecretKey) } : {}) }),
+    removeMember: (uid, userId) => call("delete", `/collections/${uid}/members/${userId}`),
+    createCompanyItem: (collectionUid, { uid, kind, meta, secret, keys }) =>
+      call("post", `/collections/${collectionUid}/items`, { uid, kind, meta: toB64(meta), secret: secret ? toB64(secret) : null, keys: { meta: toB64(keys.meta), secret: keys.secret ? toB64(keys.secret) : undefined } }),
+
+    // ---- sharing one item
+    listGrants: (uid) => call("get", `/items/${uid}/grants`),
+    createGrant: (uid, { recipientUserId, rights, expiresAt, boxedMetaKey, boxedSecretKey }) =>
+      call("post", `/items/${uid}/grants`, { recipientUserId, rights, expiresAt: expiresAt || undefined, boxedMetaKey: toB64(boxedMetaKey), boxedSecretKey: boxedSecretKey ? toB64(boxedSecretKey) : undefined }),
+    updateGrant: (uid, userId, { rights, expiresAt, boxedSecretKey }) =>
+      call("patch", `/items/${uid}/grants/${userId}`, { ...(rights ? { rights } : {}), ...(expiresAt !== undefined ? { expiresAt } : {}), ...(boxedSecretKey ? { boxedSecretKey: toB64(boxedSecretKey) } : {}) }),
+    revokeGrant: (uid, userId) => call("delete", `/items/${uid}/grants/${userId}`),
+    outgoingShares: () => call("get", "/shares/outgoing"),
   };
 }

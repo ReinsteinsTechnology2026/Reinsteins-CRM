@@ -79,13 +79,17 @@ test("DELETION POLICY: users that own personal data are RESTRICT, only pure acce
 test("the migration form is the same text, re-runnable; triggers are dropped first; functions are CREATE OR REPLACE", () => {
     const migrationStatements = ddl.ZIOVAULT_MIGRATION_STATEMENTS;
     for (const statement of migrationStatements) {
-        assert.match(statement, /^(CREATE TABLE IF NOT EXISTS "|CREATE (UNIQUE )?INDEX IF NOT EXISTS "|CREATE OR REPLACE FUNCTION |DROP TRIGGER IF EXISTS "|CREATE TRIGGER ")/, statement.slice(0, 60));
+        assert.match(statement, /^(CREATE TABLE IF NOT EXISTS "|CREATE (UNIQUE )?INDEX IF NOT EXISTS "|CREATE OR REPLACE FUNCTION |DROP TRIGGER IF EXISTS "|CREATE TRIGGER |ALTER TABLE "zv_audit_events" (DROP CONSTRAINT IF EXISTS|ADD CONSTRAINT) "zv_audit_events_kind_check")/, statement.slice(0, 60));
     }
     const triggers = ddl.ZIOVAULT_SCHEMA_STATEMENTS.filter((s) => s.startsWith("CREATE TRIGGER"));
     assert.equal(triggers.length, 3);
-    assert.equal(migrationStatements.length, ddl.ZIOVAULT_SCHEMA_STATEMENTS.length + triggers.length, "one extra DROP per trigger");
+    assert.equal(migrationStatements.length, ddl.ZIOVAULT_SCHEMA_STATEMENTS.length + triggers.length + 2, "one extra DROP per trigger, plus the two statements that bring an existing audit-kind list up to date");
+    const refresh = migrationStatements.filter((s) => s.startsWith("ALTER TABLE"));
+    assert.equal(refresh.length, 2);
+    for (const kind of ddl.AUDIT_KINDS) assert.ok(refresh[1].includes(`'${kind}'`), `the refreshed constraint allows ${kind}`);
+    assert.ok(ddl.AUDIT_KINDS.includes("collection_renamed") && ddl.AUDIT_KINDS.includes("collection_archived"));
     // identical apart from the idempotency wording
-    const stripped = migrationStatements.filter((s) => !s.startsWith("DROP TRIGGER")).map((s) => s.replace(" IF NOT EXISTS", ""));
+    const stripped = migrationStatements.filter((s) => !s.startsWith("DROP TRIGGER") && !s.startsWith("ALTER TABLE")).map((s) => s.replace(" IF NOT EXISTS", ""));
     assert.deepEqual(stripped, ddl.ZIOVAULT_SCHEMA_STATEMENTS);
     assert.doesNotMatch(ddl.ZIOVAULT_SCHEMA_STATEMENTS.join("\n"), /IF NOT EXISTS/);
 });
@@ -215,7 +219,7 @@ test("FEATURE: every route of the vault router sits under the gated prefix and r
     const routes = read("routes", "vaultRoutes.js");
     assert.match(routes, /router\.use\(\.\.\.authenticate\);\n\n\s*\/\/ account/, "authentication is the first thing on the router");
     const verbs = [...routes.matchAll(/router\.(get|post|put|patch|delete)\("([^"]+)"/g)];
-    assert.ok(verbs.length >= 37, `found ${verbs.length} routes`);
+    assert.ok(verbs.length >= 40, `found ${verbs.length} routes`);
     for (const [, , route] of verbs) assert.ok(route.startsWith("/"), route);
     assert.ok(routes.includes('router.get("/items/trash"') && routes.indexOf('"/items/trash"') < routes.indexOf('"/items/:uid"'), "/items/trash is declared before /items/:uid");
 });

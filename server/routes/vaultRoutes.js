@@ -55,6 +55,9 @@ function createVaultRouter({ controller = getDefaultController(), authenticate, 
     router.get("/collections", controller.listCollections);
     router.post("/collections", limiters.share, controller.createCollection);
     router.get("/collections/:uid", controller.getCollection);
+    router.patch("/collections/:uid", limiters.share, controller.renameCollection);
+    router.post("/collections/:uid/archive", limiters.share, controller.archiveCollection);
+    router.get("/shares/outgoing", controller.outgoingShares);
     router.post("/collections/:uid/items", limiters.write, controller.createCompanyItem);
     router.post("/collections/:uid/members", limiters.share, controller.addMember);
     router.patch("/collections/:uid/members/:userId", limiters.share, controller.updateMember);

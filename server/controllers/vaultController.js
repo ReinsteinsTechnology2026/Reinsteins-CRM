@@ -68,6 +68,9 @@ function createVaultController(service = createVaultService({ pool: require("../
         addMember: handle((req) => service.addMember(uid(req), req.params.uid, body(req)), 201),
         updateMember: handle((req) => service.updateMember(uid(req), req.params.uid, req.params.userId, body(req))),
         removeMember: handle((req) => service.removeMember(uid(req), req.params.uid, req.params.userId)),
+        renameCollection: handle((req) => service.renameCollection(uid(req), req.params.uid, body(req))),
+        archiveCollection: handle((req) => service.archiveCollection(uid(req), req.params.uid)),
+        outgoingShares: handle((req) => service.outgoingShares(uid(req))),
         rotateCollection: handle((req) => service.rotateCollection(uid(req), req.params.uid, body(req))),
 
         audit: handle((req) => service.auditTrail(uid(req), { itemUid: req.query.itemUid, collectionUid: req.query.collectionUid })),

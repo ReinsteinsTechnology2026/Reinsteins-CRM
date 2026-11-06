@@ -15,7 +15,14 @@ export async function newCollectionKeys() {
   return { metaKey: await randomKey(), secretKey: await randomKey() };
 }
 
-export const encryptCollectionName = ({ tenantId, collectionUid, key, name }) => encryptJson(key, { name }, "collection-name", [tenantId, collectionUid]);
+// Stage 4 (additive): the same encrypted envelope may also carry a short description. Older envelopes hold only { name }.
+export const encryptCollectionName = ({ tenantId, collectionUid, key, name, description }) =>
+  encryptJson(key, description ? { name, description } : { name }, "collection-name", [tenantId, collectionUid]);
+
+export async function decryptCollectionInfo({ tenantId, collectionUid, key, envelope }) {
+  const value = await decryptJson(key, envelope, "collection-name", [tenantId, collectionUid]);
+  return { name: value.name, description: typeof value.description === "string" ? value.description : "" };
+}
 
 export const decryptCollectionName = async ({ tenantId, collectionUid, key, envelope }) => (await decryptJson(key, envelope, "collection-name", [tenantId, collectionUid])).name;
 

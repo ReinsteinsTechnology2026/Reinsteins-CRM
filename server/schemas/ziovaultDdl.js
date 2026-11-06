@@ -32,7 +32,7 @@ const AUDIT_KINDS = [
   "account_created", "envelopes_fetched", "recovery_envelope_fetched", "recovery_confirmed", "password_changed", "recovery_used",
   "envelope_restored", "recovery_rotated", "item_created", "item_updated", "item_deleted", "item_restored", "item_rotated",
   "secret_delivered", "reveal_reported", "copy_reported", "item_shared", "share_changed", "share_revoked", "access_expired",
-  "collection_created", "collection_member_added", "collection_member_changed", "collection_member_removed", "collection_rotated",
+  "collection_created", "collection_renamed", "collection_archived", "collection_member_added", "collection_member_changed", "collection_member_removed", "collection_rotated",
   "attachment_added", "attachment_delivered", "attachment_deleted", "employee_deactivated",
 ];
 
@@ -326,7 +326,7 @@ const ZIOVAULT_TABLES = [
 // The migration form: the same text, made re-runnable. CREATE OR REPLACE FUNCTION already is; a trigger is dropped first.
 // (The schema file keeps the plain form: it only ever runs against an empty database, and the tenant provisioner reads table
 // names with /CREATE TABLE\s+"?(\w+)"?/, which would take "IF" for a table name.)
-const ZIOVAULT_MIGRATION_STATEMENTS = ZIOVAULT_SCHEMA_STATEMENTS.flatMap((statement) => {
+const ZIOVAULT_MIGRATION_STATEMENTS = [...ZIOVAULT_SCHEMA_STATEMENTS.flatMap((statement) => {
   const trigger = /^CREATE TRIGGER "([a-z_]+)" .* ON "([a-z_]+)" /s.exec(statement);
   if (trigger) return [`DROP TRIGGER IF EXISTS "${trigger[1]}" ON "${trigger[2]}"`, statement];
   return [
@@ -334,7 +334,11 @@ const ZIOVAULT_MIGRATION_STATEMENTS = ZIOVAULT_SCHEMA_STATEMENTS.flatMap((statem
       .replace(/^CREATE TABLE "/, "CREATE TABLE IF NOT EXISTS \"")
       .replace(/^CREATE (UNIQUE )?INDEX "/, (_match, unique) => `CREATE ${unique || ""}INDEX IF NOT EXISTS "`),
   ];
-});
+}),
+// The audit vocabulary grows between stages: bring an existing table's list of kinds up to date (a no-op for a new table).
+`ALTER TABLE "zv_audit_events" DROP CONSTRAINT IF EXISTS "zv_audit_events_kind_check"`,
+`ALTER TABLE "zv_audit_events" ADD CONSTRAINT "zv_audit_events_kind_check" CHECK ("kind" IN (${AUDIT_KINDS.map((kind) => `'${kind}'`).join(", ")}))`,
+];
 
 // Columns the offboarding trigger relies on; the migration refuses to continue (clearly) if a database lacks them.
 const ZIOVAULT_REQUIRED_USER_COLUMNS = ["id", "status", "employment_status"];

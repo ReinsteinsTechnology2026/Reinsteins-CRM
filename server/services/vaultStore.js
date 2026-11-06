@@ -118,6 +118,7 @@ function createVaultStore({ pool }) {
             db,
             `SELECT ${ITEM_SELECT} ${ITEM_FROM}
              WHERE i.uid = ? ${includeDeleted ? "" : "AND i.deleted_at IS NULL"}
+               AND (i.collection_id IS NULL OR c.archived_at IS NULL)
                AND (i.owner_user_id = ? OR m.user_id IS NOT NULL OR g.id IS NOT NULL)
              ${forUpdate ? "FOR UPDATE OF i" : ""}`,
             [userId, userId, userId, uid, userId]
@@ -129,7 +130,7 @@ function createVaultStore({ pool }) {
         rows(
             db,
             `SELECT ${ITEM_SELECT} ${ITEM_FROM}
-             WHERE i.deleted_at IS NULL AND (i.owner_user_id = ? OR m.user_id IS NOT NULL OR g.id IS NOT NULL)
+             WHERE i.deleted_at IS NULL AND (i.collection_id IS NULL OR c.archived_at IS NULL) AND (i.owner_user_id = ? OR m.user_id IS NOT NULL OR g.id IS NOT NULL)
              ORDER BY i.updated_at DESC LIMIT 5000`,
             [userId, userId, userId, userId]
         );
@@ -231,6 +232,25 @@ function createVaultStore({ pool }) {
             [userId]
         );
 
+    const renameCollection = (db, id, name) => one(db, `UPDATE zv_collections SET name_ciphertext = ?, updated_at = now() WHERE id = ? AND archived_at IS NULL RETURNING uid`, [name, id]);
+    const archiveCollection = (db, id) => one(db, `UPDATE zv_collections SET archived_at = now(), updated_at = now() WHERE id = ? AND archived_at IS NULL RETURNING uid`, [id]);
+
+    // The shares THIS user made (revoked ones stay visible for 30 days so "Shared by me" can show their status).
+    const listOutgoingGrants = (db, userId) =>
+        rows(
+            db,
+            `SELECT g.id, i.uid AS item_uid, g.recipient_user_id, u.full_name, u.employee_id, g.can_reveal, g.can_copy, g.can_edit, g.can_share,
+                    g.expires_at, g.created_at, g.revoked_at, (g.revoked_at IS NULL AND g.expires_at IS NOT NULL AND g.expires_at <= now()) AS expired
+             FROM zv_grants g
+             JOIN zv_items i ON i.id = g.item_id
+             LEFT JOIN zv_collections c ON c.id = i.collection_id
+             JOIN users u ON u.id = g.recipient_user_id
+             WHERE g.granted_by = ? AND i.deleted_at IS NULL AND (i.collection_id IS NULL OR c.archived_at IS NULL)
+               AND (g.revoked_at IS NULL OR g.revoked_at > now() - interval '30 days')
+             ORDER BY g.created_at DESC LIMIT 500`,
+            [userId]
+        );
+
     const insertCollection = (db, a) =>
         one(db, `INSERT INTO zv_collections (uid, kind, name_ciphertext, created_by) VALUES (?, ?, ?, ?) RETURNING id, uid, key_version`, [a.uid, a.kind, a.name, a.createdBy]);
 
@@ -322,7 +342,7 @@ function createVaultStore({ pool }) {
         insertItem, insertItemKey, deleteItemKeys, updateItem, setItemDeleted,
         getCollectionForUser, listCollectionsForUser, insertCollection, insertMember, listMembers, getMember, countManagers, removeMembers,
         lockCollection, liveItemsOfCollection, membersOfCollection,
-        getActiveGrant, insertGrant, listGrants, revokeGrants,
+        getActiveGrant, insertGrant, listGrants, revokeGrants, renameCollection, archiveCollection, listOutgoingGrants,
         listFolders, countFolders, insertFolder, renameFolder, deleteFolder,
         auditForItem, auditForCollection, auditAboutUser,
         expiredGrantIds, expiredMembers,

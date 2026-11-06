@@ -507,6 +507,41 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
         });
     }
 
+    // The name (and description) are inside one encrypted envelope made with the collection's meta key; the server only replaces the ciphertext.
+    async function renameCollection(userId, collectionUid, body) {
+        await actorOf(userId);
+        return store.tx(async (db) => {
+            const collection = await requireCollectionManager(db, userId, collectionUid); // authorise first, then look at the payload
+            if (collection.archived_at) throw notFound();
+            const name = V.aeadEnvelope(body.name, "name", { max: V.LIMITS.NAME_BYTES });
+            if (!(await store.renameCollection(db, collection.id, name))) throw notFound();
+            await store.audit(db, { kind: "collection_renamed", actor: userId, subject: userId, collectionUid: collection.uid });
+            return { uid: collection.uid };
+        });
+    }
+
+    // Archiving hides the collection and its items from everyone and stops new members and items. Nothing is deleted.
+    async function archiveCollection(userId, collectionUid) {
+        await actorOf(userId);
+        return store.tx(async (db) => {
+            const collection = await requireCollectionManager(db, userId, collectionUid);
+            if (collection.archived_at) throw notFound();
+            if (!(await store.archiveCollection(db, collection.id))) throw notFound();
+            await store.audit(db, { kind: "collection_archived", actor: userId, subject: userId, collectionUid: collection.uid });
+            return { uid: collection.uid };
+        });
+    }
+
+    async function outgoingShares(userId) {
+        await actorOf(userId);
+        return (await store.listOutgoingGrants(pool, userId)).map((g) => ({
+            grantId: g.id, itemUid: g.item_uid, recipientUserId: Number(g.recipient_user_id), name: g.full_name, employeeId: g.employee_id,
+            rights: { reveal: g.can_reveal, copy: g.can_copy, edit: g.can_edit, share: g.can_share },
+            expiresAt: iso(g.expires_at), expired: Boolean(g.expired), revokedAt: iso(g.revoked_at), createdAt: iso(g.created_at),
+            status: g.revoked_at ? "revoked" : g.expired ? "expired" : "active",
+        }));
+    }
+
     async function listCollections(userId) {
         await actorOf(userId);
         return (await store.listCollectionsForUser(pool, userId)).map((row) => presentCollection(row));
@@ -839,7 +874,7 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
         store,
         accountStatus, registerAccount, unlockMaterial, recoveryMaterial, confirmRecovery, replaceEnvelope, replaceRecoveryEnvelope, envelopeHistory, restoreEnvelope, directory,
         listItems, listTrash, getItem, getSecret, reportAccess, createPersonalItem, createCompanyItem, updateItem, setDeleted, rotateItem,
-        createCollection, listCollections, getCollection, addMember, updateMember, removeMember, rotateCollection,
+        createCollection, renameCollection, archiveCollection, outgoingShares, listCollections, getCollection, addMember, updateMember, removeMember, rotateCollection,
         createGrant, listGrants, updateGrant, revokeGrant,
         listFolders, createFolder, renameFolder, deleteFolder,
         auditTrail, sweepExpired,

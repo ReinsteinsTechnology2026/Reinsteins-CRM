@@ -70,11 +70,11 @@ export async function resolveIdentity() {
     const company = response.data && response.data.company;
     const user = response.data && response.data.user;
     if (!company || company.id === undefined || !user || user.id === undefined) throw new Error("The signed-in user could not be identified.");
-    return { tenantId: String(company.id), userId: user.id };
+    return { tenantId: String(company.id), userId: user.id, role: user.role };
   }
   const stored = JSON.parse(sessionStorage.getItem("user") || "null");
   if (!stored || stored.id === undefined) throw new Error("The signed-in user could not be identified.");
-  return { tenantId: "legacy", userId: stored.id };
+  return { tenantId: "legacy", userId: stored.id, role: stored.role };
 }
 
 // Changes when the CRM sign-in ends or a different person signs in (a token's last characters are enough to notice).
