@@ -2,6 +2,7 @@ const express = require("express");
 
 const { getDefaultController } = require("../controllers/vaultController");
 const { createVaultLimiters } = require("../middleware/vaultRateLimiters");
+const { ATTACHMENT_JSON_LIMIT, ROTATION_JSON_LIMIT } = require("../utils/vaultUpload");
 
 // ==========================================
 // ZIOVAULT ROUTES   (mounted at /api/ziovault, behind the tenant feature gate for "ziovault")
@@ -62,9 +63,24 @@ function createVaultRouter({ controller = getDefaultController(), authenticate, 
     router.post("/collections/:uid/members", limiters.share, controller.addMember);
     router.patch("/collections/:uid/members/:userId", limiters.share, controller.updateMember);
     router.delete("/collections/:uid/members/:userId", limiters.share, controller.removeMember);
-    router.post("/collections/:uid/rotate", limiters.share, controller.rotateCollection);
+    router.post("/collections/:uid/rotate", limiters.share, express.json({ limit: ROTATION_JSON_LIMIT }), controller.rotateCollection);
 
     router.get("/audit", controller.audit);
+    router.get("/audit/company", limiters.write, controller.companyAudit);
+
+    // attachments (encrypted files)
+    router.get("/attachments", limiters.write, controller.listAllAttachments);
+    router.get("/items/:uid/attachments", limiters.write, controller.listItemAttachments);
+    router.post("/items/:uid/attachments", limiters.upload, express.json({ limit: ATTACHMENT_JSON_LIMIT }), controller.addAttachment);
+    router.post("/items/:uid/attachments/:attachmentUid/content", limiters.secret, controller.downloadAttachment);
+    router.delete("/items/:uid/attachments/:attachmentUid", limiters.write, controller.deleteAttachment);
+
+    // rotation: "I changed this password"
+    router.post("/items/:uid/rotation-complete", limiters.write, controller.completeRotation);
+
+    // offboarding: end a person's company vault access (administrators)
+    router.get("/offboarding/people", limiters.write, controller.offboardingPeople);
+    router.post("/offboarding/:userId/revoke-access", limiters.share, controller.revokeCompanyAccess);
 
     return router;
 }

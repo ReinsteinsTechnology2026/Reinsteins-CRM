@@ -79,14 +79,17 @@ test("DELETION POLICY: users that own personal data are RESTRICT, only pure acce
 test("the migration form is the same text, re-runnable; triggers are dropped first; functions are CREATE OR REPLACE", () => {
     const migrationStatements = ddl.ZIOVAULT_MIGRATION_STATEMENTS;
     for (const statement of migrationStatements) {
-        assert.match(statement, /^(CREATE TABLE IF NOT EXISTS "|CREATE (UNIQUE )?INDEX IF NOT EXISTS "|CREATE OR REPLACE FUNCTION |DROP TRIGGER IF EXISTS "|CREATE TRIGGER |ALTER TABLE "zv_audit_events" (DROP CONSTRAINT IF EXISTS|ADD CONSTRAINT) "zv_audit_events_kind_check")/, statement.slice(0, 60));
+        assert.match(statement, /^(CREATE TABLE IF NOT EXISTS "|CREATE (UNIQUE )?INDEX IF NOT EXISTS "|CREATE OR REPLACE FUNCTION |DROP TRIGGER IF EXISTS "|CREATE TRIGGER |ALTER TABLE "zv_audit_events" (DROP CONSTRAINT IF EXISTS|ADD CONSTRAINT) "zv_audit_events_kind_check"|ALTER TABLE "zv_items" ADD COLUMN IF NOT EXISTS "rotation_due_at")/, statement.slice(0, 60));
     }
     const triggers = ddl.ZIOVAULT_SCHEMA_STATEMENTS.filter((s) => s.startsWith("CREATE TRIGGER"));
     assert.equal(triggers.length, 3);
-    assert.equal(migrationStatements.length, ddl.ZIOVAULT_SCHEMA_STATEMENTS.length + triggers.length + 2, "one extra DROP per trigger, plus the two statements that bring an existing audit-kind list up to date");
+    assert.equal(migrationStatements.length, ddl.ZIOVAULT_SCHEMA_STATEMENTS.length + triggers.length + 3, "one extra DROP per trigger, plus the statements that bring an existing table up to date (the audit-kind list, the rotation due-date column)");
     const refresh = migrationStatements.filter((s) => s.startsWith("ALTER TABLE"));
-    assert.equal(refresh.length, 2);
-    for (const kind of ddl.AUDIT_KINDS) assert.ok(refresh[1].includes(`'${kind}'`), `the refreshed constraint allows ${kind}`);
+    assert.equal(refresh.length, 3);
+    assert.ok(refresh.some((s) => s.includes("ADD COLUMN IF NOT EXISTS \"rotation_due_at\"")), "an existing items table gains the due-date column");
+    const constraint = refresh.find((s) => s.includes("ADD CONSTRAINT"));
+    for (const kind of ddl.AUDIT_KINDS) assert.ok(constraint.includes(`'${kind}'`), `the refreshed constraint allows ${kind}`);
+    for (const kind of ["rotation_completed", "rotation_reminded", "vault_access_revoked"]) assert.ok(ddl.AUDIT_KINDS.includes(kind), kind);
     assert.ok(ddl.AUDIT_KINDS.includes("collection_renamed") && ddl.AUDIT_KINDS.includes("collection_archived"));
     // identical apart from the idempotency wording
     const stripped = migrationStatements.filter((s) => !s.startsWith("DROP TRIGGER") && !s.startsWith("ALTER TABLE")).map((s) => s.replace(" IF NOT EXISTS", ""));

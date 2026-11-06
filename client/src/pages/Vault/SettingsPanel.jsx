@@ -45,6 +45,12 @@ export default function SettingsPanel({ session, state }) {
         </select>
       </label>
 
+      <label className="zv-field">Warn about rotations
+        <select data-testid="vault-setting-rotation-warn" value={state.prefs.rotationWarnDays} onChange={(e) => session.setPrefs({ rotationWarnDays: Number(e.target.value) })}>
+          {[7, 14, 30, 60].map((d) => <option key={d} value={d}>{d} days before they are due</option>)}
+        </select>
+      </label>
+
       <h3>Master password</h3>
       <form className="zv-form" onSubmit={change} autoComplete="off">
         <label htmlFor="zv-cur">Current master password</label>

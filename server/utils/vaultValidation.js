@@ -22,6 +22,13 @@ const LIMITS = Object.freeze({
     MAX_ROTATION_INTERVAL_DAYS: 3650,
     MAX_ROTATION_BATCH_ITEMS: 2000,
     MAX_FOLDERS: 200,
+    ATTACHMENT_META_BYTES: 4096,
+    ATTACHMENT_MIN_BYTES: 41,
+    ATTACHMENT_MAX_BYTES: 10489856, // 10 MiB of file + stream header and frame tags (the column's own CHECK)
+    MAX_ATTACHMENTS_PER_ITEM: 20,
+    MAX_ATTACHMENT_TOTAL_BYTES: 52428800, // 50 MiB per item
+    MAX_ATTACHMENT_BYTES_PER_USER: 1073741824, // 1 GiB per person
+    AUDIT_PAGE_MAX: 100,
 });
 
 const B64URL = /^[A-Za-z0-9_-]*$/;
@@ -121,4 +128,11 @@ function kdfParams(input) {
 
 const encode = (buffer) => (buffer === null || buffer === undefined ? null : Buffer.from(buffer).toString("base64url"));
 
-module.exports = { LIMITS, ENVELOPE_VERSION, bytes, aeadEnvelope, wrappedKey, boxedKey, uuid, oneOf, positiveInteger, optionalDays, boolean, rights, expiresAt, kdfParams, encode };
+// A timestamp the caller may choose freely (a due date): ISO-8601 with an offset, or null to clear it.
+function optionalTimestamp(value, name) {
+    if (value === null) return null;
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T[0-9:.]+(Z|[+-]\d{2}:\d{2})$/.test(value) || Number.isNaN(Date.parse(value))) throw invalid(`${name} is invalid.`);
+    return new Date(value).toISOString();
+}
+
+module.exports = { optionalTimestamp, LIMITS, ENVELOPE_VERSION, bytes, aeadEnvelope, wrappedKey, boxedKey, uuid, oneOf, positiveInteger, optionalDays, boolean, rights, expiresAt, kdfParams, encode };

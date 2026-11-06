@@ -3,6 +3,8 @@ import { toB64, fromB64 } from "./encoding.js";
 import { draftToPayloads, parseMeta, parseSecret, payloadsToDraft, InvalidItemError, LIMITS as ITEM_LIMITS } from "./itemModel.js";
 import { analyzeVault, estimateStrength, THRESHOLDS } from "./health.js";
 import { createCompanyActions } from "./vaultCompany.js";
+import { createOperations } from "./vaultOperations.js";
+import { AttachmentError } from "./attachmentModel.js";
 
 // ==========================================
 // ZIOVAULT -- the personal-vault session (everything the user interface does goes through here)
@@ -19,8 +21,8 @@ import { createCompanyActions } from "./vaultCompany.js";
 // There is no fallback of any kind: if a crypto step fails, the operation fails and says so.
 // ==========================================
 
-export const PREFS_DEFAULTS = Object.freeze({ autoLockMinutes: 5, clipboardClearSeconds: 30, oldPasswordDays: THRESHOLDS.defaultOldDays });
-export const PREF_LIMITS = Object.freeze({ autoLockMinutes: [0, 240], clipboardClearSeconds: [0, 300], oldPasswordDays: [30, 1825] });
+export const PREFS_DEFAULTS = Object.freeze({ autoLockMinutes: 5, clipboardClearSeconds: 30, oldPasswordDays: THRESHOLDS.defaultOldDays, rotationWarnDays: 14 });
+export const PREF_LIMITS = Object.freeze({ autoLockMinutes: [0, 240], clipboardClearSeconds: [0, 300], oldPasswordDays: [30, 1825], rotationWarnDays: [1, 365] });
 export const AUTO_LOCK_CHOICES = Object.freeze([1, 5, 15, 30, 60]);
 const MIN_MASTER_BITS = 45;
 const UNLOCK_FREE_ATTEMPTS = 3;
@@ -73,7 +75,7 @@ export function createVaultSession({
 
   let state = {
     status: "idle", error: null, lockReason: null, retryAfterMs: 0,
-    recoverySecret: null, recoveryConfirmed: true, canCreateCollections: false, items: [], trash: [], folders: [], collections: [], companyItems: [], sharedItems: [], outgoing: [],
+    recoverySecret: null, recoveryConfirmed: true, canCreateCollections: false, items: [], trash: [], folders: [], collections: [], companyItems: [], sharedItems: [], outgoing: [], attachments: [],
     prefs: sanitizePrefs(prefsStore.load()), health: null, draftAvailable: false, busy: false,
   };
 
@@ -92,6 +94,7 @@ export function createVaultSession({
     if (error instanceof VaultUserError) return error.message;
     if (error instanceof VaultApiError) return error.message;
     if (error instanceof InvalidItemError) return error.message;
+    if (error instanceof AttachmentError) return error.message;
     if (error && error.name === "VaultCryptoError") return error.message && error.message !== "Decryption failed" ? error.message : "That did not work: the password is incorrect or the data is damaged.";
     return "Something went wrong. Nothing was saved.";
   };
@@ -164,7 +167,7 @@ export function createVaultSession({
     if (state.status === "no-account") return;
     set({
       status: identity ? "locked" : "idle", lockReason: wasOpen ? reason : state.lockReason, error: null, recoverySecret: null,
-      items: [], trash: [], folders: [], collections: [], companyItems: [], sharedItems: [], outgoing: [], health: null, busy: false,
+      items: [], trash: [], folders: [], collections: [], companyItems: [], sharedItems: [], outgoing: [], attachments: [], health: null, busy: false,
       draftAvailable: Boolean(draftStorage && identity && draftStorage.getItem(DRAFT_KEY(identity.tenantId, identity.userId))),
     });
   }
@@ -213,7 +216,7 @@ export function createVaultSession({
   async function viewOf(item) {
     const base = {
       uid: item.uid, kind: item.kind, favorite: item.favorite, version: item.version, keyVersion: item.keyVersion, hasSecret: item.hasSecret,
-      createdAt: item.createdAt, updatedAt: item.updatedAt, lastRotatedAt: item.lastRotatedAt, rotationIntervalDays: item.rotationIntervalDays, deletedAt: item.deletedAt,
+      createdAt: item.createdAt, updatedAt: item.updatedAt, lastRotatedAt: item.lastRotatedAt, rotationIntervalDays: item.rotationIntervalDays, rotationDueAt: item.rotationDueAt, deletedAt: item.deletedAt,
       canCopy: Boolean(item.rights && item.rights.copy), corrupt: false,
       ownership: item.ownership, via: item.via, rights: item.rights, expiresAt: item.expiresAt, collectionUid: item.collectionUid,
       sharedBy: (item.keys.find((key) => key.source === "box") || {}).sender ? item.keys.find((key) => key.source === "box").sender.userId : null,
@@ -673,8 +676,15 @@ export function createVaultSession({
     userError: (message, code) => new VaultUserError(message, code),
   });
 
+  const operations = createOperations({
+    api, vault, scope: () => scope(), uuid, collectionKeys, company: companyActions, guard: (work) => guard(work), requireOpen: () => requireOpen(), reload: () => reload(),
+    getSession: () => session, getState: () => state, set: (patch) => set(patch), openForEdit: (uid, options) => openForEdit(uid, options), wipeKeys: (keys) => wipeKeys(keys),
+    userError: (message, code) => new VaultUserError(message, code),
+  });
+
   return {
     ...companyActions,
+    ...operations,
     snapshot, subscribe, init, setup, confirmRecovery, regenerateRecovery, unlock, lock, touch, changePassword, recover,
     createItem, loadForEditing, updateItem, updateDetails, moveToFolder, setFavorite, deleteItem, restoreItem, loadTrash, revealItem, noteCopy, reload,
     createFolder, renameFolder, deleteFolder, setPrefs, setDraftProvider, restoreDraft, discardDraft, runHealth, watchAuth, dispose,

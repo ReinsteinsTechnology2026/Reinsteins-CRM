@@ -120,7 +120,7 @@ jobs:
   migration-postgres:
     name: Password-change migration against a disposable PostgreSQL
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16
@@ -166,7 +166,7 @@ jobs:
         working-directory: server
         run: |
           set -o pipefail
-          node --test --test-reporter=spec _test_password_change_pg.js _test_smart_sheets_pg.js _test_company_features_pg.js _test_ziovault_pg.js _test_ziovault_db_pg.js _test_ziovault_session_pg.js _test_ziovault_company_pg.js 2>&1 | tee "$RUNNER_TEMP/migration-pg.log"
+          node --test --test-reporter=spec _test_password_change_pg.js _test_smart_sheets_pg.js _test_company_features_pg.js _test_ziovault_pg.js _test_ziovault_db_pg.js _test_ziovault_session_pg.js _test_ziovault_company_pg.js _test_ziovault_attachments_pg.js _test_ziovault_stage5_pg.js 2>&1 | tee "$RUNNER_TEMP/migration-pg.log"
           if ! grep -Eq 'skipped 0$' "$RUNNER_TEMP/migration-pg.log"; then
             echo "::error::Some migration tests were skipped (the PostgreSQL service was not configured)."
             exit 1
@@ -175,7 +175,7 @@ jobs:
   ziovault-ui-postgres:
     name: ZioVault screens against the real API and a disposable PostgreSQL
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16
@@ -220,7 +220,7 @@ jobs:
         working-directory: server
         run: |
           set -o pipefail
-          node --test --test-reporter=spec _test_ziovault_ui_pg.js _test_ziovault_company_ui_pg.js 2>&1 | tee "$RUNNER_TEMP/ziovault-ui.log"
+          node --test --test-reporter=spec _test_ziovault_ui_pg.js _test_ziovault_company_ui_pg.js _test_ziovault_stage5_ui_pg.js 2>&1 | tee "$RUNNER_TEMP/ziovault-ui.log"
           if ! grep -Eq 'skipped 0$' "$RUNNER_TEMP/ziovault-ui.log"; then
             echo "::error::The ZioVault UI test was skipped (jsdom, the client dependencies or the PostgreSQL service were missing)."
             exit 1

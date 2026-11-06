@@ -338,3 +338,68 @@ and is tested server-side) has no screen yet: the screens say plainly that the k
 (2) Item attachments have no screen. (3) Rotation reminders and the audit viewer for collection managers are not in the UI. (4) The directory lists
 only people who already have a vault (a company-wide list of everyone would need a separate, non-vault API). (5) A browser that is compromised while the
 vault is unlocked can read what that person can read. (6) Screens are tested with React + jsdom against the real API and database, not in a real browser.
+
+## 14. Stage 5 -- attachments, audit viewer, rotation, re-keying, offboarding and a security review, as built
+
+**Encrypted attachments.** The browser encrypts the file (`crypto/attachments.js`: libsodium secretstream in 64 KiB frames, the final frame tagged,
+every frame bound to tenant + item + attachment) and the name/type/size (AEAD under the file's own key) before upload. The file key is wrapped under
+the ITEM'S SECRET KEY, so exactly the people who may reveal the item can open its files, and nobody else holds a key to them. Rights: reveal opens,
+edit adds and deletes, details-only sees that a file exists (size and date; the encrypted name and key are not even sent). Endpoints:
+`GET /attachments`, `GET /items/:uid/attachments`, `POST /items/:uid/attachments`, `POST /items/:uid/attachments/:attachmentUid/content`
+(a delivery, audited, behind the secret rate limit), `DELETE /items/:uid/attachments/:attachmentUid` (removes the ciphertext itself). Limits: 10 MiB per
+file (the column's own CHECK), 20 files and 50 MiB per item, 1 GiB per person (`ZIOVAULT_ATTACHMENT_QUOTA_BYTES` overrides), upload rate limit. Client
+validation (`attachmentModel.js`): empty, oversized, programs/scripts refused; names stripped of paths, control and bidirectional characters; a download is
+always handed to the browser as an opaque `application/octet-stream` and never rendered. An interrupted upload is resolved by asking the server whether
+the file arrived, never by guessing. Item rotation and collection re-keying carry every attachment's file key to the new secret key (the server refuses a
+rotation that omits one: `ATTACHMENTS_MISMATCH`), so no file is stranded.
+
+**Company audit viewer** (`GET /audit/company`, `Audit activity`). Only a MANAGER of at least one collection may call it, and sees events for the
+collections they manage and for the items in them (no administrator bypass: an administrator who manages nothing gets 403). Filters: collection, employee,
+action, from/to; keyset pagination (`before`, newest first, page size capped at 100). Rows carry timestamp, actor, action, subject and an evidence label
+(`server_observed`, `server_observed_delivery`, `client_reported`). Titles and collection names are looked up locally from what the manager can already
+decrypt; the server never returns them. Only completed actions are recorded, so the "result" column always reads Completed: refused requests are not audited.
+
+**Rotation.** Items have an interval and an optional explicit due date (`rotation_due_at`, migration-added), set by an owner or manager. Status (overdue,
+due today, due soon, scheduled, change required, none) is computed in the browser from what the list knows. "I changed this password"
+(`POST /items/:uid/rotation-complete`, any editor/manager/owner) resets the date, the flag and the reminder and is audited as `rotation_completed`; it is a
+recorded statement by a person, not a check that the password changed. Reminders run inside the EXISTING hourly per-tenant notification sweep
+(`jobs/vaultMaintenance.js`: expired shares are tidied and due items are reminded, once per `VAULT_ROTATION_REMINDER_DAYS`, default 7). A reminder reaches the
+item's owner, or the managers of its collection, as one generic in-app notification: it never contains a title, name or secret (the server has none).
+The window for "due soon" is a per-person preference.
+
+**Collection re-keying** (`Collection keys`). One request, all or nothing: new collection keys, new keys for every item (opened by the manager, re-encrypted,
+re-wrapped), new envelopes for every remaining member, item shares re-boxed for their recipients, attachment keys re-wrapped, and the collection's own
+NAME re-encrypted under the new key. (Review finding: until this stage the rotation endpoint kept the old name ciphertext, so after any re-key nobody could
+read the collection's name; the endpoint now requires the new name envelope.) The client checks every new ciphertext before sending, refuses to start if any
+item is damaged or a member's public key is missing, refuses a payload over 15 MB, and after saving opens everything again. An interruption before the
+request is sent, or a refusal, changes nothing; if only the answer is lost the screens tell the manager to check the key version.
+
+**Offboarding** (`Employee offboarding`, administrators). `GET /offboarding/people` lists who has company vault access (counts only: no item, no personal
+detail). `POST /offboarding/:userId/revoke-access` (explicit confirmation required) removes every collection membership and ends every share of a
+COMPANY item to that person, with their re-shares, in one transaction using the same database functions as the deactivation trigger; collections and
+revealable items are flagged for re-keying/rotation; credentials are kept; audit `vault_access_revoked`. It never reads or changes the person's personal
+vault, and it refuses to leave a collection without a manager (`SOLE_MANAGER`). Deactivating the account in the CRM still triggers the full database-level
+offboarding. A failure rolls everything back (tested by forcing the final audit insert to fail).
+
+**Migrations added.** `zv_items.rotation_due_at` (also in the CREATE TABLE), three audit kinds (`rotation_completed`, `rotation_reminded`,
+`vault_access_revoked`) in the CHECK, applied to an existing table by re-runnable `ALTER` statements in the migration; tested against a database built by the
+previous stage (rows kept, new kinds accepted, unknown kinds still refused, a second run changes nothing). Nothing was run against production.
+
+**Security review (stages 1-5): what was looked at, what was found.** Looked at: session/auth chain and the feature gate; tenant isolation (separate
+databases, uniform 404); key lifecycle and wrapping (owner / box / collection / attachment keys, AAD binding); item, collection and attachment
+authorisation and escalation (nobody gives more than they hold, only owners/managers delegate manage-access, nobody edits their own grant); expiry and
+revocation (database clock on every request); migrations and constraints; rate limiting; audit integrity (append-only trigger, closed vocabulary); upload and
+download handling; XSS and browser storage (no HTML injection, only two storage keys, a source scan enforces it); clipboard and auto-lock; deactivation and
+offboarding; error messages. Genuine issues found and fixed in this stage: (1) re-keying lost the collection name (above); (2) attachments would have been
+stranded by a rotation (above); (3) no ceiling on total attachment storage per person; (4) the heavier read endpoints (company audit, attachment lists,
+offboarding list) had no rate limit; (5) a re-key of a large collection could not fit the app-wide 2 MB body limit, so that one authenticated route now has its
+own limit (and so does the upload, neither before authentication). Earlier in this stage and Stage 4: the tenant schema file keeps a second copy of the audit
+vocabulary (kept in step and tested), and the editor/collection/sharing screen bugs found by the screen tests. This is an engineering review by the authors,
+not an independent audit or certification, and it does not claim the system is free of vulnerabilities.
+
+**Remaining limitations.** (1) Screens are tested with React + jsdom against the real API and database, not in a real browser; layouts were not visually
+verified on a phone. (2) A browser compromised while a vault is unlocked can read what that person can read; revocation and re-keying cannot erase
+what someone already saw, copied or downloaded (the screens say so). (3) "Mark rotated" is a recorded statement, not proof. (4) Reminders are in-app
+notifications only (no email), at most hourly. (5) Re-keying needs the manager to hold reveal on every item and is limited to about 15 MB of re-encrypted
+data per collection per step. (6) The audit viewer shows completed actions only; refused attempts are not recorded. (7) Managers who are not
+administrators see the names of colleagues in their collections' activity. (8) The directory used for sharing lists only people who already have a vault.

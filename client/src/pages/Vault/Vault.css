@@ -182,3 +182,32 @@
   .zv-table td[data-label]::before { content: attr(data-label); color: var(--text-muted); font-size: 0.78rem; }
   .zv-backdrop { padding: 2vh 8px; }
 }
+
+/* ---- Stage 5: attachments, rotation, audit, keys, offboarding */
+.zv-attach, .zv-rotation { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 10px; }
+.zv-attach h3, .zv-rotation h3 { display: flex; gap: 8px; align-items: center; }
+.zv-count { background: var(--card-light); border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; font-size: 0.75rem; color: var(--text-secondary); }
+.zv-files { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.zv-files > li { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-light); }
+.zv-files .zv-file-name { font-weight: 600; word-break: break-all; }
+.zv-files small { color: var(--text-muted); grid-column: 1; }
+.zv-files .zv-row { grid-column: 2; grid-row: 1 / span 2; margin: 0; }
+.zv-upload { position: relative; cursor: pointer; overflow: hidden; }
+.zv-upload input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.zv-upload:focus-within { outline: 2px solid var(--primary); outline-offset: 1px; }
+.zv-rot { display: inline-flex; gap: 5px; align-items: center; font-size: 0.72rem; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-secondary); }
+.zv-rot-overdue, .zv-rot-required { border-color: var(--danger); color: var(--danger); }
+.zv-rot-due, .zv-rot-upcoming { border-color: var(--warning); color: var(--warning); }
+.zv-rot-ok { border-color: var(--success); color: var(--success); }
+.zv-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; align-items: end; margin-bottom: 12px; }
+.zv-filters .zv-field { margin-bottom: 0; }
+.zv-inline-field { min-width: 190px; }
+.zv-outcome { justify-content: space-between; align-items: flex-start; }
+.zv-points { margin: 0 0 10px; padding-left: 18px; line-height: 1.55; font-size: 0.9rem; color: var(--text-secondary); }
+.zv-company .zv-field select, .zv-company .zv-field input { max-width: 340px; }
+
+@media (max-width: 900px) {
+  .zv-files > li { grid-template-columns: 1fr; }
+  .zv-files .zv-row { grid-column: 1; grid-row: auto; }
+  .zv-filters { grid-template-columns: 1fr 1fr; }
+}

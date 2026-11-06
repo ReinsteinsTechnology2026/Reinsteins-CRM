@@ -388,6 +388,31 @@ for (const idType of ["integer", "bigint"]) {
     });
 }
 
+test("MIGRATION of a database built by an EARLIER stage: it gains the rotation due-date column and the new audit kinds, keeps every row, and a second run changes nothing", { skip: SKIP }, async () => {
+    const pool = await lab.legacyDatabase("integer", { withZioVault: true });
+    // make it look like the earlier stage: no due-date column, the older list of audit kinds
+    const oldKinds = ddl.AUDIT_KINDS.filter((k) => !["rotation_completed", "rotation_reminded", "vault_access_revoked"].includes(k));
+    await pool.query("ALTER TABLE zv_items DROP COLUMN rotation_due_at");
+    await pool.query("ALTER TABLE zv_audit_events DROP CONSTRAINT zv_audit_events_kind_check");
+    await pool.query(`ALTER TABLE zv_audit_events ADD CONSTRAINT zv_audit_events_kind_check CHECK (kind IN (${oldKinds.map((k) => `'${k}'`).join(", ")}))`);
+    const userId = await lab.addUser(pool, "Early Bird");
+    await pool.query("INSERT INTO zv_items (uid, owner_user_id, kind, meta_ciphertext) VALUES (?, ?, 'login', ?)", [crypto.randomUUID(), userId, Buffer.alloc(80, 1)]);
+    await pool.query("INSERT INTO zv_audit_events (kind, subject_user_id, detail) VALUES ('item_created', ?, 'ownership=personal')", [userId]);
+    await assert.rejects(pool.query("INSERT INTO zv_audit_events (kind, detail) VALUES ('rotation_completed', '')"), /check constraint/i, "the old database refuses the new kinds");
+
+    const before = JSON.stringify([(await pool.query("SELECT count(*)::int AS n FROM zv_items"))[0], (await pool.query("SELECT count(*)::int AS n FROM zv_audit_events"))[0]]);
+    const first = await migration.migrateDatabase("early", pool);
+    assert.equal(first.action, "skipped", "the tables already existed");
+    const [columns] = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name = 'zv_items' AND column_name = 'rotation_due_at'");
+    assert.equal(columns.length, 1, "the due-date column was added");
+    for (const kind of ["rotation_completed", "rotation_reminded", "vault_access_revoked"]) await pool.query("INSERT INTO zv_audit_events (kind, detail) VALUES (?, '')", [kind]);
+    await assert.rejects(pool.query("INSERT INTO zv_audit_events (kind, detail) VALUES ('made_up_kind', '')"), /check constraint/i, "unknown kinds are still refused");
+    assert.equal(before, JSON.stringify([(await pool.query("SELECT count(*)::int AS n FROM zv_items"))[0], (await pool.query("SELECT count(*)::int AS n FROM zv_audit_events"))[0] ].map((r, i) => (i === 1 ? [{ n: r[0].n - 3 }] : r))), "no existing row was lost or changed");
+    const second = await migration.migrateDatabase("early", pool);
+    assert.equal(second.action, "skipped");
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM zv_audit_events"))[0][0].n, 4, "running it again touched nothing");
+});
+
 test("MIGRATION on a legacy database where employment_status is NULL for some users: NULL counts as active, like the login code treats it", { skip: SKIP }, async () => {
     const pool = await lab.legacyDatabase("integer");
     await migration.migrateDatabase("legacy", pool);

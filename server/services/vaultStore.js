@@ -100,7 +100,7 @@ function createVaultStore({ pool }) {
     // ------------------------------------------------------------------ item access resolution (every path, expiry by DB clock)
     const ITEM_SELECT = `
         i.id, i.uid, i.owner_user_id, i.collection_id, i.kind, i.meta_ciphertext, i.secret_ciphertext, i.key_version, i.version,
-        i.favorite, i.rotation_interval_days, i.last_rotated_at, i.rotation_required, i.deleted_at, i.created_at, i.updated_at,
+        i.favorite, i.rotation_interval_days, i.rotation_due_at, i.last_rotated_at, i.rotation_required, i.deleted_at, i.created_at, i.updated_at,
         c.uid AS collection_uid, c.key_version AS collection_key_version, c.archived_at AS collection_archived_at,
         (i.owner_user_id = ?) AS is_owner,
         m.user_id AS m_user, m.can_reveal AS m_reveal, m.can_copy AS m_copy, m.can_edit AS m_edit, m.can_share AS m_share,
@@ -251,6 +251,85 @@ function createVaultStore({ pool }) {
             [userId]
         );
 
+    // ------------------------------------------------------------------ attachments (ciphertext only; the file key is wrapped under the item's secret key)
+    const insertAttachment = (db, a) =>
+        one(db, `INSERT INTO zv_attachments (uid, item_id, meta_ciphertext, wrapped_file_key, content, uploaded_by) VALUES (?, ?, ?, ?, ?, ?) RETURNING uid, created_at`, [a.uid, a.itemId, a.meta, a.wrappedFileKey, a.content, a.uploadedBy]);
+    const attachmentStats = (db, itemId) =>
+        one(db, `SELECT count(*)::int AS n, COALESCE(sum(octet_length(content)), 0)::bigint AS bytes FROM zv_attachments WHERE item_id = ? AND deleted_at IS NULL`, [itemId]);
+    const attachmentBytesBy = (db, userId) => one(db, `SELECT COALESCE(sum(octet_length(content)), 0)::bigint AS bytes FROM zv_attachments WHERE uploaded_by = ?`, [userId]).then((r) => Number(r.bytes));
+    const listAttachmentsForItems = (db, itemIds) =>
+        itemIds.length === 0
+            ? Promise.resolve([])
+            : rows(db, `SELECT a.uid, i.uid AS item_uid, octet_length(a.content) AS size, a.created_at, a.meta_ciphertext, a.wrapped_file_key FROM zv_attachments a JOIN zv_items i ON i.id = a.item_id WHERE a.item_id = ANY(?::integer[]) AND a.deleted_at IS NULL ORDER BY a.created_at DESC`, [itemIds]);
+    const getAttachment = (db, itemId, uid) =>
+        one(db, `SELECT uid, meta_ciphertext, wrapped_file_key, content, created_at FROM zv_attachments WHERE item_id = ? AND uid = ? AND deleted_at IS NULL`, [itemId, uid]);
+    const deleteAttachment = (db, itemId, uid) => one(db, `DELETE FROM zv_attachments WHERE item_id = ? AND uid = ? RETURNING uid`, [itemId, uid]);
+    const attachmentsOfItem = (db, itemId) => rows(db, `SELECT id, uid FROM zv_attachments WHERE item_id = ? AND deleted_at IS NULL FOR UPDATE`, [itemId]);
+    const updateAttachmentKey = (db, id, wrappedFileKey) => db.query(`UPDATE zv_attachments SET wrapped_file_key = ? WHERE id = ?`, [wrappedFileKey, id]);
+
+    // ------------------------------------------------------------------ rotation reminders (no titles, no secrets: only ids)
+    const completeRotation = (db, itemId) =>
+        one(db, `UPDATE zv_items SET last_rotated_at = now(), rotation_due_at = NULL, rotation_required = FALSE, reminder_sent_at = NULL, version = version + 1, updated_at = now() WHERE id = ? RETURNING version`, [itemId]);
+    const dueItemsForReminder = (db, repeatDays, limit) =>
+        rows(
+            db,
+            `SELECT i.id, i.uid, i.owner_user_id, i.collection_id, c.uid AS collection_uid
+             FROM zv_items i LEFT JOIN zv_collections c ON c.id = i.collection_id
+             WHERE i.deleted_at IS NULL AND (i.collection_id IS NULL OR c.archived_at IS NULL)
+               AND ((i.rotation_due_at IS NOT NULL AND i.rotation_due_at <= now())
+                    OR (i.rotation_due_at IS NULL AND i.rotation_interval_days IS NOT NULL AND i.last_rotated_at + (i.rotation_interval_days || ' days')::interval <= now()))
+               AND (i.reminder_sent_at IS NULL OR i.reminder_sent_at < now() - (? || ' days')::interval)
+             ORDER BY i.id LIMIT ? FOR UPDATE OF i SKIP LOCKED`,
+            [String(repeatDays), limit]
+        );
+    const markReminded = (db, itemId) => db.query(`UPDATE zv_items SET reminder_sent_at = now() WHERE id = ?`, [itemId]);
+    const reminderRecipients = (db, item) =>
+        item.owner_user_id
+            ? rows(db, `SELECT id FROM users WHERE id = ? AND status = 'active' AND COALESCE(employment_status, 'active') = 'active'`, [item.owner_user_id])
+            : rows(db, `SELECT u.id FROM zv_collection_members m JOIN users u ON u.id = m.user_id WHERE m.collection_id = ? AND m.is_manager AND (m.expires_at IS NULL OR m.expires_at > now()) AND u.status = 'active' AND COALESCE(u.employment_status, 'active') = 'active'`, [item.collection_id]);
+
+    // ------------------------------------------------------------------ company audit (collections the caller manages)
+    const managedCollections = (db, userId) =>
+        rows(db, `SELECT c.id, c.uid FROM zv_collections c JOIN zv_collection_members m ON m.collection_id = c.id WHERE m.user_id = ? AND m.is_manager AND (m.expires_at IS NULL OR m.expires_at > now())`, [userId]);
+    async function companyAudit(db, { collectionUids, collectionIds, actorUserId, kind, from, to, beforeId, limit }) {
+        const where = [`(e.collection_uid = ANY(?::uuid[]) OR e.item_uid IN (SELECT uid FROM zv_items WHERE collection_id = ANY(?::integer[])))`];
+        const params = [collectionUids, collectionIds];
+        if (actorUserId) { where.push(`(e.actor_user_id = ? OR e.subject_user_id = ?)`); params.push(actorUserId, actorUserId); }
+        if (kind) { where.push(`e.kind = ?`); params.push(kind); }
+        if (from) { where.push(`e.created_at >= ?::timestamptz`); params.push(from); }
+        if (to) { where.push(`e.created_at <= ?::timestamptz`); params.push(to); }
+        if (beforeId) { where.push(`e.id < ?::bigint`); params.push(beforeId); }
+        params.push(limit + 1);
+        return rows(
+            db,
+            `SELECT e.id, e.kind, e.actor_user_id, e.subject_user_id, e.item_uid, e.collection_uid, e.detail, e.created_at, a.full_name AS actor_name, s.full_name AS subject_name
+             FROM zv_audit_events e LEFT JOIN users a ON a.id = e.actor_user_id LEFT JOIN users s ON s.id = e.subject_user_id
+             WHERE ${where.join(" AND ")} ORDER BY e.id DESC LIMIT ?`,
+            params
+        );
+    }
+
+    // ------------------------------------------------------------------ offboarding (company access only; personal vaults are never read)
+    const accessHolders = (db) =>
+        rows(
+            db,
+            `SELECT u.id, u.full_name, u.employee_id, u.status, u.employment_status,
+                    (SELECT count(*)::int FROM zv_collection_members m JOIN zv_collections c ON c.id = m.collection_id WHERE m.user_id = u.id AND c.archived_at IS NULL) AS memberships,
+                    (SELECT count(*)::int FROM zv_collection_members m JOIN zv_collections c ON c.id = m.collection_id WHERE m.user_id = u.id AND m.is_manager AND c.archived_at IS NULL) AS managed,
+                    (SELECT count(*)::int FROM zv_grants g JOIN zv_items i ON i.id = g.item_id WHERE g.recipient_user_id = u.id AND g.revoked_at IS NULL AND i.collection_id IS NOT NULL) AS company_shares
+             FROM users u
+             WHERE EXISTS (SELECT 1 FROM zv_collection_members m WHERE m.user_id = u.id)
+                OR EXISTS (SELECT 1 FROM zv_grants g JOIN zv_items i ON i.id = g.item_id WHERE g.recipient_user_id = u.id AND g.revoked_at IS NULL AND i.collection_id IS NOT NULL)
+             ORDER BY u.full_name LIMIT 1000`
+        );
+    const soleManagerCollections = (db, userId) =>
+        rows(db, `SELECT c.uid FROM zv_collections c JOIN zv_collection_members m ON m.collection_id = c.id AND m.user_id = ? AND m.is_manager
+                  WHERE c.archived_at IS NULL AND (SELECT count(*) FROM zv_collection_members x WHERE x.collection_id = c.id AND x.is_manager) = 1`, [userId]);
+    const companyGrantIdsOf = (db, userId) =>
+        rows(db, `SELECT g.id FROM zv_grants g JOIN zv_items i ON i.id = g.item_id WHERE g.revoked_at IS NULL AND g.recipient_user_id = ? AND i.collection_id IS NOT NULL`, [userId]).then((r) => r.map((x) => x.id));
+    const membershipCollectionUids = (db, userId) =>
+        rows(db, `SELECT c.uid FROM zv_collection_members m JOIN zv_collections c ON c.id = m.collection_id WHERE m.user_id = ? AND c.archived_at IS NULL`, [userId]);
+
     const insertCollection = (db, a) =>
         one(db, `INSERT INTO zv_collections (uid, kind, name_ciphertext, created_by) VALUES (?, ?, ?, ?) RETURNING id, uid, key_version`, [a.uid, a.kind, a.name, a.createdBy]);
 
@@ -343,6 +422,9 @@ function createVaultStore({ pool }) {
         getCollectionForUser, listCollectionsForUser, insertCollection, insertMember, listMembers, getMember, countManagers, removeMembers,
         lockCollection, liveItemsOfCollection, membersOfCollection,
         getActiveGrant, insertGrant, listGrants, revokeGrants, renameCollection, archiveCollection, listOutgoingGrants,
+        insertAttachment, attachmentStats, attachmentBytesBy, listAttachmentsForItems, getAttachment, deleteAttachment, attachmentsOfItem, updateAttachmentKey,
+        completeRotation, dueItemsForReminder, markReminded, reminderRecipients, managedCollections, companyAudit,
+        accessHolders, soleManagerCollections, companyGrantIdsOf, membershipCollectionUids,
         listFolders, countFolders, insertFolder, renameFolder, deleteFolder,
         auditForItem, auditForCollection, auditAboutUser,
         expiredGrantIds, expiredMembers,

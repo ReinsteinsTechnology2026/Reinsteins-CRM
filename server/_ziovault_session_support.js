@@ -23,6 +23,7 @@ function makeHttp(url, userId, record, hooks = {}) {
         const res = await fetch(`${url}/api${route}`, { method: method.toUpperCase(), headers: { "Content-Type": "application/json", "x-test-user": String(userId) }, body: text });
         const raw = await res.text();
         record.responses.push(raw);
+        if (hooks.dropResponse && hooks.dropResponse(method, route)) throw new Error("connection lost"); // the server DID handle it; the browser never heard back
         let data = {};
         try { data = JSON.parse(raw); } catch { data = {}; }
         if (!res.ok) throw { response: { status: res.status, data } };

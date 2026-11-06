@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaLock, FaPlus, FaStar, FaFolder, FaKey, FaStickyNote, FaHeartbeat, FaCog, FaTrash, FaList, FaClock, FaSearch, FaBuilding, FaInbox, FaShareAlt } from "react-icons/fa";
+import { FaLock, FaPlus, FaStar, FaFolder, FaKey, FaStickyNote, FaHeartbeat, FaCog, FaTrash, FaList, FaClock, FaSearch, FaBuilding, FaInbox, FaShareAlt, FaSyncAlt, FaPaperclip, FaHistory, FaUserSlash } from "react-icons/fa";
 
 import { matchesQuery, hostOf, ITEM_KINDS } from "../../vault/itemModel";
 import ItemEditor from "./ItemEditor";
@@ -10,6 +10,7 @@ import GeneratorPanel from "./GeneratorPanel";
 import CompanyVault from "./CompanyVault";
 import ShareDialog from "./ShareDialog";
 import { SharedByMe, SharedWithMe } from "./SharedViews";
+import { AttachmentsView, AuditView, KeysView, OffboardingView, RotationView } from "./SecurityViews";
 
 const kindLabel = (id) => (ITEM_KINDS.find((k) => k.id === id) || { label: "Item" }).label;
 
@@ -60,8 +61,19 @@ export default function VaultApp({ session, state }) {
     setView(next);
     setSelected(null);
     setEditing(null);
+    if (next === "company") setOpenCollection(null); // the sidebar entry always leads to the list of collections
     if (next === "trash") session.loadTrash().catch(() => {});
   };
+
+  const openItem = (item) => {
+    setEditing(null);
+    setSelected(item.uid);
+    if (item.via === "collection") { setOpenCollection(item.collectionUid); setView("company"); }
+    else if (item.via === "grant") setView("shared-with-me");
+    else setView("all");
+  };
+
+  const isManager = state.collections.some((c) => c.rights.manage);
 
   const startNewCompany = (collectionUid) => {
     setSelected(null);
@@ -71,7 +83,7 @@ export default function VaultApp({ session, state }) {
   const startNew = () => {
     setSelected(null);
     setEditing({ initial: { folderUid: isFolder ? view.slice(7) : null, kind: view === "secure_note" || view === "api_key" ? view : "login" } });
-    if (["health", "settings", "generator", "trash", "company", "shared-with-me", "shared-by-me"].includes(view)) setView("all");
+    if (["health", "settings", "generator", "trash", "company", "shared-with-me", "shared-by-me", "rotation", "attachments", "audit", "keys", "offboarding"].includes(view)) setView("all");
   };
 
   const startEdit = async (uid) => {
@@ -121,6 +133,12 @@ export default function VaultApp({ session, state }) {
           <button type="button" className={view === "company" ? "on" : ""} data-testid="vault-nav-company" onClick={() => go("company")}><FaBuilding /><span>Company Vault</span></button>
           <button type="button" className={view === "shared-with-me" ? "on" : ""} data-testid="vault-nav-shared-with-me" onClick={() => go("shared-with-me")}><FaInbox /><span>Shared with me</span></button>
           <button type="button" className={view === "shared-by-me" ? "on" : ""} data-testid="vault-nav-shared-by-me" onClick={() => go("shared-by-me")}><FaShareAlt /><span>Shared by me</span></button>
+          <h3>Security</h3>
+          <button type="button" className={view === "rotation" ? "on" : ""} data-testid="vault-nav-rotation" onClick={() => go("rotation")}><FaSyncAlt /><span>Rotation status</span></button>
+          <button type="button" className={view === "attachments" ? "on" : ""} data-testid="vault-nav-attachments" onClick={() => go("attachments")}><FaPaperclip /><span>Secure attachments</span></button>
+          {isManager && <button type="button" className={view === "audit" ? "on" : ""} data-testid="vault-nav-audit" onClick={() => go("audit")}><FaHistory /><span>Audit activity</span></button>}
+          {isManager && <button type="button" className={view === "keys" ? "on" : ""} data-testid="vault-nav-keys" onClick={() => go("keys")}><FaKey /><span>Collection keys</span></button>}
+          {state.canCreateCollections && <button type="button" className={view === "offboarding" ? "on" : ""} data-testid="vault-nav-offboarding" onClick={() => go("offboarding")}><FaUserSlash /><span>Employee offboarding</span></button>}
           <h3>Folders</h3>
           {state.folders.map((f) => (
             <div className="zv-folder" key={f.uid}>
@@ -163,6 +181,16 @@ export default function VaultApp({ session, state }) {
           <SharedWithMe session={session} state={state} selected={selected} setSelected={setSelected} onEdit={startEdit} />
         ) : view === "shared-by-me" ? (
           <SharedByMe session={session} state={state} onManage={setSharing} />
+        ) : view === "rotation" ? (
+          <RotationView session={session} state={state} onOpenItem={openItem} />
+        ) : view === "attachments" ? (
+          <AttachmentsView session={session} state={state} onOpenItem={openItem} />
+        ) : view === "audit" && isManager ? (
+          <AuditView session={session} state={state} />
+        ) : view === "keys" && isManager ? (
+          <KeysView session={session} state={state} />
+        ) : view === "offboarding" && state.canCreateCollections ? (
+          <OffboardingView session={session} state={state} />
         ) : view === "health" ? (
           <HealthPanel session={session} state={state} onOpen={(uid) => { setView("all"); setSelected(uid); }} />
         ) : view === "settings" ? (

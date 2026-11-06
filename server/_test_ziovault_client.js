@@ -214,11 +214,65 @@ test("source hygiene: nothing under client/src/vault or pages/Vault logs, uses M
             assert.ok(!/Math\.random/.test(code), `${rel}: must not use Math.random`);
             assert.ok(!/\bfetch\(|XMLHttpRequest|sendBeacon|WebSocket|https?:\/\/[a-z0-9](?<!github\.com)/.test(code.replace(/placeholder="https:\/\/"/g, "")), `${rel}: must not contact anything but the CRM API`);
             assert.ok(!/\b(localStorage|sessionStorage|indexedDB|document\.cookie)\b/.test(code) || /vaultRuntime\.js$/.test(file), `${rel}: browser storage is only touched by vaultRuntime.js`);
-            assert.ok(!/location\.(search|hash)|history\.(push|replace)State|URLSearchParams/.test(code), `${rel}: must not put anything in the URL`);
+            assert.ok(!/location\.(search|hash)|history\.(push|replace)State/.test(code), `${rel}: must not put anything in the page's URL`);
+            assert.ok(!/URLSearchParams/.test(code) || /vaultApi\.js$/.test(file), `${rel}: only the API wrapper builds query strings (for non-secret filters)`);
             assert.ok(!/dangerouslySetInnerHTML|\beval\(|new Function\(/.test(code), `${rel}: unsafe HTML or code execution`);
         }
     }
     // the only things the runtime stores
     const runtime = fs.readFileSync(path.join(VAULT, "vaultRuntime.js"), "utf8");
     assert.deepEqual([...new Set([...runtime.matchAll(/(?:local|session)Storage\.(?:get|set|remove)Item\(([^,)]+)/g)].map((m) => m[1].trim()))].sort(), ['"company"', '"token"', '"user"', "PREFS_KEY", "key"].sort());
+});
+
+// ------------------------------------------------------------------------------------------------------------ Stage 5 (pure logic)
+test("attachments: names are made safe, files are validated before anything is encrypted", async () => {
+    const m = await load("attachmentModel.js");
+    assert.equal(m.sanitizeFileName("../../etc/passwd"), "passwd");
+    assert.equal(m.sanitizeFileName("C:\\Users\\x\\report.pdf"), "report.pdf");
+    assert.equal(m.sanitizeFileName("a\u202etxt.exe"), "atxt.exe", "bidirectional overrides cannot disguise an extension");
+    assert.equal(m.sanitizeFileName("  .hidden \u0000\u0007"), "hidden");
+    assert.equal(m.sanitizeFileName("a<b>:c|d?.txt"), "a_b__c_d_.txt");
+    assert.equal(m.sanitizeFileName(""), "file"); assert.equal(m.sanitizeFileName(null), "file"); assert.equal(m.sanitizeFileName("..."), "file");
+    const long = m.sanitizeFileName(`${"a".repeat(300)}.pdf`);
+    assert.ok(long.length <= 120 && long.endsWith(".pdf"));
+    const ok = (name, size = 10, extra) => m.validateAttachment({ name, size }, extra);
+    assert.equal(ok("notes.txt").name, "notes.txt");
+    for (const [name, size, code, extra] of [["a.txt", 0, "EMPTY"], ["a.txt", m.MAX_ATTACHMENT_BYTES + 1, "TOO_LARGE"], ["x.exe", 5, "BLOCKED_TYPE"], ["x.SH", 5, "BLOCKED_TYPE"], ["photo.png.js", 5, "BLOCKED_TYPE"],
+        ["a.txt", 5, "TOO_MANY", { existingCount: 20 }], ["a.txt", 5, "TOO_MUCH", { existingBytes: 50 * 1024 * 1024 }]]) {
+        assert.throws(() => ok(name, size, extra), (e) => e.name === "AttachmentError" && e.code === code, `${name} ${code}`);
+    }
+    assert.equal(m.formatSize(512), "512 B"); assert.equal(m.formatSize(2048), "2.0 KB"); assert.equal(m.formatSize(5 * 1024 * 1024), "5.0 MB");
+});
+
+test("rotation: overdue, due, upcoming, scheduled, required and none; an explicit date wins; a person's warning window is respected", async () => {
+    const r = await load("rotation.js");
+    const now = Date.parse("2026-06-01T12:00:00Z");
+    const ago = (days) => new Date(now - days * r.DAY_MS).toISOString();
+    const ahead = (days) => new Date(now + days * r.DAY_MS).toISOString();
+    const status = (item, warnDays) => r.rotationStatus(item, { now, warnDays }).status;
+    assert.equal(status({ rotationIntervalDays: 30, lastRotatedAt: ago(31) }), "overdue");
+    assert.equal(status({ rotationIntervalDays: 30, lastRotatedAt: ago(29.5) }), "due");
+    assert.equal(status({ rotationIntervalDays: 30, lastRotatedAt: ago(20) }, 14), "upcoming");
+    assert.equal(status({ rotationIntervalDays: 30, lastRotatedAt: ago(20) }, 7), "ok");
+    assert.equal(status({ rotationIntervalDays: 30, lastRotatedAt: ago(1), rotationRequired: true }), "required", "flagged after someone lost access");
+    assert.equal(status({ rotationDueAt: ahead(2), rotationIntervalDays: 365, lastRotatedAt: ago(1) }, 7), "upcoming", "an explicit date beats the interval");
+    assert.equal(status({ rotationDueAt: ago(1) }), "overdue");
+    assert.equal(status({}), "none"); assert.equal(status({ rotationRequired: true }), "required");
+    assert.equal(status({ rotationIntervalDays: 30 }), "none", "an interval without a last-changed date cannot be judged");
+    assert.match(r.describeRotation(r.rotationStatus({ rotationIntervalDays: 30, lastRotatedAt: ago(33) }, { now })), /Overdue by 3 days/);
+    assert.ok(r.SEVERITY.required < r.SEVERITY.overdue && r.SEVERITY.overdue < r.SEVERITY.due && r.SEVERITY.due < r.SEVERITY.upcoming);
+});
+
+test("audit wording: every kind the server records has a human sentence, and a sentence never invents a title", async () => {
+    const { pathToFileURL } = require("node:url");
+    const labels = await import(pathToFileURL(path.join(__dirname, "..", "client", "src", "pages", "Vault", "auditLabels.js")).href);
+    const { AUDIT_KINDS } = require("./schemas/ziovaultDdl");
+    const known = new Set(labels.AUDIT_ACTIONS.map((a) => a.kind));
+    const unlabelled = AUDIT_KINDS.filter((k) => !known.has(k));
+    assert.deepEqual(unlabelled.sort(), ["access_expired", "account_created", "envelope_restored", "envelopes_fetched", "password_changed", "recovery_confirmed", "recovery_envelope_fetched", "recovery_rotated", "recovery_used"].filter((k) => unlabelled.includes(k)).sort(), "only account-level kinds (not shown in company activity) may lack a label");
+    assert.ok(["secret_delivered", "item_shared", "share_revoked", "attachment_delivered", "collection_rotated", "vault_access_revoked", "rotation_completed"].every((k) => known.has(k)));
+    assert.match(labels.auditSentence({ kind: "secret_delivered", itemTitle: "Router", actorUserId: 1, subjectUserId: 1 }), /opened the password of “Router”/);
+    assert.match(labels.auditSentence({ kind: "item_shared", itemTitle: "Router", subjectName: "Bob", actorUserId: 1, subjectUserId: 2, itemUid: "x" }), /shared “Router” for Bob/);
+    assert.equal(labels.auditSentence({ kind: "item_created" }), "created");
+    assert.equal(labels.evidenceNote("client_reported"), "Reported by a browser");
 });

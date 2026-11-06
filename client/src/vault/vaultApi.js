@@ -80,7 +80,7 @@ export function createVaultApi(http) {
     reportAccess: (uid, kind) => call("post", `/items/${uid}/access-reports`, { kind }),
     createItem: ({ uid, kind, meta, secret, keys, rotationIntervalDays }) =>
       call("post", "/items", { uid, kind, meta: toB64(meta), secret: secret ? toB64(secret) : null, keys: { meta: toB64(keys.meta), secret: keys.secret ? toB64(keys.secret) : undefined }, rotationIntervalDays: rotationIntervalDays ?? undefined }),
-    updateItem: (uid, { expectedVersion, meta, secret, kind, favorite, rotationIntervalDays }) =>
+    updateItem: (uid, { expectedVersion, meta, secret, kind, favorite, rotationIntervalDays, rotationDueAt }) =>
       call("patch", `/items/${uid}`, {
         expectedVersion,
         ...(meta ? { meta: toB64(meta) } : {}),
@@ -88,6 +88,7 @@ export function createVaultApi(http) {
         ...(kind ? { kind } : {}),
         ...(favorite !== undefined ? { favorite } : {}),
         ...(rotationIntervalDays !== undefined ? { rotationIntervalDays } : {}),
+        ...(rotationDueAt !== undefined ? { rotationDueAt } : {}),
       }),
     deleteItem: (uid) => call("delete", `/items/${uid}`),
     restoreItem: (uid) => call("post", `/items/${uid}/restore`),
@@ -115,5 +116,24 @@ export function createVaultApi(http) {
       call("patch", `/items/${uid}/grants/${userId}`, { ...(rights ? { rights } : {}), ...(expiresAt !== undefined ? { expiresAt } : {}), ...(boxedSecretKey ? { boxedSecretKey: toB64(boxedSecretKey) } : {}) }),
     revokeGrant: (uid, userId) => call("delete", `/items/${uid}/grants/${userId}`),
     outgoingShares: () => call("get", "/shares/outgoing"),
+
+    // ---- attachments (the file is encrypted before it gets here; names and keys are envelopes)
+    listAllAttachments: () => call("get", "/attachments"),
+    listItemAttachments: (uid) => call("get", `/items/${uid}/attachments`),
+    addAttachment: (uid, { uid: attachmentUid, meta, wrappedFileKey, content }) =>
+      call("post", `/items/${uid}/attachments`, { uid: attachmentUid, meta: toB64(meta), wrappedFileKey: toB64(wrappedFileKey), content: toB64(content) }),
+    downloadAttachment: (uid, attachmentUid) => call("post", `/items/${uid}/attachments/${attachmentUid}/content`),
+    deleteAttachment: (uid, attachmentUid) => call("delete", `/items/${uid}/attachments/${attachmentUid}`),
+
+    // ---- rotation, company activity, offboarding, re-keying
+    completeRotation: (uid) => call("post", `/items/${uid}/rotation-complete`),
+    companyAudit: (params = {}) => {
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== null && value !== "") query.set(key, String(value));
+      return call("get", `/audit/company${query.toString() ? `?${query.toString()}` : ""}`);
+    },
+    offboardingPeople: () => call("get", "/offboarding/people"),
+    revokeCompanyAccess: (userId) => call("post", `/offboarding/${userId}/revoke-access`, { confirm: true }),
+    rotateCollection: (uid, payload) => call("post", `/collections/${uid}/rotate`, payload),
   };
 }

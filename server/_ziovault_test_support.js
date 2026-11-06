@@ -120,9 +120,9 @@ function createLab() {
         ];
         const noLimit = (_req, _res, next) => next();
         const app = express();
-        app.use(express.json({ limit: "2mb" }));
+        app.use(express.json({ limit: "2mb", type: require("./utils/vaultUpload").appJsonType }));
         if (gate) app.use("/api", gate);
-        app.use("/api/ziovault", createVaultRouter({ controller, authenticate, limiters: limiters || { unlock: noLimit, recovery: noLimit, share: noLimit, secret: noLimit, write: noLimit } }));
+        app.use("/api/ziovault", createVaultRouter({ controller, authenticate, limiters: limiters || { unlock: noLimit, recovery: noLimit, share: noLimit, secret: noLimit, write: noLimit, upload: noLimit } }));
         const server = http.createServer(app);
         await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
         lab.servers.push(server);

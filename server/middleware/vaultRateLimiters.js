@@ -35,6 +35,7 @@ function createVaultLimiters(overrides = {}) {
         share: { windowMs: 60 * MINUTE, max: 120 },
         secret: { windowMs: 15 * MINUTE, max: 600 },
         write: { windowMs: 15 * MINUTE, max: 600 },
+        upload: { windowMs: 15 * MINUTE, max: 60 },
     };
     const out = {};
     for (const [name, base] of Object.entries(defaults)) out[name] = limiter({ ...base, ...(overrides[name] || {}) });

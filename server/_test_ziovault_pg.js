@@ -907,7 +907,8 @@ test("COLLECTION ROTATION: new collection keys + new item keys for everyone who 
             }
             items.push({ uid: it.uid, expectedVersion: opened.item.version, keyVersion: r.keyVersion, meta: b64(r.metaCiphertext), secret: b64(r.secretCiphertext), keys: { meta: b64(wrapped.meta), secret: b64(wrapped.secret) }, recipients });
         }
-        return { expectedKeyVersion: keyVersion, members, items };
+        const name = b64(await vault.encryptCollectionName({ tenantId: world.tenantId, collectionUid: col.uid, key: newKeys.metaKey, name: "Rotate me" }));
+        return { expectedKeyVersion: keyVersion, name, members, items };
     };
     const count = async () => (await world.pool.query(`SELECT count(*)::int AS n FROM zv_item_keys`))[0][0].n;
     const before = await count();
@@ -920,8 +921,16 @@ test("COLLECTION ROTATION: new collection keys + new item keys for everyone who 
     }
     assert.equal((await admin.call("POST", `/collections/${col.uid}/rotate`, await build({ keyVersion: 7 }))).status, 409, "stale key version");
 
+    // the re-key must carry the collection's name, encrypted under the NEW key: without it nobody could read the name again
+    const noName = await build();
+    delete noName.name;
+    const missingName = await admin.call("POST", `/collections/${col.uid}/rotate`, noName);
+    assert.equal(missingName.status, 400); assert.equal(await count(), before, "a re-key without a name changed nothing");
+
     const done = await admin.call("POST", `/collections/${col.uid}/rotate`, await build());
     assert.equal(done.status, 200);
+    const renamed = (await alice.call("GET", "/collections")).data.find((c) => c.uid === col.uid);
+    assert.equal((await vault.decryptCollectionInfo({ tenantId: world.tenantId, collectionUid: col.uid, key: (await alice.openCollection(renamed)).metaKey, envelope: unb64(renamed.name) })).name, "Rotate me", "members read the name with the NEW keys");
     assert.equal(done.data.keyVersion, 2);
     assert.equal((await admin.call("GET", `/collections/${col.uid}`)).data.rotationRequired, false);
 
@@ -1029,6 +1038,8 @@ test("ROUTE PROTECTION: every route of the router refuses a request without auth
         ["POST", `/collections/${id}/rotate`], ["GET", "/audit"],
         ["GET", "/folders"], ["POST", "/folders"], ["PATCH", `/folders/${id}`], ["DELETE", `/folders/${id}`],
         ["PATCH", `/collections/${id}`], ["POST", `/collections/${id}/archive`], ["GET", "/shares/outgoing"],
+        ["GET", "/audit/company"], ["GET", "/attachments"], ["GET", `/items/${id}/attachments`], ["POST", `/items/${id}/attachments`], ["POST", `/items/${id}/attachments/${id}/content`],
+        ["DELETE", `/items/${id}/attachments/${id}`], ["POST", `/items/${id}/rotation-complete`], ["GET", "/offboarding/people"], ["POST", "/offboarding/1/revoke-access"],
     ];
     for (const [method, route] of routes) {
         const res = await fetch(`${world.api.url}/api/ziovault${route}`, { method, headers: { "Content-Type": "application/json" }, body: method === "GET" || method === "DELETE" ? undefined : "{}" });

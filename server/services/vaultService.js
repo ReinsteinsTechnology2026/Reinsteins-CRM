@@ -84,6 +84,7 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
             version: row.version,
             favorite: Boolean(row.is_owner) && Boolean(row.favorite),
             rotationIntervalDays: row.rotation_interval_days,
+            rotationDueAt: iso(row.rotation_due_at),
             lastRotatedAt: iso(row.last_rotated_at),
             rotationRequired: Boolean(row.rotation_required),
             deletedAt: iso(row.deleted_at),
@@ -362,6 +363,7 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
         }
         if (body.kind !== undefined) { patch.kind = V.oneOf(body.kind, V.LIMITS.ITEM_KINDS, "kind"); touchesContent = true; }
         if (body.rotationIntervalDays !== undefined) patch.rotation_interval_days = V.optionalDays(body.rotationIntervalDays, "rotationIntervalDays", V.LIMITS.MAX_ROTATION_INTERVAL_DAYS);
+        if (body.rotationDueAt !== undefined) patch.rotation_due_at = V.optionalTimestamp(body.rotationDueAt, "rotationDueAt");
         if (body.favorite !== undefined) patch.favorite = V.boolean(body.favorite, "favorite");
         if (Object.keys(patch).length === 0) throw invalid("Nothing to change.");
         await actorOf(userId);
@@ -369,10 +371,11 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
             const { row, access } = await loadAccess(db, userId, uid, { forUpdate: true });
             if (touchesContent) authz.requireRight(access, "edit"); // editing a secret implies the right to reveal it (it is re-encrypted under the same key)
             if (patch.favorite !== undefined && !access.paths.owner) throw forbidden();
-            if (patch.rotation_interval_days !== undefined) authz.requireOwnerOrManager(access);
+            if (patch.rotation_interval_days !== undefined || patch.rotation_due_at !== undefined) authz.requireOwnerOrManager(access);
             const version = await store.updateItem(db, row.id, expected, patch);
             if (version === null) throw conflict("STALE_VERSION", "This item was changed by someone else. Reload and try again.");
             if (touchesContent) await store.audit(db, { kind: "item_updated", actor: userId, subject: userId, itemUid: row.uid, collectionUid: row.collection_uid });
+            else if (patch.rotation_interval_days !== undefined || patch.rotation_due_at !== undefined) await store.audit(db, { kind: "item_updated", actor: userId, subject: userId, itemUid: row.uid, collectionUid: row.collection_uid, detail: "rotation_schedule" });
             return { uid: row.uid, version };
         });
     }
@@ -408,6 +411,12 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
             if (grant.can_reveal !== Boolean(r.boxedSecretKey)) throw invalid("A recipient's keys do not match their rights.", "RECIPIENTS_MISMATCH");
         }
         if (Boolean(payload.secret) !== Boolean(payload.holderSecret)) throw invalid("The secret and its key must be given together.");
+        // every attachment's file key is wrapped under the item's secret key: a new secret key means every one must be re-wrapped, or the file is lost
+        const liveFiles = await store.attachmentsOfItem(db, row.id);
+        if (payload.attachments.length !== liveFiles.length || payload.attachments.some((a) => !liveFiles.find((f) => f.uid === a.uid)) || new Set(payload.attachments.map((a) => a.uid)).size !== payload.attachments.length) {
+            throw invalid("The attachments do not match the item's current attachments.", "ATTACHMENTS_MISMATCH");
+        }
+        for (const a of payload.attachments) await store.updateAttachmentKey(db, liveFiles.find((f) => f.uid === a.uid).id, a.wrappedFileKey);
 
         await db.query(`DELETE FROM zv_item_keys WHERE item_id = ?`, [row.id]);
         const kv = payload.keyVersion;
@@ -437,6 +446,7 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
             secret: input.secret === null || input.secret === undefined ? null : V.aeadEnvelope(input.secret, "secret", { max: V.LIMITS.SECRET_BYTES }),
             holderMeta: V.wrappedKey(input.keys?.meta, "keys.meta"),
             holderSecret: input.secret ? V.wrappedKey(input.keys?.secret, "keys.secret") : null,
+            attachments: (Array.isArray(input.attachments) ? input.attachments : []).map((a) => ({ uid: V.uuid(a.uid, "attachments.uid"), wrappedFileKey: V.wrappedKey(a.wrappedFileKey, "attachments.wrappedFileKey") })),
             recipients: (Array.isArray(input.recipients) ? input.recipients : []).map((r) => ({
                 userId: V.positiveInteger(r.userId, "recipients.userId"),
                 boxedMetaKey: V.boxedKey(r.boxedMetaKey, "recipients.boxedMetaKey"),
@@ -647,6 +657,8 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
         return store.tx(async (db) => {
             const manager = await requireCollectionManager(db, userId, collectionUid); // authorise first, then look at the payload
             const expectedKeyVersion = V.positiveInteger(body.expectedKeyVersion, "expectedKeyVersion");
+            // the name (and description) are encrypted under the collection's meta key: new keys need a new envelope, or nobody could read it again
+            const name = V.aeadEnvelope(body.name, "name", { max: V.LIMITS.NAME_BYTES });
             const members = (Array.isArray(body.members) ? body.members : []).map((m) => ({
                 userId: V.positiveInteger(m.userId, "members.userId"),
                 wrappedMetaKey: V.boxedKey(m.wrappedMetaKey, "members.wrappedMetaKey"),
@@ -683,7 +695,7 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
                 if (!row) throw notFound();
                 await applyItemRotation(db, row, { ...item, holderMeta: item.holderMeta, holderSecret: item.holderSecret }, userId, { holder: { type: "collection" } });
             }
-            await db.query(`UPDATE zv_collections SET key_version = ?, rotation_required = FALSE, updated_at = now() WHERE id = ?`, [nextVersion, collection.id]);
+            await db.query(`UPDATE zv_collections SET key_version = ?, name_ciphertext = ?, rotation_required = FALSE, updated_at = now() WHERE id = ?`, [nextVersion, name, collection.id]);
             await store.audit(db, { kind: "collection_rotated", actor: userId, subject: userId, collectionUid: collection.uid, detail: `key_version=${nextVersion}` });
             return { uid: collection.uid, keyVersion: nextVersion, items: items.length };
         });
@@ -838,6 +850,167 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
         return { uid: row.uid };
     }
 
+    // ------------------------------------------------------------------ attachments (the file arrives ALREADY ENCRYPTED; its key is wrapped under the item's secret key)
+    // Whoever may reveal an item may open its files; whoever may edit it may add or remove them. Nothing here can read a file or its name.
+    async function addAttachment(userId, itemUid, body) {
+        await actorOf(userId);
+        return store.tx(async (db) => {
+            const { row, access } = await loadAccess(db, userId, itemUid, { forUpdate: true });
+            authz.requireRight(access, "edit"); // authorise first, then look at the payload
+            const uid = V.uuid(body.uid, "uid");
+            const meta = V.aeadEnvelope(body.meta, "meta", { max: V.LIMITS.ATTACHMENT_META_BYTES });
+            const wrappedFileKey = V.wrappedKey(body.wrappedFileKey, "wrappedFileKey");
+            const content = V.bytes(body.content, "content", { min: V.LIMITS.ATTACHMENT_MIN_BYTES, max: V.LIMITS.ATTACHMENT_MAX_BYTES });
+            const stats = await store.attachmentStats(db, row.id);
+            if (stats.n >= V.LIMITS.MAX_ATTACHMENTS_PER_ITEM) throw invalid("This item already has the maximum number of attachments.", "ATTACHMENT_LIMIT");
+            if (Number(stats.bytes) + content.length > V.LIMITS.MAX_ATTACHMENT_TOTAL_BYTES) throw invalid("This item would hold too much attachment data.", "ATTACHMENT_LIMIT");
+            // a ceiling per person across all their uploads (default 1 GiB; ZIOVAULT_ATTACHMENT_QUOTA_BYTES overrides it)
+            const quota = Number(process.env.ZIOVAULT_ATTACHMENT_QUOTA_BYTES) || V.LIMITS.MAX_ATTACHMENT_BYTES_PER_USER;
+            if ((await store.attachmentBytesBy(db, userId)) + content.length > quota) throw invalid("You have reached your attachment storage limit. Delete files you no longer need.", "ATTACHMENT_QUOTA");
+            let created;
+            try {
+                created = await store.insertAttachment(db, { uid, itemId: row.id, meta, wrappedFileKey, content, uploadedBy: userId });
+            } catch (error) {
+                if (error.code === "23505") throw conflict("UID_IN_USE", "That id is already used.");
+                throw error;
+            }
+            await store.audit(db, { kind: "attachment_added", actor: userId, subject: userId, itemUid: row.uid, collectionUid: row.collection_uid });
+            return { uid, size: content.length, createdAt: iso(created.created_at) };
+        });
+    }
+
+    // Size and date for everyone who can see the item; the encrypted name and the wrapped file key only for people who may reveal it.
+    async function listAttachments(userId, itemUid) {
+        await actorOf(userId);
+        let entries;
+        if (itemUid) {
+            const { row, access } = await loadAccess(pool, userId, itemUid);
+            entries = [{ row, access }];
+        } else {
+            entries = (await store.listItemsForUser(pool, userId)).map((row) => ({ row, access: authz.resolveItemRights(row) }));
+        }
+        const attachments = await store.listAttachmentsForItems(pool, entries.map((e) => e.row.id));
+        const mayReveal = new Map(entries.map((e) => [e.row.uid, Boolean(e.access.rights.reveal)]));
+        return attachments.map((a) => ({
+            uid: a.uid, itemUid: a.item_uid, size: Number(a.size), createdAt: iso(a.created_at),
+            ...(mayReveal.get(a.item_uid) ? { meta: V.encode(a.meta_ciphertext), wrappedFileKey: V.encode(a.wrapped_file_key) } : {}),
+        }));
+    }
+
+    async function downloadAttachment(userId, itemUid, attachmentUid) {
+        await actorOf(userId);
+        const { row, access } = await loadAccess(pool, userId, itemUid);
+        authz.requireRight(access, "reveal");
+        const attachment = await store.getAttachment(pool, row.id, V.uuid(attachmentUid, "attachment"));
+        if (!attachment) throw notFound();
+        await store.audit(pool, { kind: "attachment_delivered", actor: userId, subject: userId, itemUid: row.uid, collectionUid: row.collection_uid });
+        return { uid: attachment.uid, itemUid: row.uid, meta: V.encode(attachment.meta_ciphertext), wrappedFileKey: V.encode(attachment.wrapped_file_key), content: V.encode(attachment.content), createdAt: iso(attachment.created_at) };
+    }
+
+    async function deleteAttachment(userId, itemUid, attachmentUid) {
+        await actorOf(userId);
+        return store.tx(async (db) => {
+            const { row, access } = await loadAccess(db, userId, itemUid, { forUpdate: true });
+            authz.requireRight(access, "edit");
+            const removed = await store.deleteAttachment(db, row.id, V.uuid(attachmentUid, "attachment"));
+            if (!removed) throw notFound();
+            await store.audit(db, { kind: "attachment_deleted", actor: userId, subject: userId, itemUid: row.uid, collectionUid: row.collection_uid });
+            return { uid: removed.uid };
+        });
+    }
+
+    // ------------------------------------------------------------------ rotation: "I changed this password"
+    async function completeRotation(userId, uid) {
+        await actorOf(userId);
+        return store.tx(async (db) => {
+            const { row, access } = await loadAccess(db, userId, uid, { forUpdate: true });
+            if (!(access.paths.owner || access.rights.manage || access.rights.edit)) throw forbidden();
+            const done = await store.completeRotation(db, row.id);
+            await store.audit(db, { kind: "rotation_completed", actor: userId, subject: userId, itemUid: row.uid, collectionUid: row.collection_uid });
+            return { uid: row.uid, version: done.version };
+        });
+    }
+
+    // Called by the scheduled maintenance pass (jobs/vaultMaintenance.js). Sees ids only -- never a title, a name or a secret.
+    async function processRotationReminders({ repeatDays = 7, limit = 500 } = {}) {
+        return store.tx(async (db) => {
+            const due = await store.dueItemsForReminder(db, repeatDays, limit);
+            const out = [];
+            for (const item of due) {
+                const recipients = await store.reminderRecipients(db, item);
+                await store.markReminded(db, item.id);
+                await store.audit(db, { kind: "rotation_reminded", itemUid: item.uid, collectionUid: item.collection_uid || null, detail: `recipients=${recipients.length}` });
+                out.push({ itemUid: item.uid, collectionUid: item.collection_uid || null, userIds: recipients.map((r) => Number(r.id)) });
+            }
+            return out;
+        });
+    }
+
+    // ------------------------------------------------------------------ company activity (collection managers only; no administrator bypass)
+    const queryNumber = (value) => (value === undefined || value === null || value === "" ? undefined : Number(value));
+    async function companyAudit(userId, query = {}) {
+        await actorOf(userId);
+        const managed = await store.managedCollections(pool, userId);
+        if (managed.length === 0) throw forbidden("Only a collection manager can view company activity.");
+        let uids = managed.map((c) => c.uid);
+        let ids = managed.map((c) => Number(c.id));
+        if (query.collectionUid) {
+            const wanted = V.uuid(String(query.collectionUid), "collection");
+            const found = managed.find((c) => c.uid === wanted);
+            if (!found) throw notFound();
+            uids = [wanted];
+            ids = [Number(found.id)];
+        }
+        const limit = queryNumber(query.limit) === undefined ? 50 : Math.min(V.positiveInteger(queryNumber(query.limit), "limit"), V.LIMITS.AUDIT_PAGE_MAX);
+        const kind = query.kind ? V.oneOf(String(query.kind), require("../schemas/ziovaultDdl").AUDIT_KINDS, "kind") : null;
+        const actorUserId = queryNumber(query.userId) === undefined ? null : V.positiveInteger(queryNumber(query.userId), "userId");
+        const from = query.from ? V.optionalTimestamp(String(query.from), "from") : null;
+        const to = query.to ? V.optionalTimestamp(String(query.to), "to") : null;
+        const beforeId = queryNumber(query.before) === undefined ? null : String(V.positiveInteger(queryNumber(query.before), "before"));
+        const found = await store.companyAudit(pool, { collectionUids: uids, collectionIds: ids, actorUserId, kind, from, to, beforeId, limit });
+        const more = found.length > limit;
+        const page = more ? found.slice(0, limit) : found;
+        return {
+            events: page.map((e) => ({
+                id: String(e.id), kind: e.kind, actorUserId: num(e.actor_user_id), actorName: e.actor_name || null, subjectUserId: num(e.subject_user_id), subjectName: e.subject_name || null,
+                itemUid: e.item_uid || undefined, collectionUid: e.collection_uid || undefined, detail: e.detail, at: iso(e.created_at),
+                evidence: e.kind === "secret_delivered" || e.kind === "attachment_delivered" ? "server_observed_delivery" : e.kind === "reveal_reported" || e.kind === "copy_reported" ? "client_reported" : "server_observed",
+            })),
+            nextBefore: more ? String(page[page.length - 1].id) : null,
+        };
+    }
+
+    // ------------------------------------------------------------------ offboarding: end a person's COMPANY vault access (never touches personal vaults)
+    // Deactivating an employee in the CRM already does this (and more) through a database trigger. This is the same revocation for an
+    // administrator who wants it without deactivating the account -- one transaction, so a failure leaves nothing half done.
+    async function offboardingPeople(userId) {
+        const { user } = await actorOf(userId);
+        if (!authz.canCreateCollections(user)) throw forbidden("Only a company administrator can manage vault access.");
+        return (await store.accessHolders(pool)).map((u) => ({
+            userId: Number(u.id), name: u.full_name, employeeId: u.employee_id, active: u.status === "active" && (!u.employment_status || u.employment_status === "active"),
+            memberships: u.memberships, managed: u.managed, companyShares: u.company_shares, isYou: Number(u.id) === userId,
+        }));
+    }
+
+    async function revokeCompanyAccess(userId, targetRaw, body) {
+        const targetId = V.positiveInteger(targetRaw, "userId");
+        const { user } = await actorOf(userId);
+        if (!authz.canCreateCollections(user)) throw forbidden("Only a company administrator can manage vault access.");
+        if (body.confirm !== true) throw invalid("Please confirm to continue.", "CONFIRMATION_REQUIRED");
+        if (targetId === userId) throw invalid("You cannot remove your own vault access here.");
+        return store.tx(async (db) => {
+            if (!(await store.getUser(db, targetId))) throw notFound();
+            const sole = await store.soleManagerCollections(db, targetId);
+            if (sole.length > 0) throw conflict("SOLE_MANAGER", `This person is the only manager of ${sole.length} collection${sole.length === 1 ? "" : "s"}. Make someone else a manager first, so the collection is not left without one.`);
+            const affected = (await store.membershipCollectionUids(db, targetId)).map((c) => c.uid);
+            const grantIds = await store.companyGrantIdsOf(db, targetId);
+            const removed = await store.removeMembers(db, null, [targetId], userId, "offboarding");
+            const revoked = grantIds.length > 0 ? await store.revokeGrants(db, grantIds, userId, "offboarding") : 0;
+            await store.audit(db, { kind: "vault_access_revoked", actor: userId, subject: targetId, detail: `members_removed=${removed},revoked_grants=${revoked}` });
+            return { userId: targetId, membershipsRemoved: removed, sharesRevoked: revoked, collectionsNeedingRekey: affected };
+        });
+    }
+
     // ------------------------------------------------------------------ audit and maintenance
     async function auditTrail(userId, { itemUid, collectionUid } = {}) {
         await actorOf(userId);
@@ -876,6 +1049,7 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
         listItems, listTrash, getItem, getSecret, reportAccess, createPersonalItem, createCompanyItem, updateItem, setDeleted, rotateItem,
         createCollection, renameCollection, archiveCollection, outgoingShares, listCollections, getCollection, addMember, updateMember, removeMember, rotateCollection,
         createGrant, listGrants, updateGrant, revokeGrant,
+        addAttachment, listAttachments, downloadAttachment, deleteAttachment, completeRotation, processRotationReminders, companyAudit, offboardingPeople, revokeCompanyAccess,
         listFolders, createFolder, renameFolder, deleteFolder,
         auditTrail, sweepExpired,
         deleteItem: (userId, uid) => setDeleted(userId, uid, true),

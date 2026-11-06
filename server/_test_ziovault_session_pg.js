@@ -387,9 +387,9 @@ test("auto-lock after inactivity, activity postpones it, and lock clears the cli
     assert.equal(ctx.session.snapshot().status, "locked");
     assert.equal(ctx.session.snapshot().lockReason, "inactivity");
     assert.equal(ctx.session.isUnlocked, false);
-    assert.deepEqual(JSON.parse(ctx.storage.getItem("ziovault:prefs")), { autoLockMinutes: 1, clipboardClearSeconds: 30, oldPasswordDays: 180 });
+    assert.deepEqual(JSON.parse(ctx.storage.getItem("ziovault:prefs")), { autoLockMinutes: 1, clipboardClearSeconds: 30, oldPasswordDays: 180, rotationWarnDays: 14 });
     ctx.session.setPrefs({ autoLockMinutes: 99999, clipboardClearSeconds: "x", evil: "<script>" });
-    assert.deepEqual(ctx.session.snapshot().prefs, { autoLockMinutes: 1, clipboardClearSeconds: 30, oldPasswordDays: 180 }, "invalid values are ignored");
+    assert.deepEqual(ctx.session.snapshot().prefs, { autoLockMinutes: 1, clipboardClearSeconds: 30, oldPasswordDays: 180, rotationWarnDays: 14 }, "invalid values are ignored");
 });
 
 test("an edit in progress survives a lock as ciphertext only, and is offered again after unlock", { skip: SKIP }, async () => {

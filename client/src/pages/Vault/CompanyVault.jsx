@@ -6,6 +6,8 @@ import { hostOf } from "../../vault/itemModel";
 import { CollectionForm, MembersDialog } from "./CollectionDialogs";
 import ItemDetail from "./ItemDetail";
 import { RightsChips } from "./Permissions";
+import { RotationBadge } from "./RotationPanel";
+import { rotationStatus } from "../../vault/rotation";
 import { expiryText, isExpired } from "./access";
 
 const kindName = (id) => (COLLECTION_KINDS.find((k) => k.id === id) || { label: "General" }).label;
@@ -17,6 +19,8 @@ export default function CompanyVault({ session, state, selected, setSelected, on
   const [confirmArchive, setConfirmArchive] = useState(false);
 
   const now = Date.now();
+  // how many of a collection's passwords are overdue, due today or flagged (computed here from what the list already knows)
+  const dueIn = (uid) => state.companyItems.filter((i) => i.collectionUid === uid && ["overdue", "due", "required"].includes(rotationStatus(i, { now }).status)).length;
   const collections = state.collections.filter((c) => !isExpired(c.expiresAt, now));
   const open = openUid ? collections.find((c) => c.uid === openUid) : null;
 
@@ -59,6 +63,7 @@ export default function CompanyVault({ session, state, selected, setSelected, on
                   <span className="zv-card-meta"><RightsChips rights={c.rights} /></span>
                   {c.expiresAt && <span className="zv-card-meta">{expiryText(c.expiresAt)}</span>}
                   {c.rotationRequired && <span className="zv-card-warn"><FaExclamationTriangle aria-hidden="true" /> Keys should be rotated</span>}
+                  {dueIn(c.uid) > 0 && <span className="zv-card-warn" data-testid={`vault-collection-due-${c.uid}`}><FaExclamationTriangle aria-hidden="true" /> {dueIn(c.uid)} password{dueIn(c.uid) === 1 ? "" : "s"} to rotate</span>}
                 </button>
               </li>
             ))}
@@ -106,6 +111,7 @@ export default function CompanyVault({ session, state, selected, setSelected, on
                   <button type="button" className={selected === item.uid ? "on" : ""} data-testid={`vault-item-${item.uid}`} onClick={() => setSelected(item.uid)}>
                     <span className="zv-avatar" aria-hidden="true">{(item.title || "?").charAt(0).toUpperCase()}</span>
                     <span className="zv-itemtext"><strong>{item.title}</strong><small>{item.username || hostOf(item.url) || "Item"}</small></span>
+                    <RotationBadge item={item} warnDays={state.prefs.rotationWarnDays} />
                   </button>
                 </li>
               ))}

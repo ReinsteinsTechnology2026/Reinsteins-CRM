@@ -5,6 +5,8 @@ import { safeUrl, hostOf, ITEM_KINDS } from "../../vault/itemModel";
 import { getClipboard } from "../../vault/vaultRuntime";
 import { expiryText, formatDate, isExpired } from "./access";
 import { RightsChips } from "./Permissions";
+import AttachmentsPanel from "./AttachmentsPanel";
+import RotationPanel, { RotationBadge } from "./RotationPanel";
 
 const kindLabel = (id) => (ITEM_KINDS.find((k) => k.id === id) || { label: "Item" }).label;
 
@@ -87,6 +89,7 @@ export default function ItemDetail({ session, state, uid, onEdit, onClose, onSha
         <div>
           <h2>{item.title}</h2>
           <span className="zv-badge">{kindLabel(item.kind)}</span>{" "}
+          <RotationBadge item={item} warnDays={state.prefs.rotationWarnDays} />{" "}
           {item.via === "collection" && <span className="zv-badge company" data-testid="vault-source">Company{collection ? ` · ${collection.name}` : ""}</span>}
           {item.via === "grant" && <span className="zv-badge shared" data-testid="vault-source">Shared with you{sharedBy ? ` by ${sharedBy}` : ""}</span>}
           {owned && <span className="zv-badge" data-testid="vault-source">Personal</span>}
@@ -138,6 +141,9 @@ export default function ItemDetail({ session, state, uid, onEdit, onClose, onSha
           {item.lastRotatedAt && <><dt>Password changed</dt><dd>{formatDate(item.lastRotatedAt)}</dd></>}
         </dl>
       )}
+
+      {usable && !trashed && <RotationPanel session={session} item={item} prefs={state.prefs} />}
+      {usable && !trashed && item.hasSecret !== undefined && <AttachmentsPanel session={session} item={item} locked={expired} />}
 
       {message && <p className="zv-notice" role="status" data-testid="vault-message">{message}</p>}
 

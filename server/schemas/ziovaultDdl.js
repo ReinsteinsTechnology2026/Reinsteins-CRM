@@ -32,7 +32,7 @@ const AUDIT_KINDS = [
   "account_created", "envelopes_fetched", "recovery_envelope_fetched", "recovery_confirmed", "password_changed", "recovery_used",
   "envelope_restored", "recovery_rotated", "item_created", "item_updated", "item_deleted", "item_restored", "item_rotated",
   "secret_delivered", "reveal_reported", "copy_reported", "item_shared", "share_changed", "share_revoked", "access_expired",
-  "collection_created", "collection_renamed", "collection_archived", "collection_member_added", "collection_member_changed", "collection_member_removed", "collection_rotated",
+  "collection_created", "collection_renamed", "collection_archived", "rotation_completed", "rotation_reminded", "vault_access_revoked", "collection_member_added", "collection_member_changed", "collection_member_removed", "collection_rotated",
   "attachment_added", "attachment_delivered", "attachment_deleted", "employee_deactivated",
 ];
 
@@ -134,6 +134,7 @@ const ZIOVAULT_SCHEMA_STATEMENTS = [
   "version" integer NOT NULL DEFAULT 1 CHECK ("version" >= 1),
   "favorite" boolean NOT NULL DEFAULT FALSE,
   "rotation_interval_days" integer NULL DEFAULT NULL CHECK ("rotation_interval_days" IS NULL OR "rotation_interval_days" BETWEEN 1 AND 3650),
+  "rotation_due_at" timestamptz NULL DEFAULT NULL,
   "last_rotated_at" timestamptz NOT NULL DEFAULT now(),
   "rotation_required" boolean NOT NULL DEFAULT FALSE,
   "reminder_sent_at" timestamptz NULL DEFAULT NULL,
@@ -335,6 +336,8 @@ const ZIOVAULT_MIGRATION_STATEMENTS = [...ZIOVAULT_SCHEMA_STATEMENTS.flatMap((st
       .replace(/^CREATE (UNIQUE )?INDEX "/, (_match, unique) => `CREATE ${unique || ""}INDEX IF NOT EXISTS "`),
   ];
 }),
+// Stage 5: an explicit rotation due date on an item (a no-op where the table was just created with it).
+`ALTER TABLE "zv_items" ADD COLUMN IF NOT EXISTS "rotation_due_at" timestamptz NULL DEFAULT NULL`,
 // The audit vocabulary grows between stages: bring an existing table's list of kinds up to date (a no-op for a new table).
 `ALTER TABLE "zv_audit_events" DROP CONSTRAINT IF EXISTS "zv_audit_events_kind_check"`,
 `ALTER TABLE "zv_audit_events" ADD CONSTRAINT "zv_audit_events_kind_check" CHECK ("kind" IN (${AUDIT_KINDS.map((kind) => `'${kind}'`).join(", ")}))`,

@@ -1990,6 +1990,8 @@ app.use(
     // multer's own separate, larger, per-route limits and are
     // unaffected.
     limit: JSON_BODY_LIMIT,
+    // Everything that is JSON, except the ZioVault attachment upload, which has its own larger limit AFTER authentication.
+    type: require("./utils/vaultUpload").appJsonType,
     // Captures the exact raw request-body bytes on every request
     // (cheap -- just holds a reference to the buffer express.json()
     // already reads) so a webhook route can verify a provider's HMAC

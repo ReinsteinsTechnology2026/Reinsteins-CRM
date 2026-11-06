@@ -27,6 +27,7 @@ function createUiHarness() {
     h.q = (id) => container.querySelector(`[data-testid="${id}"]`);
     h.all = (selector) => [...container.querySelectorAll(selector)];
     h.text = () => container.textContent;
+    h.act = (fn) => act(fn);
     h.tick = (ms = 20) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
     h.waitFor = async (predicate, label, timeout = 30000) => {
         const end = Date.now() + timeout;
