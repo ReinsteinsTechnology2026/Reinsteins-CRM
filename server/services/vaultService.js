@@ -494,7 +494,7 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
 
     async function createCollection(userId, body) {
         const { user } = await actorOf(userId);
-        if (!authz.canCreateCollections(user)) throw forbidden("Only a company administrator can create a company collection.");
+        if (!authz.canCreateCollections(user)) throw forbidden("Only a company administrator or Super Admin can create a company collection.");
         const uid = V.uuid(body.uid, "uid");
         const kind = V.oneOf(body.kind || "general", V.LIMITS.COLLECTION_KINDS, "kind");
         const name = V.aeadEnvelope(body.name, "name", { max: V.LIMITS.NAME_BYTES });
@@ -985,7 +985,7 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
     // administrator who wants it without deactivating the account -- one transaction, so a failure leaves nothing half done.
     async function offboardingPeople(userId) {
         const { user } = await actorOf(userId);
-        if (!authz.canCreateCollections(user)) throw forbidden("Only a company administrator can manage vault access.");
+        if (!authz.canCreateCollections(user)) throw forbidden("Only a company administrator or Super Admin can manage vault access.");
         return (await store.accessHolders(pool)).map((u) => ({
             userId: Number(u.id), name: u.full_name, employeeId: u.employee_id, active: u.status === "active" && (!u.employment_status || u.employment_status === "active"),
             memberships: u.memberships, managed: u.managed, companyShares: u.company_shares, isYou: Number(u.id) === userId,
@@ -995,7 +995,7 @@ function createVaultService({ pool, store = createVaultStore({ pool }) } = {}) {
     async function revokeCompanyAccess(userId, targetRaw, body) {
         const targetId = V.positiveInteger(targetRaw, "userId");
         const { user } = await actorOf(userId);
-        if (!authz.canCreateCollections(user)) throw forbidden("Only a company administrator can manage vault access.");
+        if (!authz.canCreateCollections(user)) throw forbidden("Only a company administrator or Super Admin can manage vault access.");
         if (body.confirm !== true) throw invalid("Please confirm to continue.", "CONFIRMATION_REQUIRED");
         if (targetId === userId) throw invalid("You cannot remove your own vault access here.");
         return store.tx(async (db) => {

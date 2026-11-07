@@ -361,6 +361,33 @@ test("AUTHZ: only active users; a vault account is required; only a company admi
     }
     assert.throws(() => authz.assertAccountExists(null), (e) => e.status === 409 && e.code === "ACCOUNT_REQUIRED");
     assert.equal(authz.canCreateCollections({ role: "admin" }), true);
-    assert.equal(authz.canCreateCollections({ role: "employee", system_access: "super_admin" }), false, "role decides, not a label");
+    // (changed on purpose: a CRM Super Admin with the employee role may administer the company vault; see the full matrix in _test_ziovault_roles_pg.js)
+    assert.equal(authz.canCreateCollections({ role: "employee", system_access: "super_admin" }), true, "Super Admin qualifies whatever the role");
+    assert.equal(authz.canCreateCollections({ role: "employee", system_access: "admin" }), false, "a plain admin access level does not");
     assert.equal(authz.canCreateCollections(null), false);
+});
+
+test("WHO ADMINISTERS THE COMPANY VAULT: the server's rule and the browser's copy agree for every role x access combination (role = 'admin' OR system_access = 'super_admin')", async () => {
+    const { pathToFileURL } = require("node:url");
+    const client = await import(pathToFileURL(path.join(__dirname, "..", "client", "src", "vault", "vaultRoles.js")).href);
+    const roles = ["admin", "employee", null, undefined, "Admin", "superadmin", ""];
+    const accesses = ["super_admin", "admin", "executive", "hr", "department_head", "manager", "team_lead", "employee", null, undefined, "SUPER_ADMIN", "super_admin ", ""];
+    let allowed = 0;
+    for (const role of roles) {
+        for (const access of accesses) {
+            const expected = role === "admin" || access === "super_admin";
+            assert.equal(authz.canAdministerCompanyVault({ role, system_access: access }), expected, `server: ${role}/${access}`);
+            assert.equal(authz.canCreateCollections({ role, system_access: access }), expected, `server (creation): ${role}/${access}`);
+            assert.equal(client.canAdministerCompanyVault({ role, systemAccess: access }), expected, `client (systemAccess): ${role}/${access}`);
+            assert.equal(client.canAdministerCompanyVault({ role, system_access: access }), expected, `client (system_access): ${role}/${access}`);
+            if (expected) allowed += 1;
+        }
+    }
+    assert.ok(allowed > 0);
+    assert.equal(authz.canAdministerCompanyVault({ role: "employee", system_access: "admin" }), false, "a plain admin access level is NOT enough");
+    assert.equal(authz.canAdministerCompanyVault({ role: "admin", system_access: "employee" }), true);
+    assert.equal(authz.canAdministerCompanyVault({ role: "employee", system_access: "super_admin" }), true, "Super Admin with the employee role");
+    for (const nothing of [null, undefined, {}, "admin", 0]) { assert.equal(authz.canAdministerCompanyVault(nothing), false); assert.equal(client.canAdministerCompanyVault(nothing), false); }
+    // the camelCase field the CRM returns wins over a stale snake_case one
+    assert.equal(client.canAdministerCompanyVault({ role: "employee", systemAccess: "employee", system_access: "super_admin" }), false);
 });

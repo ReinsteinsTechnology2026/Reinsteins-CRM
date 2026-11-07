@@ -14,8 +14,14 @@ const { VaultError, forbidden, notFound } = require("../utils/vaultErrors");
 // "view" (the item's details) is implied by every path; "reveal" (the secret) is a separate right with a separate key.
 // ==========================================
 
-// Only a company administrator may open a new company collection (and becomes its first manager, i.e. its first key holder).
-const canCreateCollections = (user) => Boolean(user) && user.role === "admin";
+// WHO ADMINISTERS THE COMPANY VAULT -- the one rule, read from the user's FRESH database row (never from anything the browser claims):
+//     role = 'admin'   OR   system_access = 'super_admin'
+// A plain system_access of 'admin' (or hr, executive, ...) does NOT qualify unless the role is also 'admin'. This is a permission to START
+// things and to end people's company access; it is not access to anything: a collection's creator becomes its first manager and first key
+// holder (the keys are made in their browser), everyone else needs an explicit membership, and nobody -- Super Admin included -- can read
+// another person's personal vault or a collection they are not a member of.
+const canAdministerCompanyVault = (user) => Boolean(user) && (user.role === "admin" || user.system_access === "super_admin");
+const canCreateCollections = canAdministerCompanyVault;
 
 function resolveItemRights(row) {
     const paths = {
@@ -88,4 +94,4 @@ function memberRights(row) {
     };
 }
 
-module.exports = { canCreateCollections, resolveItemRights, requireRight: require_, requireOwnerOrManager, assertGrantable, assertActiveUser, assertAccountExists, memberRights };
+module.exports = { canAdministerCompanyVault, canCreateCollections, resolveItemRights, requireRight: require_, requireOwnerOrManager, assertGrantable, assertActiveUser, assertAccountExists, memberRights };
