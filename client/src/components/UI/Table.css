@@ -46,3 +46,13 @@
 .ui-table tr.clickable:hover {
   background: var(--ui-surface-secondary);
 }
+
+/* stage 1: clearer rows */
+.ui-table tbody tr:hover td {
+  background: var(--ui-surface-secondary);
+}
+.ui-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}

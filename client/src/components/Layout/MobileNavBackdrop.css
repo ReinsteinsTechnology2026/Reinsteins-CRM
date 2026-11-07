@@ -27,3 +27,9 @@
     }
 
 }
+
+/* stage 1: the backdrop fades in instead of appearing */
+.mobile-nav-backdrop {
+    animation: zv-fade-in var(--motion-base) var(--ease-out);
+    backdrop-filter: blur(1.5px);
+}

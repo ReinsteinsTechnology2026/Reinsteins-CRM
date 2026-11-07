@@ -1,0 +1,263 @@
+/* ==========================================
+   UI FOUNDATION (UI modernization, stage 1)
+
+   ADDITIVE ONLY. Loaded after theme.css and uiTokens.css (see main.jsx). It introduces NO colour: every colour below is
+   a reference to a token that already exists (--primary, --mint, --border, --ui-*, --p-* ...), so the brand palette of all three
+   portals (tenant CRM emerald, Owner Portal indigo, public site) is exactly what it was.
+
+   What it adds:
+     1. non-colour design tokens: motion, spacing, elevation, type
+     2. one reduced-motion rule that switches ALL animation and transition off for people who ask for that
+     3. a visible keyboard-focus ring (index.css removed the outline from every button and input)
+     4. low-specificity polish for the plain elements (buttons, tables, links, scrollbars, selection) so any page's own
+        class rules still win
+     5. the page-enter fade and the shared keyframes the modules reuse
+
+   Rules that use :where() have ZERO specificity, so they only fill in what a page does not already style.
+========================================== */
+
+:root {
+
+    /* ---- motion ---- */
+    --motion-fast: 120ms;
+    --motion-base: 200ms;
+    --motion-slow: 320ms;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* ---- spacing scale (4px grid) ---- */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 48px;
+
+    /* ---- elevation: the portal's own neutral shadow colour, in three steps ---- */
+    --elev-1: 0 1px 2px rgba(23, 33, 29, 0.06), 0 1px 3px rgba(23, 33, 29, 0.05);
+    --elev-2: var(--shadow);
+    --elev-3: var(--shadow-hover);
+
+    /* ---- type ---- */
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --text-xs: 12px;
+    --text-sm: 13px;
+    --text-base: 14px;
+    --text-lg: 16px;
+    --text-xl: 20px;
+    --text-2xl: 24px;
+    --tracking-tight: -0.012em;
+
+}
+
+/* ==========================================
+   1. REDUCED MOTION -- one switch for the whole application
+========================================== */
+
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        animation-delay: 0ms !important;
+        transition-duration: 0.01ms !important;
+        transition-delay: 0ms !important;
+        scroll-behavior: auto !important;
+    }
+
+}
+
+/* ==========================================
+   2. TYPOGRAPHY
+   index.css forces Arial on every element with a universal selector; this replaces it with the platform's own UI font (no download,
+   no new asset) and keeps the same universal selector so nothing becomes inconsistent.
+========================================== */
+
+* {
+    font-family: var(--font-sans);
+}
+
+:where(h1, h2, h3, h4) {
+    letter-spacing: var(--tracking-tight);
+    text-wrap: balance;
+}
+
+:where(table, time, .zv-numeric) {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================
+   3. KEYBOARD FOCUS
+   index.css sets `outline: none` on inputs and buttons. :focus-visible adds specificity, so this brings the ring back for keyboard users
+   without showing it on mouse clicks (for buttons and links). Text fields show a softer ring because pages style their own focus border.
+========================================== */
+
+:where(a, button, summary, [role="button"], [role="tab"], [role="menuitem"], [role="switch"], [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--ui-primary, var(--primary));
+    outline-offset: 2px;
+}
+
+:where(input, select, textarea):focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--ui-primary, var(--primary)) 40%, transparent);
+    outline-offset: 1px;
+}
+
+/* a skip target for keyboard users, only visible when focused */
+.zv-skip-link {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 2000;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: var(--ui-primary, var(--primary));
+    color: #fff;
+    transform: translateY(-200%);
+    transition: transform var(--motion-base) var(--ease-out);
+}
+.zv-skip-link:focus {
+    transform: translateY(0);
+}
+
+/* ==========================================
+   4. PLAIN-ELEMENT POLISH (zero specificity: any page rule overrides it)
+========================================== */
+
+:where(button, [role="button"], a) {
+    transition:
+        background-color var(--motion-fast) var(--ease-out),
+        border-color var(--motion-fast) var(--ease-out),
+        color var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-base) var(--ease-out),
+        opacity var(--motion-fast) var(--ease-out);
+}
+
+:where(button:disabled, [aria-disabled="true"]) {
+    cursor: not-allowed;
+}
+
+/* table rows respond to the pointer (the tint is the portal's own light brand colour, softened) */
+:where(tbody) > tr:hover > td {
+    background-color: color-mix(in srgb, var(--ui-primary-light, var(--mint)) 55%, transparent);
+}
+:where(tbody) > tr > td {
+    transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+/* text selection in the portal's own light brand colour */
+::selection {
+    background: var(--ui-primary-light, var(--mint));
+    color: inherit;
+}
+
+/* thin, quiet scrollbars (the dark sidebars keep their own subtle thumb) */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ui-border-strong, var(--border)) transparent;
+}
+.admin-sidebar,
+.employee-sidebar {
+    scrollbar-color: var(--sidebar-border) transparent;
+}
+
+/* images and media never overflow their container */
+:where(img, video, canvas, svg) {
+    max-width: 100%;
+}
+
+/* ==========================================
+   5. SHARED KEYFRAMES AND THE PAGE-ENTER FADE
+========================================== */
+
+@keyframes zv-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes zv-rise-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes zv-scale-in {
+    from { opacity: 0; transform: scale(0.97); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes zv-drop-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* The page itself fades in when a route changes (the layout and its sidebar stay; only the routed page is new). Opacity only: no transform,
+   so a page that opens a dialog while it mounts is never shifted. `backwards` means nothing is left applied afterwards. */
+.admin-page-content > *,
+.employee-page-content > *,
+.platform-main > * {
+    animation: zv-fade-in var(--motion-slow) var(--ease-out) backwards;
+}
+
+/* utilities the modules reuse */
+.zv-anim-fade  { animation: zv-fade-in  var(--motion-base) var(--ease-out) backwards; }
+.zv-anim-rise  { animation: zv-rise-in  var(--motion-slow) var(--ease-out) backwards; }
+.zv-anim-scale { animation: zv-scale-in var(--motion-base) var(--ease-out) backwards; }
+.zv-anim-drop  { animation: zv-drop-in  var(--motion-base) var(--ease-out) backwards; }
+
+/* ==========================================
+   6. APP SHELLS -- tenant sidebars and headers, Owner Portal sidebar
+   Selectors are the shells' own existing class names. Colours are the shells' own existing tokens.
+========================================== */
+
+/* sidebar rows: smoother hover, a slim light bar on the active page, icons nudge on hover */
+.sidebar-item,
+.employee-sidebar-item {
+    transition: background-color var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out);
+}
+.sidebar-item.active,
+.employee-sidebar-item.active {
+    box-shadow: inset 3px 0 0 var(--mint);
+}
+.sidebar-item svg,
+.employee-sidebar-menu-icon {
+    transition: transform var(--motion-base) var(--ease-out);
+}
+.sidebar-item:hover svg,
+.employee-sidebar-item:hover .employee-sidebar-menu-icon {
+    transform: translateX(1px) scale(1.06);
+}
+
+/* the Organization sub-menu eases in when it opens */
+.sidebar-subitems {
+    animation: zv-drop-in var(--motion-base) var(--ease-out) backwards;
+}
+.sidebar-expand-caret {
+    transition: transform var(--motion-base) var(--ease-out);
+}
+
+/* header icon buttons (notifications, sign out) */
+.notification-button,
+.header-logout {
+    transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-base) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+}
+.notification-button:hover,
+.header-logout:hover {
+    box-shadow: var(--elev-1);
+}
+.notification-button:active,
+.header-logout:active {
+    transform: translateY(1px);
+}
+
+/* Owner Portal navigation */
+.platform-nav-link {
+    transition: background-color var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out);
+}
+.platform-nav-link svg {
+    transition: transform var(--motion-base) var(--ease-out);
+}
+.platform-nav-link:hover svg {
+    transform: translateX(1px) scale(1.06);
+}

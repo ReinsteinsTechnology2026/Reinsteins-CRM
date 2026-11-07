@@ -27,3 +27,17 @@
 .ui-empty-state-action {
   margin-top: 16px;
 }
+
+/* stage 1: the icon sits in a soft circle of the portal's own light brand colour, and the block eases in */
+.ui-empty-state {
+  animation: zv-rise-in var(--motion-slow) var(--ease-out) backwards;
+}
+.ui-empty-state-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--ui-primary-light);
+  color: var(--ui-primary);
+}

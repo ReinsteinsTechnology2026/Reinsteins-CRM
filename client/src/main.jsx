@@ -4,6 +4,7 @@ import App from "./App";
 import "./index.css";
 import "./styles/theme.css";
 import "./styles/uiTokens.css";
+import "./styles/foundation.css";
 import { reloadIfStaleBuild } from "./utils/buildVersion";
 
 ReactDOM.createRoot(document.getElementById("root")).render(

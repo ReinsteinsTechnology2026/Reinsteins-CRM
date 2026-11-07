@@ -14,3 +14,10 @@
 .ui-badge-warning { background: var(--ui-warning-light); color: var(--ui-warning); }
 .ui-badge-danger  { background: var(--ui-danger-light);  color: var(--ui-danger); }
 .ui-badge-info    { background: var(--ui-info-light);    color: var(--ui-info); }
+
+/* stage 1 */
+.ui-badge {
+  line-height: 1.4;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}

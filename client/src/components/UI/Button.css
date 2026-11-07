@@ -17,7 +17,7 @@
   white-space: nowrap;
   text-decoration: none;
 
-  transition: background .15s, border-color .15s, color .15s, opacity .15s;
+  transition: background .15s, border-color .15s, color .15s, opacity .15s, box-shadow .2s, transform .12s;
 }
 
 .ui-btn:disabled {
@@ -68,4 +68,18 @@
 .ui-btn-sm {
   padding: 7px 14px;
   font-size: 12.5px;
+}
+
+/* stage 1: a little depth and tactile feedback (colours unchanged) */
+.ui-btn:not(:disabled):active {
+  transform: translateY(1px);
+}
+.ui-btn-primary {
+  box-shadow: var(--elev-1);
+}
+.ui-btn-primary:hover:not(:disabled) {
+  box-shadow: var(--elev-2);
+}
+.ui-btn-outline:hover:not(:disabled) {
+  border-color: var(--ui-primary);
 }
