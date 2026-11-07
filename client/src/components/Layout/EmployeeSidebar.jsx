@@ -33,6 +33,7 @@ import {
   FaSitemap,
   FaChartBar,
   FaTable,
+  FaKey,
 } from "react-icons/fa";
 import CompanyLogo from "../Common/CompanyLogo";
 import api from "../../services/api";
@@ -399,6 +400,7 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
     // identical to the standard menu's entry - never by designation.
     { ...shiftNav, icon: <FaCalendarWeek /> },
     { name: "Smart Sheets", icon: <FaTable />, path: `${basePath}/smart-sheets` },
+    { name: "ZioVault", icon: <FaKey />, path: `${basePath}/ziovault` },
     {
       name: "Chat",
       icon: <FaComments />,
@@ -446,6 +448,7 @@ function EmployeeSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose 
     },
     { ...shiftNav, icon: <FaCalendarWeek /> },
     { name: "Smart Sheets", icon: <FaTable />, path: `${basePath}/smart-sheets` },
+    { name: "ZioVault", icon: <FaKey />, path: `${basePath}/ziovault` },
     {
       name: "My Tasks",
       icon: <FaTasks />,

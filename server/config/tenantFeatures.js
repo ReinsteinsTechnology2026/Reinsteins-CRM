@@ -96,6 +96,12 @@ const FEATURES = Object.freeze([
         description: "Employee mailboxes on the company's own domain.",
         requires: [],
     },
+    {
+        id: "ziovault",
+        name: "ZioVault (Password Manager)",
+        description: "Client-side-encrypted personal and company password vault with granular sharing. The server never sees a secret.",
+        requires: [],
+    },
 ]);
 
 const FEATURE_IDS = Object.freeze(FEATURES.map((feature) => feature.id));
@@ -160,6 +166,7 @@ const API_RULES = Object.freeze([
     { prefix: "/api/sops", features: ["sops"] },
     { prefix: "/api/smart-sheets", features: ["smart_sheets"] },
     { prefix: "/api/email", features: ["email"] },
+    { prefix: "/api/ziovault", features: ["ziovault"] },
 ]);
 
 const matchesPrefix = (path, prefix) => path === prefix || path.startsWith(`${prefix}/`);

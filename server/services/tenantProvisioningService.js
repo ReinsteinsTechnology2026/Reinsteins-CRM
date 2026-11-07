@@ -3,6 +3,7 @@ const path = require("path");
 const { Client } = require("pg");
 
 const provisioningPool = require("../config/provisioningDb");
+const { splitSqlStatements } = require("../utils/sqlStatements");
 const {
     buildTenantDbName,
     isValidTenantDbName,
@@ -55,20 +56,11 @@ function loadSchemaStatements() {
 
     const raw = fs.readFileSync(SCHEMA_FILE_PATH, "utf8");
 
-    // Strip comment lines, then split into individual statements.
-    // Every statement in this file (SET FOREIGN_KEY_CHECKS / CREATE
-    // TABLE) is generated, not hand-written, and none of them
-    // contain a literal ";" inside a string/identifier, so a plain
-    // split on ";" is safe here.
-    const withoutComments = raw
-        .split("\n")
-        .filter((line) => !line.trim().startsWith("--"))
-        .join("\n");
-
-    return withoutComments
-        .split(";")
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
+    // Strip comment lines, then split into individual statements. A plain split on ";" was enough while every statement was
+    // a generated CREATE TABLE; trigger/function bodies (ZioVault's offboarding trigger) contain semicolons of their own, so
+    // the splitter understands dollar-quoted bodies and string literals (utils/sqlStatements.js). For a file without those it
+    // returns exactly what the plain split returned.
+    return splitSqlStatements(raw);
 }
 
 function extractTableNamesFromSchema() {
@@ -472,4 +464,6 @@ module.exports = {
     compareTenantSchema,
     getRowCounts,
     dropProvisionedDatabase,
+    // the exact statements a new tenant database is built from (tests apply the real schema through this)
+    loadSchemaStatements,
 };

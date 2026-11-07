@@ -267,6 +267,17 @@ async function sweepAllTenants(io, { maxPerTenant, maxPerRun }) {
                 () => sweepTenant(io, tenantPool, companySlug, limit, progress)
             );
 
+            // ZioVault housekeeping and rotation reminders for this tenant (a failure here never counts against the task sweep above)
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                await runWithTenantContext(
+                    { tenantPool, companySlug },
+                    () => require("./vaultMaintenance").runForTenant({ io, db: tenantPool, companyId: company.id })
+                );
+            } catch (vaultError) {
+                console.error(`[vaultMaintenance] failed for tenant "${companySlug}":`, vaultError.message);
+            }
+
             tenants.push({ companySlug, ...progress });
 
             // Stopped by the run-wide budget rather than its own cap.

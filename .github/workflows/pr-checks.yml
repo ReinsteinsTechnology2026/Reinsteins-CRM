@@ -99,6 +99,9 @@ jobs:
             _test_smart_sheets_resilience.js \
             _test_tenant_features.js \
             _test_tenant_features_rendered.js \
+            _test_ziovault_crypto.js \
+            _test_ziovault_schema.js \
+            _test_ziovault_client.js \
             _test_portal_design.js \
             _test_employee_creation_domain_fallback.js \
             _test_company_logo_upload_error_handling.js \
@@ -117,7 +120,7 @@ jobs:
   migration-postgres:
     name: Password-change migration against a disposable PostgreSQL
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16
@@ -154,13 +157,72 @@ jobs:
       - name: Install server dependencies
         run: npm ci --omit=dev --ignore-scripts
 
+      # the ZioVault tests run the client's real cryptography (libsodium), which lives in the client's dependencies
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
       - name: Run the migration integration test
         working-directory: server
         run: |
           set -o pipefail
-          node --test --test-reporter=spec _test_password_change_pg.js _test_smart_sheets_pg.js _test_company_features_pg.js 2>&1 | tee "$RUNNER_TEMP/migration-pg.log"
+          node --test --test-reporter=spec _test_password_change_pg.js _test_smart_sheets_pg.js _test_company_features_pg.js _test_ziovault_pg.js _test_ziovault_db_pg.js _test_ziovault_session_pg.js _test_ziovault_company_pg.js _test_ziovault_attachments_pg.js _test_ziovault_stage5_pg.js 2>&1 | tee "$RUNNER_TEMP/migration-pg.log"
           if ! grep -Eq 'skipped 0$' "$RUNNER_TEMP/migration-pg.log"; then
             echo "::error::Some migration tests were skipped (the PostgreSQL service was not configured)."
+            exit 1
+          fi
+
+  ziovault-ui-postgres:
+    name: ZioVault screens against the real API and a disposable PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: wh_ci
+          POSTGRES_PASSWORD: ci-disposable-only
+          POSTGRES_DB: wh_ci_admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wh_ci -d wh_ci_admin"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PG_TEST_REQUIRED: "1"
+      PG_TEST_HOST: 127.0.0.1
+      PG_TEST_PORT: "5432"
+      PG_TEST_USER: wh_ci
+      PG_TEST_PASSWORD: ci-disposable-only
+      PG_TEST_ADMIN_DB: wh_ci_admin
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # the screens are rendered with the client's own React/Vite and jsdom, so the full (dev) dependencies are needed
+      - name: Install server dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Run the ZioVault UI test
+        working-directory: server
+        run: |
+          set -o pipefail
+          node --test --test-reporter=spec _test_ziovault_ui_pg.js _test_ziovault_company_ui_pg.js _test_ziovault_stage5_ui_pg.js 2>&1 | tee "$RUNNER_TEMP/ziovault-ui.log"
+          if ! grep -Eq 'skipped 0$' "$RUNNER_TEMP/ziovault-ui.log"; then
+            echo "::error::The ZioVault UI test was skipped (jsdom, the client dependencies or the PostgreSQL service were missing)."
             exit 1
           fi
 
