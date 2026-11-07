@@ -46,14 +46,14 @@ function makeClock() {
 }
 
 // One signed-in person in one browser tab, against one tenant's server.
-async function newTab({ vault, sessionModule, apiModule, server, tenantId, userId, role = "employee", hooks, clock = makeClock() }) {
+async function newTab({ vault, sessionModule, apiModule, server, tenantId, userId, role = "employee", systemAccess, hooks, clock = makeClock() }) {
     const record = { requests: [], responses: [] };
     const http = makeHttp(server.url, userId, record, hooks);
     const drafts = memoryStorage();
     const storage = memoryStorage();
     const session = sessionModule.createVaultSession({
         api: apiModule.createVaultApi(http), vault, kdf: FAST, now: clock.now, setTimer: clock.setTimer, clearTimer: clock.clearTimer,
-        getIdentity: async () => ({ tenantId, userId, role }),
+        getIdentity: async () => ({ tenantId, userId, role, systemAccess }),
         prefsStore: { load: () => ({}), save: (p) => storage.setItem("ziovault:prefs", JSON.stringify(p)) },
         draftStorage: drafts, channel: null,
     });

@@ -88,7 +88,7 @@ function createUiHarness() {
         void lab;
         const call = async (method, route, body) => {
             if (h.injectFailure) { const failure = h.injectFailure(method, route); if (failure) throw failure; }
-            if (route === "/tenant-auth/me") return { data: { company: { id: h.world.tenantId }, user: { id: h.identity.id, role: h.identity.role } } };
+            if (route === "/tenant-auth/me") return { data: { company: { id: h.world.tenantId }, user: { id: h.identity.id, role: h.identity.role, systemAccess: h.identity.systemAccess } } };
             const text = body === undefined ? undefined : JSON.stringify(body);
             h.record.requests.push({ method, route, body: text || "", user: h.identity.id });
             const res = await fetch(`${h.world.server.url}/api${route}`, { method: method.toUpperCase(), headers: { "Content-Type": "application/json", "x-test-user": String(h.identity.id) }, body: text });

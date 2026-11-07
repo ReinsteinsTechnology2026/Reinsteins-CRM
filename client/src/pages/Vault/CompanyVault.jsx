@@ -50,7 +50,7 @@ export default function CompanyVault({ session, state, selected, setSelected, on
           <div className="zv-empty" data-testid="vault-company-empty">
             <FaFolderOpen aria-hidden="true" />
             <p>You are not a member of any company collection yet.</p>
-            <p className="zv-hint">{state.canCreateCollections ? "Create the first collection, then add the colleagues who need it." : "A company administrator or a collection manager can add you to one."}</p>
+            <p className="zv-hint">{state.canCreateCollections ? "Create the first collection, then add the colleagues who need it." : "A company administrator, a Super Admin or a collection manager can add you to one."}</p>
           </div>
         ) : (
           <ul className="zv-cards">

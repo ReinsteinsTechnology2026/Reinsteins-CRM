@@ -5,6 +5,7 @@ import { analyzeVault, estimateStrength, THRESHOLDS } from "./health.js";
 import { createCompanyActions } from "./vaultCompany.js";
 import { createOperations } from "./vaultOperations.js";
 import { AttachmentError } from "./attachmentModel.js";
+import { canAdministerCompanyVault } from "./vaultRoles.js";
 
 // ==========================================
 // ZIOVAULT -- the personal-vault session (everything the user interface does goes through here)
@@ -280,9 +281,9 @@ export function createVaultSession({
       identity = await getIdentity();
       const status = await api.accountStatus();
       account = status.exists ? { accountVersion: status.accountVersion, recoveryConfirmed: status.recoveryConfirmed } : null;
-      // only a company administrator can open a new collection (the server enforces it; this just decides whether to offer the button)
+      // only a company administrator or Super Admin can open a new collection (the server enforces it; this just decides whether to offer the button)
       set({
-        canCreateCollections: identity.role === "admin",
+        canCreateCollections: canAdministerCompanyVault(identity),
         status: status.exists ? "locked" : "no-account", recoveryConfirmed: status.exists ? status.recoveryConfirmed : true,
         draftAvailable: Boolean(draftStorage && draftStorage.getItem(DRAFT_KEY(identity.tenantId, identity.userId))),
       });

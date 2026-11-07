@@ -240,7 +240,7 @@ stolen; the Owner/platform operator and tenant administrators are **not** truste
 ### Decisions taken during the build (and why)
 
 1. **No server-side proof of the master password.** An "auth key" derived from the master password and sent to the server would let it refuse envelope downloads to a stolen session, but it would put a *derived key* on the server, which the requirements forbid. So the envelope is available to the user's own authenticated session and the protections are: Argon2id, a per-user rate limit, an audit record of every fetch -- and, because anyone with the session can also *overwrite* the envelope, `zv_account_history`: **every replaced vault-key envelope is kept**, and the owner can restore it (`POST /account/envelope-history/:id/restore`). A hijacker can lock the owner out for a moment; they cannot destroy the vault.
-2. **Collection managers are key holders.** `createCollection` is limited to `users.role = 'admin'`; the creator is the first manager and holds both collection keys. Adding a member = the manager's browser wraps the keys to that member's public key. A collection cannot lose its last manager; there is no administrator key.
+2. **Collection managers are key holders.** `createCollection` is limited to `users.role = 'admin'` or `users.system_access = 'super_admin'` (see section 15); the creator is the first manager and holds both collection keys. Adding a member = the manager's browser wraps the keys to that member's public key. A collection cannot lose its last manager; there is no administrator key.
 3. **Rotation is atomic and exact.** Rotating an item or a collection must name *exactly* the people who currently have access (and an item's current shares); a missing or extra person is refused with `RECIPIENTS_MISMATCH` / `MEMBERS_MISMATCH` / `ITEMS_MISMATCH`, so a rotation can neither silently drop a legitimate holder nor smuggle in a new one. The server cannot check that a wrapper really contains the right key; a holder finds out when decryption fails.
 4. **One revocation implementation.** `zv_revoke_grants` and `zv_remove_collection_members` (PostgreSQL functions) are used by the API, the expiry sweep and the offboarding trigger, so a revocation always does the same things: mark revoked, delete the envelopes, flag the item/collection for rotation, write the audit record, and follow the delegation chain (what was shared *through* a revoked grant is revoked with it).
 5. **Delegation is bounded.** A recipient with the *share* right can hand on at most what they hold, never *share* itself, never past their own expiry; only an owner or a manager creates further sharers.
@@ -403,3 +403,21 @@ what someone already saw, copied or downloaded (the screens say so). (3) "Mark r
 notifications only (no email), at most hourly. (5) Re-keying needs the manager to hold reveal on every item and is limited to about 15 MB of re-encrypted
 data per collection per step. (6) The audit viewer shows completed actions only; refused attempts are not recorded. (7) Managers who are not
 administrators see the names of colleagues in their collections' activity. (8) The directory used for sharing lists only people who already have a vault.
+
+## 15. Who administers the company vault (rule corrected after Stage 5)
+
+**The rule:** a person may create company collections and end people's company vault access if their fresh database row says
+`role = 'admin'` **or** `system_access = 'super_admin'`. A plain `system_access` of `admin` (or hr, executive, manager, ...) does **not** qualify
+unless the role is also `admin`. (Stages 2-5 used `role = 'admin'` alone, which excluded a CRM Super Admin whose role is `employee`, for
+example a CTO; `users.role` can only be `admin` or `employee`, while `system_access` is a separate column an existing Super Admin can grant.)
+
+**Where it lives.** Server: `services/vaultAuthz.js` `canAdministerCompanyVault` (also exported as `canCreateCollections`), applied to collection
+creation and to the two offboarding endpoints, always on the row read for that request, so a demotion or promotion applies on the next request. Browser:
+`client/src/vault/vaultRoles.js`, a copy used only to decide whether to OFFER "New collection" and the offboarding screen; a test checks the two agree
+for every combination. What the page believes never decides anything: a wrong claim shows a button the server then refuses, and a Super Admin whose page
+claims nothing is still allowed.
+
+**What it is not.** It is permission to START things, not access to anything. The creator becomes the collection's first manager and first key holder,
+with key envelopes made in their own browser; everyone else needs an explicit membership from a manager. Super Admin gets no hidden key, cannot open a
+collection they are not a member of (404, like anyone), cannot read anyone's personal vault, and the offboarding screens return counts and names only. A
+creator keeps their manager rights through their membership even if their role or access is later reduced.
