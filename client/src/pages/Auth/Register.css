@@ -247,3 +247,64 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================
+   STAGE 2 -- enterprise polish (existing colours; spacing, depth, focus and entrance motion)
+========================================== */
+
+.register-brand-section { position: relative; overflow: hidden; }
+.register-brand-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse at 30% 20%, #000 0%, transparent 70%);
+  mask-image: radial-gradient(ellipse at 30% 20%, #000 0%, transparent 70%);
+  pointer-events: none;
+}
+.register-brand-content { position: relative; animation: zv-rise-in var(--motion-slow) var(--ease-out) backwards; }
+.register-brand-content h1 { letter-spacing: var(--tracking-tight); }
+.register-brand-content p { max-width: 46ch; }
+
+.register-card {
+  max-width: 500px;
+  padding: 34px;
+  border-radius: 20px;
+  box-shadow: var(--elev-3);
+  animation: zv-rise-in var(--motion-slow) var(--ease-out) backwards;
+}
+.register-header h2 { font-size: 26px; letter-spacing: var(--tracking-tight); }
+.register-header p { font-size: 14px; line-height: 1.5; }
+.register-form-group { animation: zv-fade-in var(--motion-slow) var(--ease-out) backwards; }
+.register-input-container {
+  height: 48px;
+  border-radius: 12px;
+  background: var(--card);
+  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-base) var(--ease-out);
+}
+.register-input-container:hover { border-color: var(--border-light); }
+.register-input-container:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+.register-input-container input { font-size: 15px; }
+.register-password-toggle { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; }
+.register-password-toggle:hover { background: var(--mint); }
+.register-submit-button, .back-login-button {
+  height: 48px;
+  border-radius: 12px;
+  box-shadow: var(--elev-1);
+  transition: background-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-base) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+}
+.register-submit-button:hover:not(:disabled), .back-login-button:hover { background: var(--primary-hover); box-shadow: var(--elev-2); }
+.register-submit-button:active:not(:disabled), .back-login-button:active { transform: translateY(1px); }
+.registration-success-card { border-radius: 20px; box-shadow: var(--elev-3); animation: zv-scale-in var(--motion-slow) var(--ease-out) backwards; }
+.registration-success-icon { animation: zv-scale-in var(--motion-slow) var(--ease-out) 120ms backwards; }
+.generated-id-box { border: 1px solid color-mix(in srgb, var(--primary) 25%, transparent); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 800px) {
+  .register-form-section { padding: 20px 16px; }
+  .register-card { padding: 24px 18px; border-radius: 16px; }
+  .register-input-container input { font-size: 16px; }
+}

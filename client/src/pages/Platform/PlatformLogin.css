@@ -151,3 +151,31 @@
     font-size: 11.5px;
     color: var(--p-text-muted);
 }
+
+
+/* ==========================================
+   STAGE 2 -- Owner Portal sign-in polish (indigo palette unchanged)
+========================================== */
+
+.platform-login-panel { animation: zv-rise-in var(--motion-slow) var(--ease-out) backwards; }
+.platform-login-card { padding: 34px 30px; border: 1px solid rgba(255, 255, 255, 0.06); }
+.platform-login-header h1 { letter-spacing: var(--tracking-tight); }
+.platform-form-group { animation: zv-fade-in var(--motion-slow) var(--ease-out) backwards; }
+.platform-input-container input {
+    transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-base) var(--ease-out);
+}
+.platform-input-container input:focus {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--p-primary, #4F46E5) 18%, transparent);
+}
+.platform-password-toggle { border-radius: 8px; }
+.platform-password-toggle:hover { background: color-mix(in srgb, var(--p-primary, #4F46E5) 10%, transparent); }
+.platform-login-button {
+    transition: background-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-base) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+}
+.platform-login-button:active:not(:disabled) { transform: translateY(1px); }
+
+@media (max-width: 480px) {
+    .platform-login-page { padding: 16px; }
+    .platform-login-card { padding: 26px 20px; }
+    .platform-input-container input { font-size: 16px; }
+}
