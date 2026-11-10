@@ -89,3 +89,12 @@
     max-width: 100%;
   }
 }
+
+/* stage 1: entrance animation (the backdrop fades, the dialog scales in) */
+.ui-modal-backdrop {
+  animation: zv-fade-in var(--motion-base) var(--ease-out);
+  backdrop-filter: blur(2px);
+}
+.ui-modal {
+  animation: zv-scale-in var(--motion-base) var(--ease-out);
+}
