@@ -33,6 +33,25 @@ function ScrollManager() {
     return undefined;
   }, [pathname, hash]);
 
+  // A link to the section the address bar already points at (for example "Request a Demo" while on /#demo) does not change the location,
+  // so the effect above would not run. Only that case is handled here; every other link goes through the router as usual.
+  useEffect(() => {
+    const onClick = (event) => {
+      const link = event.target.closest && event.target.closest("a[href*='#']");
+      if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+      const url = new URL(link.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname !== window.location.pathname || !url.hash || url.hash !== window.location.hash) return;
+      const target = document.getElementById(decodeURIComponent(url.hash.slice(1)));
+      if (!target) return;
+      event.preventDefault();
+      const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    };
+    // capture phase: runs before the router's own link handler, which would otherwise mark the click as handled first
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
+
   return null;
 }
 

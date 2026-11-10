@@ -7,10 +7,13 @@ import MobileNavBackdrop from "./MobileNavBackdrop";
 
 import useSidebarCollapsed from "../../hooks/useSidebarCollapsed";
 import useMobileNav from "../../hooks/useMobileNav";
+import useRouteTitle from "../../hooks/useRouteTitle";
 
 import "./EmployeeLayout.css";
 
 function EmployeeLayout() {
+    useRouteTitle("Employee", "employee");
+
 
     // Lives here (the shared layout), not per-page, so every
     // employee route reacts to the same toggle without its own

@@ -13,7 +13,7 @@
     background: linear-gradient(90deg, transparent, var(--ws-emerald, #16A66A), transparent);
 }
 
-.pub-footer-inner {
+.pub-footer .pub-footer-inner {
     display: flex;
     justify-content: space-between;
     gap: 48px;
@@ -53,9 +53,10 @@
 }
 .pub-footer-col a:hover { color: #fff; transform: translateX(3px); }
 
-.pub-footer-bottom {
+.pub-footer .pub-footer-bottom {
     border-top: 1px solid var(--pub-dark-border);
-    padding: 22px 24px;
+    padding-top: 22px;
+    padding-bottom: 22px;
     font-size: 13px;
     color: var(--pub-ink-muted);
 }

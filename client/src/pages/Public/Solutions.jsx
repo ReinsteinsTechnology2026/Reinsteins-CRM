@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
-import { Reveal, usePageMeta } from "../../components/Public/motion";
+import { Reveal } from "../../components/Public/motion";
+import usePageMeta from "../../hooks/usePageMeta";
 import { SOLUTIONS } from "./siteContent";
 
 import "./InnerPage.css";

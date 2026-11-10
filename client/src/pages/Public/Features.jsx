@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { FaCheck, FaKey } from "react-icons/fa";
 
-import { Reveal, usePageMeta } from "../../components/Public/motion";
+import { Reveal } from "../../components/Public/motion";
+import usePageMeta from "../../hooks/usePageMeta";
 import { MODULES, ZIOVAULT_CAPABILITIES } from "./siteContent";
 
 import "./InnerPage.css";
@@ -9,7 +10,7 @@ import "./InnerPage.css";
 // ==========================================
 // FEATURES PAGE
 // Every module and capability comes from siteContent.js, which was checked against the implemented product. Each module has an id so
-// the home page's "View details" links (/features#employee-management and so on) land on it.
+// the home page's links (/features#employee-management and so on) land on it.
 // ==========================================
 
 const PLATFORM_ITEMS = [
@@ -34,45 +35,53 @@ function Features() {
           <span className="ws-eyebrow">Features</span>
           <h1 className="pub-h1">Everything built into ZioVenture today</h1>
           <p className="pub-lede">A working feature set, organized the way your organization already thinks about work.</p>
+          <nav className="pub-jump" aria-label="Jump to a module">
+            {MODULES.map((module) => <a key={module.id} href={`#${module.id}`}>{module.name}</a>)}
+            <a href="#ziovault">ZioVault</a>
+          </nav>
         </div>
       </section>
 
       <section className="pub-section">
         <div className="pub-container">
-          <div className="pub-module-list">
-            {MODULES.map(({ id, icon: Icon, name, description, problem, capabilities, benefit }) => (
-              <Reveal as="article" className="pub-module-row" id={id} key={id}>
-                <div className="pub-module-head">
+          <div className="pub-module-grid">
+            {MODULES.map(({ id, icon: Icon, name, description, problem, capabilities, benefit, note }, index) => (
+              <Reveal as="article" className="pub-module-card" id={id} key={id} delay={(index % 2) * 60}>
+                <header>
                   <span className="ws-icon"><Icon aria-hidden="true" /></span>
-                  <h2>{name}</h2>
-                  <p>{description}</p>
-                </div>
-                <div className="pub-module-body">
-                  <p><b>The problem</b>{problem}</p>
-                  <ul>
-                    {capabilities.map((capability) => (
-                      <li key={capability}><FaCheck aria-hidden="true" /> {capability}</li>
-                    ))}
-                  </ul>
-                  <p><b>The benefit</b>{benefit}</p>
-                </div>
+                  <div>
+                    <h2>{name}</h2>
+                    <p>{description}</p>
+                  </div>
+                </header>
+                <dl>
+                  <div><dt>Why it matters</dt><dd>{problem}</dd></div>
+                  <div><dt>In daily operations</dt><dd>{benefit}</dd></div>
+                </dl>
+                <ul>
+                  {capabilities.map((capability) => (
+                    <li key={capability}><FaCheck aria-hidden="true" /> {capability}</li>
+                  ))}
+                </ul>
+                {note && <p className="pub-module-note">{note}</p>}
               </Reveal>
             ))}
 
-            <Reveal as="article" className="pub-module-row pub-module-vault" id="ziovault">
-              <div className="pub-module-head">
+            <Reveal as="article" className="pub-module-card pub-module-vault" id="ziovault">
+              <header>
                 <span className="ws-icon"><FaKey aria-hidden="true" /></span>
-                <h2>ZioVault</h2>
-                <p>The secure password and secrets management component of ZioVenture.</p>
-              </div>
-              <div className="pub-module-body">
-                <ul className="pub-two-col">
-                  {ZIOVAULT_CAPABILITIES.map((item) => (
-                    <li key={item.name}><FaCheck aria-hidden="true" /> <span><strong>{item.name}</strong> {item.copy}</span></li>
-                  ))}
-                </ul>
-                <Link to="/#security" className="ws-link">How ZioVault protects your secrets</Link>
-              </div>
+                <div>
+                  <h2>ZioVault</h2>
+                  <p>The secure password and secrets management component of ZioVenture. Secrets are encrypted on the user's device, and
+                    there is no administrator master key.</p>
+                </div>
+              </header>
+              <ul className="pub-two-col">
+                {ZIOVAULT_CAPABILITIES.map((item) => (
+                  <li key={item.name}><FaCheck aria-hidden="true" /> <span><strong>{item.name}</strong> {item.copy}</span></li>
+                ))}
+              </ul>
+              <Link to="/#security" className="ws-link">How ZioVault protects your secrets</Link>
             </Reveal>
           </div>
         </div>

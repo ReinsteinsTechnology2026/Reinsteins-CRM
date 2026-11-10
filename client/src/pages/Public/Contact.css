@@ -4,9 +4,8 @@
 
 .pub-contact-grid {
     display: grid;
-    grid-template-columns: 1.5fr 1fr;
-    gap: 48px;
-    max-width: 980px;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    gap: 44px;
 }
 
 @media (max-width: 760px) {
@@ -20,7 +19,7 @@
     border: 1px solid var(--pub-border);
     border-radius: var(--pub-radius);
     box-shadow: var(--pub-shadow);
-    padding: 36px;
+    padding: 32px;
 }
 
 .pub-contact-submit {

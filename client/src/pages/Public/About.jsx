@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { FaBullseye, FaShieldAlt, FaUsers } from "react-icons/fa";
 
-import { usePageMeta } from "../../components/Public/motion";
+import usePageMeta from "../../hooks/usePageMeta";
 import "./InnerPage.css";
 import "./About.css";
 

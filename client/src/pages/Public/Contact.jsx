@@ -1,7 +1,7 @@
 import { FaEnvelope } from "react-icons/fa";
 
 import DemoRequestForm from "../../components/Public/DemoRequestForm";
-import { usePageMeta } from "../../components/Public/motion";
+import usePageMeta from "../../hooks/usePageMeta";
 import "./InnerPage.css";
 import "./Contact.css";
 
@@ -42,8 +42,7 @@ function Contact() {
             <h2 className="pub-h3">What happens next?</h2>
             <p><FaEnvelope aria-hidden="true" /> Submit the form and our team will reach out directly.</p>
             <p className="pub-contact-note">
-              We typically respond within one business day. No account or payment
-              information is needed to request a demo.
+              No account or payment information is needed to request a demo.
             </p>
           </div>
 

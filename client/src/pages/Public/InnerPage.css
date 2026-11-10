@@ -1,71 +1,74 @@
 /* ==========================================
-   INNER PUBLIC PAGES (Features, Solutions, Pricing, About, Contact) -- premium hero and shared layout
+   INNER PUBLIC PAGES (Features, Solutions, Pricing, About, Contact) -- hero and shared layout.
+   Uses the same tokens, container and section rhythm as the home page (styles/publicSite.css).
 ========================================== */
 
 .pub-inner-hero {
     position: relative;
-    padding: 84px 0 56px;
+    padding: 64px 0 40px;
     text-align: center;
     overflow: hidden;
     background:
-        radial-gradient(760px 320px at 50% -10%, rgba(22, 166, 106, .2), transparent 70%),
+        radial-gradient(760px 300px at 50% -10%, rgba(22, 166, 106, .18), transparent 70%),
         linear-gradient(180deg, #F3FBF7, #FFFFFF);
 }
 
-.pub-inner-hero .pub-container { max-width: 760px; animation: ws-rise .8s var(--ws-ease) backwards; }
+.pub-inner-hero .pub-container { animation: ws-rise .6s var(--ws-ease) backwards; }
+.pub-inner-hero .pub-container > * { max-width: 760px; margin-left: auto; margin-right: auto; }
 
-.pub-inner-hero .pub-h1 {
-    font-size: clamp(32px, 4.6vw, 52px);
-    letter-spacing: -.03em;
-    color: var(--ws-ink);
+.pub-inner-hero .pub-h1 { font-size: clamp(32px, 4.4vw, 48px); letter-spacing: -.03em; color: var(--ws-ink); margin-bottom: 14px; }
+.pub-inner-hero .pub-lede { font-size: 17.5px; margin-bottom: 0; }
+
+.public-shell .pub-section { padding: 56px 0 var(--ws-section-y); }
+.public-shell .pub-section-subtle { padding: var(--ws-section-y) 0; }
+
+/* jump links on the Features page */
+.pub-jump { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 28px !important; max-width: 920px !important; }
+.pub-jump a { padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--ws-forest); background: #fff; border: 1px solid var(--ws-line); transition: border-color .2s, background-color .2s, color .2s; }
+.pub-jump a:hover { border-color: var(--ws-emerald); background: var(--ws-mint-soft); }
+
+/* module cards (Features): two balanced columns, the ZioVault card spans both */
+.pub-module-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ws-gap); }
+.pub-module-card {
+    display: flex; flex-direction: column; gap: 16px; padding: var(--ws-card-pad);
+    border-radius: var(--ws-radius); background: #fff; border: 1px solid var(--ws-line); box-shadow: var(--ws-shadow-sm);
+    scroll-margin-top: calc(var(--ws-nav-h) + 16px);
+    transition: box-shadow .3s var(--ws-ease), border-color .3s;
 }
+.pub-module-card:hover { box-shadow: var(--ws-shadow); border-color: rgba(22, 166, 106, .35); }
+.pub-module-card:target { border-color: var(--ws-emerald); box-shadow: 0 0 0 4px rgba(22, 166, 106, .14), var(--ws-shadow); }
+.pub-module-card header { display: flex; gap: 14px; align-items: flex-start; }
+.pub-module-card h2 { margin: 0 0 4px; font-size: 20px; letter-spacing: -.015em; color: var(--ws-ink); }
+.pub-module-card header p { margin: 0; font-size: 15px; line-height: 1.55; color: var(--ws-ink-2); }
+.pub-module-card dl { margin: 0; display: grid; gap: 10px; padding-top: 14px; border-top: 1px solid var(--ws-line); }
+.pub-module-card dt { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ws-emerald-deep); }
+.pub-module-card dd { margin: 2px 0 0; font-size: 14px; line-height: 1.55; color: var(--ws-ink-2); }
+.pub-module-card ul { list-style: none; margin: 0; padding: 14px 0 0; border-top: 1px solid var(--ws-line); display: flex; flex-direction: column; gap: 8px; }
+.pub-module-card li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.5; color: var(--ws-ink); }
+.pub-module-card li svg { color: var(--ws-emerald); font-size: 11px; margin-top: 5px; flex-shrink: 0; }
+.pub-module-card li strong { color: var(--ws-ink); }
+.pub-module-note { margin: 0; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; color: #7C5A00; background: #FFF8E1; border: 1px solid #F3E2A6; }
 
-.pub-inner-hero .pub-lede { margin-left: auto; margin-right: auto; font-size: 18px; }
-
-/* module detail rows (Features) */
-.pub-module-list { display: flex; flex-direction: column; gap: 22px; }
-
-.pub-module-row {
-    display: grid;
-    grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
-    gap: 36px;
-    padding: 32px;
-    border-radius: var(--ws-radius);
-    background: #fff;
-    border: 1px solid var(--ws-line);
-    box-shadow: var(--ws-shadow-sm);
-    scroll-margin-top: 92px;
-    transition: box-shadow .35s var(--ws-ease), border-color .3s, transform .35s var(--ws-ease);
-}
-.pub-module-row:hover { box-shadow: var(--ws-shadow); border-color: rgba(22, 166, 106, .35); }
-.pub-module-row:target { border-color: var(--ws-emerald); box-shadow: 0 0 0 4px rgba(22, 166, 106, .14), var(--ws-shadow); }
-
-.pub-module-head h2 { margin: 0 0 8px; font-size: 24px; letter-spacing: -.02em; color: var(--ws-ink); }
-.pub-module-head p { margin: 0; font-size: 15.5px; line-height: 1.6; color: var(--ws-ink-2); }
-
-.pub-module-body p { margin: 0 0 14px; font-size: 14.5px; line-height: 1.6; color: var(--ws-ink-2); }
-.pub-module-body b { display: block; margin-bottom: 2px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ws-emerald-deep); }
-.pub-module-body ul { list-style: none; margin: 0 0 14px; padding: 12px 0; border-top: 1px dashed var(--ws-line); border-bottom: 1px dashed var(--ws-line); display: flex; flex-direction: column; gap: 9px; }
-.pub-module-body li { display: flex; align-items: flex-start; gap: 10px; font-size: 14.5px; color: var(--ws-ink-2); }
-.pub-module-body li svg { color: var(--ws-emerald); font-size: 11px; margin-top: 5px; flex-shrink: 0; }
-.pub-module-body li strong { color: var(--ws-ink); }
-.pub-two-col { display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px 22px !important; }
-
-.pub-module-vault { background: linear-gradient(135deg, #111816, #0E3A2A); border-color: rgba(111, 210, 166, .25); }
+.pub-module-vault { grid-column: 1 / -1; background: linear-gradient(135deg, #111816, #0E3A2A); border-color: rgba(111, 210, 166, .25); }
 .pub-module-vault h2 { color: #fff; }
-.pub-module-vault .pub-module-head p, .pub-module-vault .pub-module-body li { color: #B4C4BD; }
-.pub-module-vault .pub-module-body li strong { color: #fff; }
-.pub-module-vault .pub-module-body ul { border-color: rgba(255, 255, 255, .12); }
+.pub-module-vault header p, .pub-module-vault li { color: #B4C4BD; }
+.pub-module-vault li strong { color: #fff; }
+.pub-module-vault ul { border-color: rgba(255, 255, 255, .12); }
 .pub-module-vault .ws-icon { background: rgba(22, 166, 106, .18); border-color: rgba(111, 210, 166, .3); color: #8ED9B7; }
 .pub-module-vault .ws-link { color: #8ED9B7; }
+.pub-two-col { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 24px !important; }
 
-@media (max-width: 860px) {
-    .pub-module-row { grid-template-columns: 1fr; gap: 18px; padding: 24px 20px; }
-    .pub-two-col { grid-template-columns: 1fr; }
-    .pub-inner-hero { padding: 56px 0 36px; }
+@media (max-width: 900px) {
+    .pub-module-grid { grid-template-columns: minmax(0, 1fr); }
+    .pub-two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+    .pub-inner-hero { padding: 44px 0 28px; }
+    .pub-two-col { grid-template-columns: minmax(0, 1fr); }
+    .pub-jump { justify-content: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .pub-inner-hero .pub-container { animation: none; }
-    .pub-module-row { transition: none; }
+    .pub-module-card, .pub-jump a { transition: none; }
 }

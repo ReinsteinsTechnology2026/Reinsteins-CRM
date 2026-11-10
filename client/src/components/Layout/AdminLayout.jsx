@@ -8,10 +8,13 @@ import AdminSubscriptionBanner from "./AdminSubscriptionBanner";
 
 import useSidebarCollapsed from "../../hooks/useSidebarCollapsed";
 import useMobileNav from "../../hooks/useMobileNav";
+import useRouteTitle from "../../hooks/useRouteTitle";
 
 import "./AdminLayout.css";
 
 function AdminLayout() {
+    useRouteTitle("Admin", "admin");
+
 
     // Lives here (the shared layout), not per-page, so every admin
     // route reacts to the same toggle without its own logic. This

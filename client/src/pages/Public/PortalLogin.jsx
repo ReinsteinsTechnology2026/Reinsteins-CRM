@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FaArrowRight, FaShieldAlt } from "react-icons/fa";
 
-import { usePageMeta } from "../../components/Public/motion";
+import usePageMeta from "../../hooks/usePageMeta";
 import "./InnerPage.css";
 import "./PortalLogin.css";
 

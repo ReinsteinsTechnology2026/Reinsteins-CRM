@@ -1,41 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+
+import { useInView, prefersReducedMotion } from "../../hooks/useInView";
 
 // ==========================================
-// PUBLIC WEBSITE MOTION HELPERS
-// IntersectionObserver based, no animation library. When the visitor asks for reduced motion, or the browser has no
-// IntersectionObserver, everything is simply shown in its final state.
+// PUBLIC WEBSITE MOTION COMPONENTS
+// IntersectionObserver based (see hooks/useInView.js), no animation library. With reduced motion, or without IntersectionObserver,
+// everything is shown in its final state.
 // ==========================================
-
-const prefersReducedMotion = () =>
-  typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-// Returns [ref, inView]. `inView` turns true once and stays true.
-export function useInView({ threshold = 0.18, rootMargin = "0px 0px -8% 0px" } = {}) {
-  const ref = useRef(null);
-  const [inView, setInView] = useState(false);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return undefined;
-    if (prefersReducedMotion() || typeof IntersectionObserver === "undefined") {
-      setInView(true);
-      return undefined;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setInView(true);
-          observer.disconnect();
-        }
-      },
-      { threshold, rootMargin }
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [threshold, rootMargin]);
-
-  return [ref, inView];
-}
 
 // Fades and lifts its children in when scrolled into view. `delay` (ms) staggers siblings.
 export function Reveal({ as: Tag = "div", delay = 0, className = "", children, ...rest }) {
@@ -75,26 +46,4 @@ export function CountUp({ end, duration = 1100 }) {
   }, [inView, end, duration]);
 
   return <span ref={ref}>{inView ? value : 0}</span>;
-}
-
-// Sets the document title and description for a public page and restores the previous values when it unmounts.
-export function usePageMeta(title, description) {
-  useEffect(() => {
-    const previousTitle = document.title;
-    document.title = title;
-    let tag = document.querySelector('meta[name="description"]');
-    const previousDescription = tag ? tag.getAttribute("content") : null;
-    if (description) {
-      if (!tag) {
-        tag = document.createElement("meta");
-        tag.setAttribute("name", "description");
-        document.head.appendChild(tag);
-      }
-      tag.setAttribute("content", description);
-    }
-    return () => {
-      document.title = previousTitle;
-      if (tag && previousDescription !== null) tag.setAttribute("content", previousDescription);
-    };
-  }, [title, description]);
 }
