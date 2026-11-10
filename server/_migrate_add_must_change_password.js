@@ -186,7 +186,8 @@ function buildTargets({ legacyPool, legacyDbName, companies, getTenantPool }) {
     const notices = [];
 
     if (typeof legacyDbName === "string" && legacyDbName.trim()) {
-        targets.push({ label: "legacy database", getPool: () => legacyPool, skipIfMissing: true });
+        // `legacy`: lets _migrate_flag_existing_accounts_password_change.js scope its legacy-only option to this target.
+        targets.push({ label: "legacy database", getPool: () => legacyPool, skipIfMissing: true, legacy: true });
     } else {
         notices.push("  [skip] legacy database -- DB_NAME is not set in server/.env (no legacy database is configured)");
     }
