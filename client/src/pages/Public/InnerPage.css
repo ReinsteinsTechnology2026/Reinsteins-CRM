@@ -1,17 +1,71 @@
+/* ==========================================
+   INNER PUBLIC PAGES (Features, Solutions, Pricing, About, Contact) -- premium hero and shared layout
+========================================== */
+
 .pub-inner-hero {
-    padding: 72px 0 8px;
+    position: relative;
+    padding: 84px 0 56px;
     text-align: center;
+    overflow: hidden;
+    background:
+        radial-gradient(760px 320px at 50% -10%, rgba(22, 166, 106, .2), transparent 70%),
+        linear-gradient(180deg, #F3FBF7, #FFFFFF);
 }
 
-.pub-inner-hero .pub-container {
-    max-width: 680px;
-}
+.pub-inner-hero .pub-container { max-width: 760px; animation: ws-rise .8s var(--ws-ease) backwards; }
 
 .pub-inner-hero .pub-h1 {
-    font-size: clamp(30px, 4.4vw, 44px);
+    font-size: clamp(32px, 4.6vw, 52px);
+    letter-spacing: -.03em;
+    color: var(--ws-ink);
 }
 
-.pub-inner-hero .pub-lede {
-    margin-left: auto;
-    margin-right: auto;
+.pub-inner-hero .pub-lede { margin-left: auto; margin-right: auto; font-size: 18px; }
+
+/* module detail rows (Features) */
+.pub-module-list { display: flex; flex-direction: column; gap: 22px; }
+
+.pub-module-row {
+    display: grid;
+    grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+    gap: 36px;
+    padding: 32px;
+    border-radius: var(--ws-radius);
+    background: #fff;
+    border: 1px solid var(--ws-line);
+    box-shadow: var(--ws-shadow-sm);
+    scroll-margin-top: 92px;
+    transition: box-shadow .35s var(--ws-ease), border-color .3s, transform .35s var(--ws-ease);
+}
+.pub-module-row:hover { box-shadow: var(--ws-shadow); border-color: rgba(22, 166, 106, .35); }
+.pub-module-row:target { border-color: var(--ws-emerald); box-shadow: 0 0 0 4px rgba(22, 166, 106, .14), var(--ws-shadow); }
+
+.pub-module-head h2 { margin: 0 0 8px; font-size: 24px; letter-spacing: -.02em; color: var(--ws-ink); }
+.pub-module-head p { margin: 0; font-size: 15.5px; line-height: 1.6; color: var(--ws-ink-2); }
+
+.pub-module-body p { margin: 0 0 14px; font-size: 14.5px; line-height: 1.6; color: var(--ws-ink-2); }
+.pub-module-body b { display: block; margin-bottom: 2px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ws-emerald-deep); }
+.pub-module-body ul { list-style: none; margin: 0 0 14px; padding: 12px 0; border-top: 1px dashed var(--ws-line); border-bottom: 1px dashed var(--ws-line); display: flex; flex-direction: column; gap: 9px; }
+.pub-module-body li { display: flex; align-items: flex-start; gap: 10px; font-size: 14.5px; color: var(--ws-ink-2); }
+.pub-module-body li svg { color: var(--ws-emerald); font-size: 11px; margin-top: 5px; flex-shrink: 0; }
+.pub-module-body li strong { color: var(--ws-ink); }
+.pub-two-col { display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px 22px !important; }
+
+.pub-module-vault { background: linear-gradient(135deg, #111816, #0E3A2A); border-color: rgba(111, 210, 166, .25); }
+.pub-module-vault h2 { color: #fff; }
+.pub-module-vault .pub-module-head p, .pub-module-vault .pub-module-body li { color: #B4C4BD; }
+.pub-module-vault .pub-module-body li strong { color: #fff; }
+.pub-module-vault .pub-module-body ul { border-color: rgba(255, 255, 255, .12); }
+.pub-module-vault .ws-icon { background: rgba(22, 166, 106, .18); border-color: rgba(111, 210, 166, .3); color: #8ED9B7; }
+.pub-module-vault .ws-link { color: #8ED9B7; }
+
+@media (max-width: 860px) {
+    .pub-module-row { grid-template-columns: 1fr; gap: 18px; padding: 24px 20px; }
+    .pub-two-col { grid-template-columns: 1fr; }
+    .pub-inner-hero { padding: 56px 0 36px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pub-inner-hero .pub-container { animation: none; }
+    .pub-module-row { transition: none; }
 }

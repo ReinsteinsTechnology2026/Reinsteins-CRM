@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { FaCheck } from "react-icons/fa";
 
+import { usePageMeta } from "../../components/Public/motion";
 import "./InnerPage.css";
 import "./Pricing.css";
 
@@ -55,6 +56,8 @@ const PLANS = [
 ];
 
 function Pricing() {
+  usePageMeta("Pricing – ZioVenture", "ZioVenture pricing is tailored to your organization. Request a demo to discuss a plan that fits.");
+
   return (
     <div className="pub-inner-page">
 

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { FaBullseye, FaShieldAlt, FaUsers } from "react-icons/fa";
 
+import { usePageMeta } from "../../components/Public/motion";
 import "./InnerPage.css";
 import "./About.css";
 
@@ -30,6 +31,8 @@ const VALUES = [
 ];
 
 function About() {
+  usePageMeta("About – ZioVenture", "ZioVenture is a multi-company platform that brings employee management, work management and internal communication together.");
+
   return (
     <div className="pub-inner-page">
 

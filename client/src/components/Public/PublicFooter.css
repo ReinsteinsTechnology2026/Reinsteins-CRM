@@ -1,68 +1,70 @@
 .pub-footer {
-    background: var(--pub-dark);
+    position: relative;
+    background: linear-gradient(180deg, var(--pub-dark), #0B100E);
     color: var(--pub-ink-on-dark-muted);
-    padding-top: 64px;
+    padding-top: 72px;
+    overflow: hidden;
+}
+.pub-footer::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--ws-emerald, #16A66A), transparent);
 }
 
 .pub-footer-inner {
     display: flex;
     justify-content: space-between;
-    gap: 40px;
-    padding-bottom: 48px;
+    gap: 48px;
+    padding-bottom: 56px;
     flex-wrap: wrap;
 }
 
-.pub-footer-brand {
-    max-width: 280px;
-}
-
-.pub-footer-brand .pub-navbar-brand {
-    color: #fff;
-}
+.pub-footer-brand { max-width: 320px; }
+.pub-footer-logo { display: inline-flex; border-radius: 10px; }
 
 .pub-footer-brand p {
-    margin-top: 12px;
-    font-size: 13.5px;
-    line-height: 1.6;
+    margin: 16px 0 22px;
+    font-size: 14.5px;
+    line-height: 1.65;
     color: var(--pub-ink-on-dark-muted);
 }
+.pub-footer-cta { padding: 11px 22px; font-size: 14px; }
 
-.pub-footer-cols {
-    display: flex;
-    gap: 56px;
-    flex-wrap: wrap;
-}
+.pub-footer-cols { display: flex; gap: 64px; flex-wrap: wrap; }
 
-.pub-footer-col {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-width: 120px;
-}
+.pub-footer-col { display: flex; flex-direction: column; gap: 11px; min-width: 130px; }
 
 .pub-footer-col h4 {
     font-size: 12px;
     font-weight: 700;
-    letter-spacing: .06em;
+    letter-spacing: .08em;
     text-transform: uppercase;
     color: #fff;
     margin: 0 0 6px;
 }
 
 .pub-footer-col a {
-    font-size: 13.5px;
+    font-size: 14px;
     color: var(--pub-ink-on-dark-muted);
     text-decoration: none;
-    transition: color .15s;
+    transition: color .2s, transform .25s var(--ws-ease, ease);
 }
-
-.pub-footer-col a:hover {
-    color: #fff;
-}
+.pub-footer-col a:hover { color: #fff; transform: translateX(3px); }
 
 .pub-footer-bottom {
     border-top: 1px solid var(--pub-dark-border);
-    padding: 20px 24px;
-    font-size: 12.5px;
+    padding: 22px 24px;
+    font-size: 13px;
     color: var(--pub-ink-muted);
+}
+
+@media (max-width: 700px) {
+    .pub-footer { padding-top: 52px; }
+    .pub-footer-cols { gap: 36px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pub-footer-col a { transition: none; }
 }

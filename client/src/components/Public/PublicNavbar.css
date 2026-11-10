@@ -1,93 +1,107 @@
-/* Dark professional green -- same two gradient stops as the tenant
-   portal's own dark login panel (pages/Auth/Login.css
-   .login-brand-section: --dark #111816 -> --dark-surface #18211E),
-   reused here via the public theme's --pub-dark/--pub-dark-surface
-   tokens (styles/publicTheme.css) for a consistent brand surface. */
+/* Premium sticky navigation: a light glass bar that gains a shadow once the page scrolls. */
 .pub-navbar {
     position: sticky;
     top: 0;
     z-index: 100;
-    background: linear-gradient(135deg, var(--pub-dark) 0%, var(--pub-dark-surface) 100%);
-    border-bottom: 1px solid var(--pub-dark-border);
+    background: rgba(255, 255, 255, .82);
+    backdrop-filter: saturate(180%) blur(14px);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid transparent;
+    transition: box-shadow .3s var(--ws-ease, ease), border-color .3s, background-color .3s;
+}
+.pub-navbar.is-scrolled {
+    border-bottom-color: var(--pub-border);
+    box-shadow: 0 8px 30px rgba(15, 23, 42, .07);
+    background: rgba(255, 255, 255, .94);
 }
 
 .pub-navbar-inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 68px;
+    gap: 20px;
+    height: 72px;
 }
 
-.pub-navbar-brand {
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    text-decoration: none;
-}
+.pub-navbar-brand { display: inline-flex; text-decoration: none; border-radius: 10px; transition: transform .3s var(--ws-ease, ease); }
+.pub-navbar-brand:hover { transform: scale(1.04); }
 
-.pub-navbar-links {
-    display: flex;
-    align-items: center;
-    gap: 30px;
-}
+.pub-navbar-links { display: flex; align-items: center; gap: 6px; }
 
 .pub-navbar-link {
+    position: relative;
+    padding: 9px 13px;
+    border-radius: 999px;
     font-size: 14.5px;
-    font-weight: 500;
-    color: var(--pub-ink-on-dark-muted);
+    font-weight: 560;
+    color: var(--pub-ink-secondary);
     text-decoration: none;
-    transition: color .15s;
+    transition: color .2s, background-color .2s;
 }
+.pub-navbar-link::after {
+    content: "";
+    position: absolute;
+    left: 14px; right: 14px; bottom: 4px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--ws-emerald, #16A66A);
+    transform: scaleX(0);
+    transition: transform .3s var(--ws-ease, ease);
+}
+.pub-navbar-link:hover { color: var(--pub-ink); background: var(--pub-accent-light); }
+.pub-navbar-link.active { color: var(--ws-forest, #0E4B35); }
+.pub-navbar-link.active::after, .pub-navbar-link:hover::after { transform: scaleX(1); }
 
-.pub-navbar-link:hover,
-.pub-navbar-link.active {
-    color: var(--pub-ink-on-dark);
-}
-
-.pub-navbar-login {
-    margin-left: 4px;
-}
+.pub-navbar-actions { display: flex; align-items: center; gap: 10px; margin-left: 14px; }
+.pub-navbar-login, .pub-navbar-demo { padding: 10px 20px; font-size: 14px; }
 
 .pub-navbar-toggle {
     display: none;
-    background: none;
-    border: none;
-    font-size: 20px;
-    color: var(--pub-ink-on-dark);
+    width: 44px; height: 44px;
+    align-items: center; justify-content: center;
+    border: 1px solid var(--pub-border);
+    border-radius: 12px;
+    background: #fff;
+    font-size: 18px;
+    color: var(--pub-ink);
     cursor: pointer;
 }
+.pub-navbar-scrim { display: none; }
 
-@media (max-width: 860px) {
-    .pub-navbar-toggle {
-        display: block;
-    }
+@media (max-width: 1020px) {
+    .pub-navbar-toggle { display: inline-flex; }
 
     .pub-navbar-links {
         position: absolute;
-        top: 68px;
-        left: 0;
-        right: 0;
-        background: var(--pub-dark-surface);
-        border-bottom: 1px solid var(--pub-dark-border);
+        top: 72px; left: 0; right: 0;
         flex-direction: column;
-        align-items: flex-start;
-        gap: 4px;
-        padding: 16px 24px 22px;
-        display: none;
-        box-shadow: 0 16px 32px rgba(0, 0, 0, .28);
+        align-items: stretch;
+        gap: 2px;
+        padding: 14px 20px 22px;
+        background: #fff;
+        border-bottom: 1px solid var(--pub-border);
+        box-shadow: 0 24px 44px rgba(15, 23, 42, .16);
+        max-height: calc(100vh - 72px);
+        overflow-y: auto;
+        visibility: hidden;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: opacity .25s var(--ws-ease, ease), transform .25s var(--ws-ease, ease), visibility 0s linear .25s;
+        z-index: 2;
     }
+    .pub-navbar-links.open { visibility: visible; opacity: 1; transform: none; transition-delay: 0s; }
 
-    .pub-navbar-links.open {
-        display: flex;
-    }
+    .pub-navbar-link { padding: 14px 14px; font-size: 16px; border-radius: 12px; }
+    .pub-navbar-link::after { display: none; }
+    .pub-navbar-link.active { background: var(--pub-accent-light); }
 
-    .pub-navbar-link {
-        padding: 10px 0;
-        width: 100%;
-    }
+    .pub-navbar-actions { flex-direction: column; align-items: stretch; margin: 12px 0 0; }
+    .pub-navbar-login, .pub-navbar-demo { padding: 14px 20px; font-size: 15px; }
 
-    .pub-navbar-login {
-        margin-left: 0;
-        margin-top: 8px;
-    }
+    .pub-navbar-scrim { display: block; position: fixed; inset: 72px 0 0 0; border: 0; background: rgba(15, 23, 42, .4); z-index: 1; cursor: default; animation: ws-rise .25s ease backwards; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pub-navbar, .pub-navbar-links, .pub-navbar-link::after, .pub-navbar-brand { transition: none; }
+    .pub-navbar-scrim { animation: none; }
 }
