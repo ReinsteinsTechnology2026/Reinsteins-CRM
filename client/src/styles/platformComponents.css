@@ -634,5 +634,5 @@
 .platform-stat-card-link:hover { transform: translateY(-2px); }
 .platform-stat-value { letter-spacing: var(--tracking-tight); font-variant-numeric: tabular-nums; }
 .platform-stat-icon { width: 44px; height: 44px; border-radius: 12px; }
-.recharts-wrapper { max-width: 100%; }
-.recharts-default-tooltip { border-radius: 10px !important; box-shadow: var(--elev-3); }
+.platform-main .recharts-wrapper { max-width: 100%; }
+.platform-main .recharts-default-tooltip { border-radius: 10px !important; box-shadow: var(--elev-3); }
