@@ -1388,3 +1388,47 @@
     overflow-x: auto;
   }
 }
+
+
+/* ==========================================
+   STAGE 2 -- Employee dashboard: banner, KPI cards, panels, week strip, quick actions (existing colours and data)
+========================================== */
+
+@keyframes zv-bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.dash-welcome-banner {
+  box-shadow: var(--elev-1);
+  animation: zv-rise-in var(--motion-slow) var(--ease-out) backwards;
+}
+.dash-welcome-text h2 { letter-spacing: var(--tracking-tight); }
+
+.dash-kpi-card.employee-stat-card {
+  animation: zv-rise-in var(--motion-slow) var(--ease-out) 60ms backwards;
+  transition: border-color var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out);
+}
+.dash-kpi-card.employee-stat-card:nth-child(2) { animation-delay: 110ms; }
+.dash-kpi-card.employee-stat-card:nth-child(3) { animation-delay: 160ms; }
+.dash-kpi-card.employee-stat-card:nth-child(4) { animation-delay: 210ms; }
+.dash-kpi-card.employee-stat-card:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: var(--shadow-hover); }
+.dash-kpi-card h3 { font-size: 24px; line-height: 1.15; letter-spacing: var(--tracking-tight); font-variant-numeric: tabular-nums; }
+
+.dash-main-grid .employee-panel {
+  border-radius: 14px;
+  animation: zv-rise-in var(--motion-slow) var(--ease-out) 140ms backwards;
+}
+.dash-week-day { transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out); }
+.dash-quick-action-tile {
+  transition: border-color var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
+}
+.dash-quick-action-tile:hover { transform: translateY(-1px); box-shadow: var(--elev-2); }
+.dash-quick-action-tile:active { transform: translateY(0); }
+.employee-recent-item { border-radius: 10px; transition: background-color var(--motion-fast) var(--ease-out); }
+.employee-sprint-progress-fill { transform-origin: left center; animation: zv-bar-grow 600ms var(--ease-out) backwards; }
+
+@media (max-width: 1100px) {
+  .dash-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .dash-kpi-card.employee-stat-card { padding: 14px; }
+  .dash-kpi-card h3 { font-size: 22px; }
+}

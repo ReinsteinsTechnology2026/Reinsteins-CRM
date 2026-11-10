@@ -616,3 +616,23 @@
     color: var(--p-text-muted);
     flex-shrink: 0;
 }
+
+
+/* ==========================================
+   STAGE 2 -- Owner Portal dashboard: KPI cards, panels and chart containers (indigo palette unchanged)
+========================================== */
+
+@keyframes zv-bar-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.platform-stat-card {
+    animation: zv-rise-in var(--motion-slow) var(--ease-out) backwards;
+    transition: box-shadow var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out), transform var(--motion-base) var(--ease-out);
+}
+.platform-stat-grid > :nth-child(2) { animation-delay: 50ms; }
+.platform-stat-grid > :nth-child(3) { animation-delay: 100ms; }
+.platform-stat-grid > :nth-child(4) { animation-delay: 150ms; }
+.platform-stat-card-link:hover { transform: translateY(-2px); }
+.platform-stat-value { letter-spacing: var(--tracking-tight); font-variant-numeric: tabular-nums; }
+.platform-stat-icon { width: 44px; height: 44px; border-radius: 12px; }
+.platform-main .recharts-wrapper { max-width: 100%; }
+.platform-main .recharts-default-tooltip { border-radius: 10px !important; box-shadow: var(--elev-3); }
