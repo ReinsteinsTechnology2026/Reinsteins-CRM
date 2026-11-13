@@ -182,7 +182,27 @@ const emailActionLimiter = createSensitiveLimiter();
 // actor, sharing a budget with it would be an unrelated coupling).
 const tenantEmailLimiter = createSensitiveLimiter();
 
+// Microsoft 365 mail. The connect / callback surface shares the sensitive budget (it is an authentication flow); sending
+// has its own per-EMPLOYEE hourly budget (keyed by company + user, not by IP, so one person on a shared office address
+// cannot exhaust the limit for colleagues -- and a compromised account cannot send unlimited mail through the CRM).
+const msEmailConnectLimiter = createSensitiveLimiter();
+const MS_EMAIL_SEND_PER_HOUR = Number(process.env.MS_EMAIL_SEND_PER_HOUR) || 200;
+const msEmailSendLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: MS_EMAIL_SEND_PER_HOUR,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => `ms-send:${req.tenantCompany ? req.tenantCompany.id : "x"}:${req.user ? req.user.id : "x"}`,
+    validate: { keyGeneratorIpFallback: false },
+    message: { success: false, code: "SEND_LIMIT", message: "You have reached the hourly sending limit. Try again later." },
+    handler: (req, res, _next, options) => {
+        res.status(options.statusCode).json(options.message);
+    },
+});
+
 module.exports = {
+    msEmailConnectLimiter,
+    msEmailSendLimiter,
     authLoginLimiter,
     platformLoginLimiter,
     tenantLoginLimiter,

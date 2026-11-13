@@ -1,0 +1,42 @@
+/* Microsoft 365 panel inside Settings > Business Email. Emerald / mint / amber / red only (no blue). */
+
+.admin-ms { margin-top: 28px; padding-top: 18px; border-top: 1px solid #E2E9E5; }
+.admin-ms h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; }
+.admin-ms h3 svg { color: #16A66A; }
+.admin-ms h4 { margin: 22px 0 8px; font-size: 15px; }
+.admin-ms-card { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; padding: 14px 16px; border: 1px solid #E2E9E5; border-radius: 12px; background: #F7FAF8; }
+.admin-ms-warn { flex-direction: row; align-items: flex-start; gap: 12px; background: #FFF6DD; border-color: #F0DDA0; color: #6B4E00; }
+.admin-ms-warn p { margin: 4px 0 0; }
+.admin-ms-status { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.admin-ms-ok { display: flex; align-items: center; gap: 8px; color: #0E744A; margin: 8px 0; }
+.admin-ms-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.admin-ms-actions button, .admin-ms-row-actions button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid #CBECDD; border-radius: 8px;
+  background: #fff; color: #17211D; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.admin-ms-actions button:hover:not(:disabled), .admin-ms-row-actions button:hover:not(:disabled) { background: #E8F8F0; }
+.admin-ms-actions button:disabled, .admin-ms-row-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.admin-ms button.admin-ms-danger { color: #B42318; border-color: #F3B8B0; }
+.admin-ms-link { display: inline-flex; align-items: center; gap: 6px; color: #0E744A; font-size: 13px; font-weight: 600; }
+.admin-ms-linkbtn { border: 0; background: none; color: #0E744A; text-decoration: underline; cursor: pointer; font: inherit; font-size: 13px; }
+.admin-ms-pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: #EDF2EF; color: #53615A; }
+.admin-ms-pill-ready { background: #E8F8F0; color: #0E744A; }
+.admin-ms-pill-pending { background: #FFF6DD; color: #6B4E00; }
+.admin-ms-pill-error { background: #FDECEA; color: #B42318; }
+.admin-ms-pill-disabled { background: #EDF2EF; color: #53615A; }
+.admin-ms-table-wrap { overflow-x: auto; }
+.admin-ms-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.admin-ms-table th { text-align: left; padding: 8px 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #667168; border-bottom: 1px solid #E2E9E5; }
+.admin-ms-table td { padding: 10px; border-bottom: 1px solid #EDF2EF; vertical-align: top; }
+.admin-ms-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-ms-audit { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; border: 1px solid #E2E9E5; border-radius: 10px; }
+.admin-ms-audit li { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #EDF2EF; font-size: 13px; }
+.admin-ms-audit li:last-child { border-bottom: 0; }
+
+@media (max-width: 720px) {
+  .admin-ms-table thead { display: none; }
+  .admin-ms-table, .admin-ms-table tbody, .admin-ms-table tr, .admin-ms-table td { display: block; width: 100%; }
+  .admin-ms-table tr { margin-bottom: 12px; border: 1px solid #E2E9E5; border-radius: 10px; padding: 4px 0; }
+  .admin-ms-table td { border: 0; padding: 6px 12px; }
+  .admin-ms-table td::before { content: attr(data-label); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #667168; }
+}

@@ -18,6 +18,7 @@ import {
   FaCalendarWeek,
   FaTable,
   FaKey,
+  FaEnvelope,
   FaBook,
   FaTasks,
   FaCalendarAlt,
@@ -592,6 +593,22 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
 
           <span className="admin-sidebar-menu-name">
             ZioVault
+          </span>
+        </button>
+ )}
+
+        {/* EMAIL (company mailbox on Microsoft 365) */}
+
+        {isEnabled("email") && (
+        <button
+          type="button"
+          className={`sidebar-item ${isActive(`${basePath}/email`) ? "active" : ""}`}
+          onClick={() => handleNavigate(`${basePath}/email`)}
+        >
+          <FaEnvelope />
+
+          <span className="admin-sidebar-menu-name">
+            Email
           </span>
         </button>
  )}

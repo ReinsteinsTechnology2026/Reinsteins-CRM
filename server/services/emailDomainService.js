@@ -140,6 +140,28 @@ const getDomainByIdUnscoped = async (domainId) => {
 // "pending infrastructure setup" state instead of a fake-looking value.
 function buildDnsInstructions(domain) {
 
+    // Mail for a domain is hosted by the customer's own provider (Microsoft 365) unless the domain was explicitly marked
+    // self_hosted. ZioVenture never asks for -- and must never suggest -- MX / SPF / DKIM / DMARC changes for such a
+    // domain: following them would redirect live mail. Only the ownership proof is needed.
+    if (domain.mail_hosting !== "self_hosted") {
+        return {
+            domain: domain.domain,
+            mailServerConfigured: false,
+            managedByProvider: true,
+            note: "Your mail stays with your own provider (for example Microsoft 365). ZioVenture does not change your MX, SPF, DKIM or DMARC records. Only the ownership record below is needed.",
+            records: [
+                {
+                    purpose: "Domain ownership verification",
+                    type: "TXT",
+                    host: `${VERIFICATION_RECORD_PREFIX}.${domain.domain}`,
+                    value: domain.verification_token,
+                    required: true,
+                    note: "Add this record to prove you own the domain. It does not affect email delivery.",
+                },
+            ],
+        };
+    }
+
     const mailServerHost = process.env.MAIL_SERVER_HOSTNAME || null;
 
     return {

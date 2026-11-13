@@ -227,6 +227,7 @@ const platformEmailRoutes = require(
 const tenantEmailRoutes = require(
   "./routes/tenantEmailRoutes"
 );
+const msEmailRoutes = require("./routes/msEmailRoutes");
 
 const meetingService = require(
   "./services/meetingService"
@@ -2459,6 +2460,13 @@ app.use(
 app.use(
   "/api/email",
   tenantEmailRoutes
+);
+
+// Microsoft 365 company email (OAuth connection, mailbox linking and the mail client API). Same /api/email prefix, so the
+// existing "email" company feature gate covers it. See routes/msEmailRoutes.js and server/MICROSOFT_EMAIL.md.
+app.use(
+  "/api/email",
+  msEmailRoutes
 );
 
 // ==========================================

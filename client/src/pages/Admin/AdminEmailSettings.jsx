@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FaEnvelope, FaCheckCircle, FaTrash, FaSync } from "react-icons/fa";
 
 import api from "../../services/api";
+import AdminMicrosoftEmail from "./AdminMicrosoftEmail";
 
 // NOTE (UI audit, Batch 0): this file imports no CSS of its own. Its
 // "admin-settings-*" classes are defined only in AdminSettings.css --
@@ -26,6 +27,7 @@ import api from "../../services/api";
 function AdminEmailSettings() {
   const [domains, setDomains] = useState([]);
   const [mailboxes, setMailboxes] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -50,6 +52,10 @@ function AdminEmailSettings() {
       ]);
       setDomains(domainsRes.data?.domains || []);
       setMailboxes(mailboxesRes.data?.mailboxes || []);
+      // The employee list only feeds the "Employee" picker below; a failure must not hide the rest of this screen.
+      api.get("/employees")
+        .then((res) => setEmployees((res.data?.employees || []).filter((e) => e.employment_status === "active")))
+        .catch(() => setEmployees([]));
     } catch (err) {
       // A legacy (non company-aware) session has no tenant JWT, so
       // these calls 401 -- a real, expected state for this phase, not
@@ -157,9 +163,10 @@ function AdminEmailSettings() {
           <h2>Business Email</h2>
           <p>
             Give your company its own verified email domain and mailboxes
-            (e.g. you@{"{"}yourcompany.com{"}"}). Foundation stage: domains
-            and mailboxes are managed here; the inbox itself arrives once
-            real mail delivery is connected.
+            (e.g. you@{"{"}yourcompany.com{"}"}). Verify your domain, connect
+            your Microsoft 365 organisation, and link each employee's existing
+            Microsoft 365 mailbox. Employees then read and send company email
+            inside ZioVenture. Your domain's mail settings are never changed.
           </p>
         </div>
       </div>
@@ -202,11 +209,11 @@ function AdminEmailSettings() {
 
                 {dnsForDomainId === d.id && dnsRecords && (
                   <div className="admin-email-dns-box">
-                    {!dnsRecords.mailServerConfigured && (
+                    {dnsRecords.note && <p className="admin-settings-hint">{dnsRecords.note}</p>}
+                    {!dnsRecords.managedByProvider && !dnsRecords.mailServerConfigured && (
                       <p className="admin-settings-hint">
                         Mail infrastructure is not connected yet -- MX/SPF/DKIM values below are placeholders
-                        until that is set up (see the Phase 16A report). Add the verification TXT record now to
-                        prove domain ownership; the rest can be added once real mail delivery is ready.
+                        until that is set up. Add the verification TXT record now to prove domain ownership.
                       </p>
                     )}
                     <table>
@@ -249,13 +256,17 @@ function AdminEmailSettings() {
                 onChange={(e) => setMailboxForm((f) => ({ ...f, localPart: e.target.value }))}
                 required
               />
-              <input
-                type="number"
-                placeholder="Employee (tenant user) id"
+              <select
                 value={mailboxForm.tenantUserId}
                 onChange={(e) => setMailboxForm((f) => ({ ...f, tenantUserId: e.target.value }))}
                 required
-              />
+                aria-label="Employee"
+              >
+                <option value="">Employee</option>
+                {employees.map((e) => (
+                  <option key={e.id} value={e.id}>{e.full_name}</option>
+                ))}
+              </select>
               <button type="submit" disabled={mailboxBusy}>Create Mailbox</button>
             </form>
           )}
@@ -269,11 +280,13 @@ function AdminEmailSettings() {
                 <span>{m.email_address}</span>
                 <span className={`admin-email-status admin-email-status-${m.status}`}>{m.status}</span>
                 <span className="admin-settings-hint">
-                  {m.provisioning_status === "provisioned" ? "connected" : "not yet connected to mail server"}
+                  {m.provisioning_status === "provisioned" ? "connected to Microsoft 365" : "not connected yet"}
                 </span>
               </li>
             ))}
           </ul>
+
+          <AdminMicrosoftEmail domains={domains} onMailboxChange={loadAll} />
         </>
       )}
     </section>
