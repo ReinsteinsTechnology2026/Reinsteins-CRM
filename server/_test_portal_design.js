@@ -71,7 +71,7 @@ test('text / background pairs of the new chrome meet WCAG AA (4.5:1)', () => {
 });
 
 test('no blue colour is left anywhere in the redesigned portal (tenant app CSS/JSX; public site and platform console are separate products)', () => {
-  const SKIP = ['pages/Public', 'pages/Platform', 'Landing', 'publicTheme', 'publicComponents', 'platformTheme', 'platformComponents', 'PlatformLayout', 'PublicLayout', 'PlatformProtectedRoute'];
+  const SKIP = ['pages/Public', 'pages/Platform', 'Landing', 'publicTheme', 'publicSite', 'publicComponents', 'platformTheme', 'platformComponents', 'PlatformLayout', 'PublicLayout', 'PlatformProtectedRoute'];
   const found = [];
   const walk = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

@@ -1,13 +1,17 @@
-.pub-pricing-card .pub-btn {
-    width: 100%;
-    text-align: center;
-}
+.pub-pricing-layout { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 44px; align-items: start; }
 
-.pub-pricing-note {
-    text-align: center;
-    font-size: 13.5px;
-    color: var(--pub-ink-muted);
-    max-width: 480px;
-    margin: 48px auto 0;
-    line-height: 1.6;
+.pub-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--ws-gap); }
+.pub-steps li { display: flex; gap: 18px; align-items: flex-start; padding: var(--ws-card-pad); border-radius: var(--ws-radius); background: #fff; border: 1px solid var(--ws-line); box-shadow: var(--ws-shadow-sm); }
+.pub-step-num { display: grid; place-items: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; font-weight: 800; font-size: 15px; color: #fff; background: var(--ws-emerald); }
+.pub-steps h2 { margin: 0 0 4px; font-size: 18px; letter-spacing: -.01em; color: var(--ws-ink); }
+.pub-steps p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--ws-ink-2); }
+
+.pub-pricing-card { padding: 28px; border-radius: var(--ws-radius); background: linear-gradient(160deg, var(--ws-mint), #fff); border: 1px solid rgba(22, 166, 106, .25); box-shadow: var(--ws-shadow); display: flex; flex-direction: column; gap: 12px; }
+.pub-pricing-card h2 { margin: 0 0 6px; font-size: 20px; color: var(--ws-ink); }
+.pub-pricing-card ul { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.pub-pricing-card li { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; line-height: 1.5; color: var(--ws-ink); }
+.pub-pricing-card li svg { color: var(--ws-emerald); font-size: 11px; margin-top: 5px; flex-shrink: 0; }
+
+@media (max-width: 900px) {
+    .pub-pricing-layout { grid-template-columns: minmax(0, 1fr); gap: 28px; }
 }

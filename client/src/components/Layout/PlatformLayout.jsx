@@ -11,6 +11,7 @@ import "../../styles/platformTheme.css";
 import ZioVentureLogo from "../Common/ZioVentureLogo";
 import "../../styles/platformComponents.css";
 import "./PlatformLayout.css";
+import useRouteTitle from "../../hooks/useRouteTitle";
 
 // ==========================================
 // PLATFORM LAYOUT
@@ -37,6 +38,8 @@ import "./PlatformLayout.css";
 // ==========================================
 
 function PlatformLayout() {
+    useRouteTitle("Owner Portal", "owner");
+
   const navigate = useNavigate();
 
   const platformUserRaw = sessionStorage.getItem("platformUser");

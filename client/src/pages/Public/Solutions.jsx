@@ -1,69 +1,46 @@
 import { Link } from "react-router-dom";
-import { FaSeedling, FaLaptopCode, FaHandshake, FaGlobe, FaSitemap } from "react-icons/fa";
+
+import { Reveal } from "../../components/Public/motion";
+import usePageMeta from "../../hooks/usePageMeta";
+import { SOLUTIONS } from "./siteContent";
 
 import "./InnerPage.css";
 import "./Solutions.css";
 
 // ==========================================
-// SOLUTIONS PAGE (Phase 6)
-// Describes who ZioVenture suits, in terms of how a company is
-// structured/operates -- not specific industries or integrations
-// that aren't actually supported.
+// SOLUTIONS PAGE
+// Describes who ZioVenture suits in terms of how a company is structured and operates. It does not claim industry-specific automation
+// or integrations that have not been built.
 // ==========================================
 
-const SOLUTIONS = [
-  {
-    icon: FaSeedling,
-    title: "Growing Companies",
-    copy: "As headcount grows, spreadsheets and scattered tools stop working. ZioVenture gives you employee management, attendance, and leave in one place from day one.",
-  },
-  {
-    icon: FaLaptopCode,
-    title: "Technology Companies",
-    copy: "Project and task management built around how software teams actually work — epics, user stories, sprints, and a full task activity trail.",
-  },
-  {
-    icon: FaHandshake,
-    title: "Service Businesses",
-    copy: "Keep client-facing project work, internal tasks, and team communication organized under one company account.",
-  },
-  {
-    icon: FaGlobe,
-    title: "Distributed Teams",
-    copy: "Team chat, meetings, and real-time notifications keep people in sync — wherever they're working from.",
-  },
-  {
-    icon: FaSitemap,
-    title: "Organizations with Multiple Departments",
-    copy: "Department and designation structures, reporting lines, and role-based access built for organizations that aren't flat.",
-  },
-];
-
 function Solutions() {
+  usePageMeta(
+    "Solutions – ZioVenture",
+    "ZioVenture for small and medium businesses, growing organizations, IT and technology companies, operations teams and multi-department organizations."
+  );
+
   return (
     <div className="pub-inner-page">
 
       <section className="pub-inner-hero">
         <div className="pub-container">
-          <span className="pub-eyebrow">Solutions</span>
+          <span className="ws-eyebrow">Solutions</span>
           <h1 className="pub-h1">Built for how your organization actually works</h1>
-          <p className="pub-lede">
-            ZioVenture adapts to the shape of your company, not the other way around.
-          </p>
+          <p className="pub-lede">ZioVenture adapts to the shape of your company, not the other way around.</p>
         </div>
       </section>
 
       <section className="pub-section">
         <div className="pub-container">
           <div className="pub-solutions-list">
-            {SOLUTIONS.map(({ icon: Icon, title, copy }) => (
-              <div className="pub-solution-row" key={title}>
-                <div className="pub-card-icon"><Icon /></div>
+            {SOLUTIONS.map(({ icon: Icon, title, copy }, index) => (
+              <Reveal className="pub-solution-row" key={title} delay={(index % 2) * 80}>
+                <span className="ws-icon"><Icon aria-hidden="true" /></span>
                 <div>
-                  <h3 className="pub-h3">{title}</h3>
+                  <h2 className="pub-h3">{title}</h2>
                   <p>{copy}</p>
                 </div>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -72,8 +49,8 @@ function Solutions() {
       <section className="pub-section pub-section-subtle pub-cta">
         <div className="pub-container pub-cta-inner">
           <h2 className="pub-h2">Not sure if ZioVenture fits your team?</h2>
-          <p className="pub-lede">Tell us about your organization and we'll walk you through it.</p>
-          <Link to="/contact" className="pub-btn pub-btn-primary">Request a Demo</Link>
+          <p className="pub-lede">Tell us about your organization and we will walk you through it.</p>
+          <Link to="/#demo" className="ws-btn ws-btn-primary">Request a Demo</Link>
         </div>
       </section>
 

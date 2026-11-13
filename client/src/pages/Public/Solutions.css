@@ -1,33 +1,43 @@
 .pub-solutions-list {
-    max-width: 780px;
+    max-width: 1000px;
     margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 40px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
 }
 
 .pub-solution-row {
     display: flex;
     gap: 20px;
     align-items: flex-start;
+    padding: 28px;
+    border-radius: var(--ws-radius);
+    background: #fff;
+    border: 1px solid var(--ws-line);
+    box-shadow: var(--ws-shadow-sm);
+    transition: transform .35s var(--ws-ease), box-shadow .35s var(--ws-ease), border-color .3s;
 }
+.pub-solution-row:hover { transform: translateY(-4px); box-shadow: var(--ws-shadow); border-color: rgba(22, 166, 106, .35); }
 
-.pub-solution-row .pub-card-icon {
+.pub-solution-row .ws-icon {
     margin-bottom: 0;
     flex-shrink: 0;
 }
 
+.pub-solution-row h2 { font-size: 19px; }
+
 .pub-solution-row p {
-    font-size: 14.5px;
+    font-size: 15px;
     line-height: 1.65;
     color: var(--pub-ink-secondary);
     margin: 0;
-    max-width: 560px;
 }
 
-.pub-cta-inner {
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+@media (max-width: 760px) {
+    .pub-solutions-list { grid-template-columns: 1fr; }
+    .pub-solution-row { padding: 22px 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pub-solution-row { transition: none; }
 }

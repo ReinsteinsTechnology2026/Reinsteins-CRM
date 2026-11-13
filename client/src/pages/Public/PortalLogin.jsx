@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FaArrowRight, FaShieldAlt } from "react-icons/fa";
 
+import usePageMeta from "../../hooks/usePageMeta";
 import "./InnerPage.css";
 import "./PortalLogin.css";
 
@@ -22,6 +23,7 @@ import "./PortalLogin.css";
 // ==========================================
 
 function PortalLogin() {
+  usePageMeta("Login – ZioVenture", "Sign in to your company portal on ZioVenture.");
   const navigate = useNavigate();
   const [slug, setSlug] = useState("");
 
