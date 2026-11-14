@@ -200,9 +200,40 @@ const msEmailSendLimiter = rateLimit({
     },
 });
 
+// Reading mail through the CRM spends the EMPLOYEE's own provider quota (Gmail / Graph), so each employee gets a per-minute budget
+// of their own (keyed by company + user, never by IP). Generous enough for normal use, small enough that a runaway client cannot
+// exhaust a person's provider quota.
+const EMAIL_READS_PER_MINUTE = Number(process.env.EMAIL_READS_PER_MINUTE) || 240;
+const emailReadLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: EMAIL_READS_PER_MINUTE,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => `email-read:${req.tenantCompany ? req.tenantCompany.id : "x"}:${req.user ? req.user.id : "x"}`,
+    validate: { keyGeneratorIpFallback: false },
+    message: { success: false, code: "READ_LIMIT", message: "Too many requests. Wait a moment and try again." },
+    handler: (req, res, _next, options) => {
+        res.status(options.statusCode).json(options.message);
+    },
+});
+
+// Provider push endpoints are called by Google / Microsoft (not by users): a generous per-IP ceiling that still stops abuse.
+const emailPushLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 1200,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: "Too many requests." },
+    handler: (req, res, _next, options) => {
+        res.status(options.statusCode).json(options.message);
+    },
+});
+
 module.exports = {
     msEmailConnectLimiter,
     msEmailSendLimiter,
+    emailReadLimiter,
+    emailPushLimiter,
     authLoginLimiter,
     platformLoginLimiter,
     tenantLoginLimiter,

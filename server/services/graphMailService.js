@@ -216,6 +216,8 @@ function buildFilterExpression(filters) {
     const clauses = ["receivedDateTime ge 1900-01-01T00:00:00Z"];
     if (filters.after) clauses[0] = `receivedDateTime ge ${isoDate(filters.after, false)}`;
     if (filters.before) clauses.push(`receivedDateTime le ${isoDate(filters.before, true)}`);
+    // Used by the unified inbox to page by time (an exact ISO instant, inclusive: callers de-duplicate by id).
+    if (filters.beforeTime && /^\d{4}-\d{2}-\d{2}T[0-9:.]+Z$/.test(filters.beforeTime)) clauses.push(`receivedDateTime le ${filters.beforeTime}`);
     if (filters.unread) clauses.push("isRead eq false");
     if (filters.flagged) clauses.push("flag/flagStatus eq 'flagged'");
     if (filters.hasAttachments) clauses.push("hasAttachments eq true");
@@ -244,6 +246,7 @@ async function listMessages(graph, params = {}) {
         subject: params.subject ? String(params.subject).slice(0, 200) : "",
         after: params.after || "",
         before: params.before || "",
+        beforeTime: params.beforeTime || "",
         unread: truthy(params.unread),
         flagged: truthy(params.flagged),
         hasAttachments: truthy(params.hasAttachments),

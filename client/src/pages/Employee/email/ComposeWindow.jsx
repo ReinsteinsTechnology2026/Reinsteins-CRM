@@ -1,48 +1,55 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FaPaperPlane, FaPaperclip, FaTimes, FaTrashAlt, FaExclamationTriangle } from "react-icons/fa";
 import { toast } from "react-toastify";
 
-import { mail, errorInfo } from "./emailApi";
+import { mailFor, errorInfo } from "./emailApi";
 import { formatBytes } from "./emailUtils";
 import RecipientField from "./RecipientField";
 import RichTextEditor from "./RichTextEditor";
 
 // ==========================================
-// COMPOSE WINDOW -- new message, reply, reply all, forward and "edit draft".
+// COMPOSE WINDOW -- new message, reply, reply all, forward and "edit draft", from ANY of the employee's connected accounts.
 //
-// Everything is stored in the employee's OWN Microsoft mailbox as a draft the moment it is first saved (or an attachment is
-// added): "Save draft" and "Send" both go through that draft, so what is sent is exactly what is in the Drafts folder.
-// The server sanitizes the body and validates every recipient, subject and attachment again; the checks here only save a
-// round trip and explain problems early.
+// A message is stored in the chosen account's own Drafts at the provider (Gmail / Outlook) the moment it is first saved, so what is
+// sent is exactly what the Drafts folder holds. Saving and sending are ONE request carrying the message and any NEW files; files the
+// draft already holds are listed and kept by id. The server sanitizes the body and validates recipients, subject and attachments
+// again; the checks here only save a round trip and explain problems early.
 // ==========================================
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 25 * 1024 * 1024;
+const MAX_FILES = 15;
 // A short client-side list; the server holds the full list (the same one Outlook blocks) and is the real gate.
 const BLOCKED = new Set(["exe", "bat", "cmd", "com", "scr", "js", "jse", "vbs", "vbe", "ps1", "msi", "jar", "lnk", "hta", "dll", "reg", "wsf", "cpl", "pif"]);
 
 const toPayloadList = (list) => list.map((p) => ({ address: p.address, name: p.name || "" }));
 const blockedExtension = (name) => String(name).toLowerCase().split(".").slice(1).find((ext) => BLOCKED.has(ext));
 
-function ComposeWindow({ initial, signature, onClose, onSent, onSaved, onProblem }) {
+function ComposeWindow({ accounts, initial, signature, onClose, onSent, onSaved, onProblem }) {
+  const usable = accounts.filter((a) => a.status === "connected");
+  const [fromId, setFromId] = useState(initial.accountId && usable.some((a) => a.id === initial.accountId) ? initial.accountId : usable[0]?.id);
   const [to, setTo] = useState(initial.to || []);
   const [cc, setCc] = useState(initial.cc || []);
   const [bcc, setBcc] = useState(initial.bcc || []);
   const [subject, setSubject] = useState(initial.subject || "");
   const [importance, setImportance] = useState(initial.importance || "normal");
-  const [attachments, setAttachments] = useState(initial.attachments || []);
+  const [existing, setExisting] = useState(initial.attachments || []);
+  const [newFiles, setNewFiles] = useState([]);
   const [showCc, setShowCc] = useState((initial.cc || []).length > 0);
   const [showBcc, setShowBcc] = useState((initial.bcc || []).length > 0);
   const [status, setStatus] = useState("idle"); // idle | saving | saved | error
   const [sending, setSending] = useState(false);
-  const [uploads, setUploads] = useState([]);
+  const [progress, setProgress] = useState(null);
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [hasDraft, setHasDraft] = useState(Boolean(initial.draftId));
 
   const editorRef = useRef(null);
   const draftIdRef = useRef(initial.draftId || null);
   const dirtyRef = useRef(false);
   const busyRef = useRef(false);
   const fileInputRef = useRef(null);
+  const mailApi = useMemo(() => mailFor(fromId), [fromId]);
+  const fromAccount = usable.find((a) => a.id === fromId);
 
   // The signature is written into the editor ONCE, below the quoted text of a reply or at the end of a new message.
   const initialHtml = (() => {
@@ -57,41 +64,43 @@ function ComposeWindow({ initial, signature, onClose, onSent, onSaved, onProblem
   }, []);
 
   const buildPayload = () => ({
+    draftId: draftIdRef.current || undefined,
     to: toPayloadList(to),
     cc: toPayloadList(cc),
     bcc: toPayloadList(bcc),
     subject,
     body: editorRef.current?.getHtml() || "",
     importance,
-    appendSignature: false, // the signature is already in the editor
+    keepAttachmentIds: existing.map((a) => a.id),
   });
 
-  // Creates the draft on first use, otherwise updates it. Never runs twice at once.
-  const ensureDraft = useCallback(async () => {
+  // Saves the draft (creating it on first use). Only the files in the snapshot are cleared afterwards, so a file added while the
+  // request was running is still there for the next save.
+  const saveNow = useCallback(async () => {
     while (busyRef.current) await new Promise((resolve) => setTimeout(resolve, 60));
     busyRef.current = true;
     try {
-      const payload = buildPayload();
-      if (draftIdRef.current) {
-        await mail.updateDraft(draftIdRef.current, payload);
-      } else {
-        const created = await mail.createDraft(payload);
-        draftIdRef.current = created.draft.id;
-      }
+      const sent = newFiles;
+      const result = await mailApi.saveDraft(buildPayload(), sent.map((f) => f.file), setProgress);
+      draftIdRef.current = result.draft.id;
+      setHasDraft(true);
+      setExisting(result.draft.attachments || []);
+      setNewFiles((list) => list.filter((f) => !sent.includes(f)));
       dirtyRef.current = false;
-      return draftIdRef.current;
+      return result.draft.id;
     } finally {
       busyRef.current = false;
+      setProgress(null);
     }
-    // buildPayload reads the latest state through closures below; the effect that autosaves re-binds when they change.
+    // buildPayload reads the latest state through closures; the effect that autosaves re-binds when they change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [to, cc, bcc, subject, importance]);
+  }, [to, cc, bcc, subject, importance, existing, newFiles, mailApi]);
 
   const saveDraft = useCallback(async ({ silent = false } = {}) => {
     setStatus("saving");
     setError("");
     try {
-      await ensureDraft();
+      await saveNow();
       setStatus("saved");
       onSaved && onSaved();
       if (!silent) toast.success("Draft saved");
@@ -103,56 +112,38 @@ function ComposeWindow({ initial, signature, onClose, onSent, onSaved, onProblem
       if (info.needsReconnect) onProblem && onProblem(info);
       return false;
     }
-  }, [ensureDraft, onSaved, onProblem]);
+  }, [saveNow, onSaved, onProblem]);
 
   // Autosave every 15 seconds while there are unsaved changes (only once there is something worth keeping).
   useEffect(() => {
     const timer = setInterval(() => {
-      const hasContent = to.length || cc.length || bcc.length || subject.trim() || (editorRef.current?.getText() || "").trim();
+      const hasContent = to.length || cc.length || bcc.length || subject.trim() || newFiles.length || (editorRef.current?.getText() || "").trim();
       if (dirtyRef.current && hasContent && !sending && !busyRef.current) saveDraft({ silent: true });
     }, 15000);
     return () => clearInterval(timer);
-  }, [to, cc, bcc, subject, sending, saveDraft]);
+  }, [to, cc, bcc, subject, newFiles, sending, saveDraft]);
 
-  async function addFiles(fileList) {
+  function addFiles(fileList) {
     const files = Array.from(fileList || []);
     if (files.length === 0) return;
     setError("");
+    let total = existing.reduce((n, a) => n + (a.size || 0), 0) + newFiles.reduce((n, f) => n + f.file.size, 0);
+    let count = existing.length + newFiles.length;
+    const accepted = [];
     for (const file of files) {
       const ext = blockedExtension(file.name);
-      if (ext) {
-        setError(`".${ext}" files cannot be attached (blocked for safety, the same as Outlook).`);
-        continue;
-      }
+      if (ext) { setError(`".${ext}" files cannot be attached (blocked for safety, the same as Outlook).`); continue; }
       if (file.size === 0) { setError(`"${file.name}" is empty.`); continue; }
-      if (file.size > MAX_FILE_BYTES) { setError(`"${file.name}" is larger than 25 MB.`); continue; }
-      const total = attachments.reduce((sum, a) => sum + (a.size || 0), 0) + file.size;
-      if (total > MAX_FILE_BYTES) { setError("Attachments together are larger than 25 MB."); continue; }
-      const token = `${file.name}-${Date.now()}-${Math.random()}`;
-      setUploads((list) => [...list, { token, name: file.name, progress: 0 }]);
-      try {
-        const draftId = await ensureDraft();
-        const result = await mail.addAttachment(draftId, file, (progress) =>
-          setUploads((list) => list.map((u) => (u.token === token ? { ...u, progress } : u)))
-        );
-        setAttachments((list) => [...list, result.attachment]);
-        markDirty();
-      } catch (err) {
-        const info = errorInfo(err);
-        setError(info.message);
-        if (info.needsReconnect) onProblem && onProblem(info);
-      } finally {
-        setUploads((list) => list.filter((u) => u.token !== token));
-      }
+      if (file.size > MAX_TOTAL_BYTES) { setError(`"${file.name}" is larger than 25 MB.`); continue; }
+      if (total + file.size > MAX_TOTAL_BYTES) { setError("Attachments together are larger than 25 MB."); continue; }
+      if (count >= MAX_FILES) { setError("Too many attachments."); continue; }
+      total += file.size;
+      count += 1;
+      accepted.push({ key: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`, file });
     }
-  }
-
-  async function removeAttachment(attachment) {
-    try {
-      await mail.removeAttachment(draftIdRef.current, attachment.id);
-      setAttachments((list) => list.filter((a) => a.id !== attachment.id));
-    } catch (err) {
-      setError(errorInfo(err).message);
+    if (accepted.length) {
+      setNewFiles((list) => [...list, ...accepted]);
+      markDirty();
     }
   }
 
@@ -162,12 +153,10 @@ function ComposeWindow({ initial, signature, onClose, onSent, onSaved, onProblem
     if (everyone.length === 0) return setError("Add at least one recipient.");
     const invalid = everyone.find((p) => p.valid === false);
     if (invalid) return setError(`"${invalid.address}" is not a valid email address.`);
-    if (uploads.length > 0) return setError("Wait for the attachments to finish uploading.");
     if (!subject.trim() && !window.confirm("Send this message without a subject?")) return;
     setSending(true);
     try {
-      const draftId = await ensureDraft();
-      await mail.sendDraft(draftId);
+      await mailApi.send(buildPayload(), newFiles.map((f) => f.file), setProgress);
       toast.success("Message sent");
       draftIdRef.current = null;
       dirtyRef.current = false;
@@ -179,6 +168,7 @@ function ComposeWindow({ initial, signature, onClose, onSent, onSaved, onProblem
       if (info.needsReconnect) onProblem && onProblem(info);
     } finally {
       setSending(false);
+      setProgress(null);
     }
   }
 
@@ -186,7 +176,7 @@ function ComposeWindow({ initial, signature, onClose, onSent, onSaved, onProblem
     const hasWork = draftIdRef.current || dirtyRef.current;
     if (hasWork && !window.confirm("Discard this message?")) return;
     try {
-      if (draftIdRef.current) await mail.discardDraft(draftIdRef.current);
+      if (draftIdRef.current) await mailApi.discardDraft(draftIdRef.current);
     } catch (err) {
       const info = errorInfo(err);
       if (info.status !== 404) {
@@ -200,7 +190,7 @@ function ComposeWindow({ initial, signature, onClose, onSent, onSaved, onProblem
   }
 
   async function handleClose() {
-    const hasContent = to.length || cc.length || bcc.length || subject.trim() || (editorRef.current?.getText() || "").trim() || attachments.length;
+    const hasContent = to.length || cc.length || bcc.length || subject.trim() || (editorRef.current?.getText() || "").trim() || existing.length || newFiles.length;
     if ((dirtyRef.current || draftIdRef.current) && hasContent) {
       const ok = await saveDraft({ silent: true });
       if (ok) toast.info("Saved to Drafts");
@@ -209,7 +199,7 @@ function ComposeWindow({ initial, signature, onClose, onSent, onSaved, onProblem
     onClose && onClose({ discarded: false });
   }
 
-  // Escape closes the window (saving it as a draft), like pressing the X.
+  // Escape closes the window (saving it as a draft), like pressing the X. Ctrl/Cmd+Enter sends.
   useEffect(() => {
     const onKey = (event) => {
       if (event.key === "Escape" && !sending) handleClose();
@@ -242,9 +232,22 @@ function ComposeWindow({ initial, signature, onClose, onSent, onSaved, onProblem
         </header>
 
         <div className="em-compose-fields">
-          <RecipientField label="To" value={to} onChange={(v) => { setTo(v); markDirty(); }} autoFocus={!initial.draftId && to.length === 0} />
-          {showCc && <RecipientField label="Cc" value={cc} onChange={(v) => { setCc(v); markDirty(); }} />}
-          {showBcc && <RecipientField label="Bcc" value={bcc} onChange={(v) => { setBcc(v); markDirty(); }} />}
+          <div className="em-recipient-row">
+            <label className="em-recipient-label" htmlFor="em-from">From</label>
+            <select
+              id="em-from"
+              className="em-from"
+              value={fromId}
+              disabled={hasDraft || usable.length <= 1}
+              title={hasDraft ? "This message is already saved in this account's Drafts. Start a new message to send from another account." : undefined}
+              onChange={(event) => setFromId(Number(event.target.value))}
+            >
+              {usable.map((a) => <option key={a.id} value={a.id}>{a.displayName ? `${a.displayName} <${a.address}>` : a.address} ({a.kindLabel})</option>)}
+            </select>
+          </div>
+          <RecipientField mailApi={mailApi} label="To" value={to} onChange={(v) => { setTo(v); markDirty(); }} autoFocus={!initial.draftId && to.length === 0} />
+          {showCc && <RecipientField mailApi={mailApi} label="Cc" value={cc} onChange={(v) => { setCc(v); markDirty(); }} />}
+          {showBcc && <RecipientField mailApi={mailApi} label="Bcc" value={bcc} onChange={(v) => { setBcc(v); markDirty(); }} />}
           {(!showCc || !showBcc) && (
             <div className="em-compose-toggles">
               {!showCc && <button type="button" onClick={() => setShowCc(true)}>Cc</button>}
@@ -253,48 +256,39 @@ function ComposeWindow({ initial, signature, onClose, onSent, onSaved, onProblem
           )}
           <div className="em-recipient-row">
             <label className="em-recipient-label" htmlFor="em-subject">Subject</label>
-            <input
-              id="em-subject"
-              className="em-subject"
-              type="text"
-              maxLength={255}
-              value={subject}
-              onChange={(event) => { setSubject(event.target.value); markDirty(); }}
-              placeholder="Add a subject"
-            />
+            <input id="em-subject" className="em-subject" type="text" maxLength={255} value={subject} onChange={(event) => { setSubject(event.target.value); markDirty(); }} placeholder="Add a subject" />
           </div>
         </div>
 
         <RichTextEditor ref={editorRef} initialHtml={initialHtml} onChange={markDirty} />
 
-        {(attachments.length > 0 || uploads.length > 0) && (
+        {(existing.length > 0 || newFiles.length > 0) && (
           <ul className="em-attachments" aria-label="Attachments">
-            {attachments.map((a) => (
+            {existing.map((a) => (
               <li key={a.id} className="em-attachment">
                 <FaPaperclip /> <span className="em-attachment-name">{a.name}</span> <span className="em-muted">{formatBytes(a.size)}</span>
-                <button type="button" className="em-icon-btn" aria-label={`Remove ${a.name}`} onClick={() => removeAttachment(a)}><FaTimes /></button>
+                <button type="button" className="em-icon-btn" aria-label={`Remove ${a.name}`} onClick={() => { setExisting((list) => list.filter((x) => x.id !== a.id)); markDirty(); }}><FaTimes /></button>
               </li>
             ))}
-            {uploads.map((u) => (
-              <li key={u.token} className="em-attachment em-attachment-uploading">
-                <FaPaperclip /> <span className="em-attachment-name">{u.name}</span>
-                <progress max="100" value={u.progress} aria-label={`Uploading ${u.name}`} />
+            {newFiles.map((f) => (
+              <li key={f.key} className="em-attachment em-attachment-new">
+                <FaPaperclip /> <span className="em-attachment-name">{f.file.name}</span> <span className="em-muted">{formatBytes(f.file.size)}</span>
+                <button type="button" className="em-icon-btn" aria-label={`Remove ${f.file.name}`} onClick={() => { setNewFiles((list) => list.filter((x) => x !== f)); markDirty(); }}><FaTimes /></button>
               </li>
             ))}
           </ul>
         )}
-
-        {error && (
-          <p className="em-compose-error" role="alert"><FaExclamationTriangle /> {error}</p>
+        {progress !== null && (
+          <p className="em-compose-progress" role="status"><progress max="100" value={progress} aria-label="Uploading" /> Uploading {progress}%</p>
         )}
 
+        {error && <p className="em-compose-error" role="alert"><FaExclamationTriangle /> {error}</p>}
+
         <footer className="em-compose-footer">
-          <button type="button" className="em-btn em-btn-primary" onClick={handleSend} disabled={sending || uploads.length > 0}>
+          <button type="button" className="em-btn em-btn-primary" onClick={handleSend} disabled={sending || !fromAccount}>
             <FaPaperPlane /> {sending ? "Sending..." : "Send"}
           </button>
-          <button type="button" className="em-btn" onClick={() => fileInputRef.current?.click()}>
-            <FaPaperclip /> Attach
-          </button>
+          <button type="button" className="em-btn" onClick={() => fileInputRef.current?.click()}><FaPaperclip /> Attach</button>
           <input ref={fileInputRef} type="file" multiple hidden onChange={(event) => { addFiles(event.target.files); event.target.value = ""; }} />
           <label className="em-compose-importance">
             <span className="em-sr-only">Importance</span>

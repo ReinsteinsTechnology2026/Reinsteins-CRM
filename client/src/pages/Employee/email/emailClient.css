@@ -246,3 +246,52 @@
   .em-filters { grid-template-columns: 1fr; }
   .em-folder-actions { display: inline-flex; }
 }
+
+/* ==========================================
+   UNIFIED ACCOUNTS: switcher, account chips, add / manage accounts
+========================================== */
+
+.em-accounts { list-style: none; margin: 0; padding: 0; }
+.em-account { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border: 0; border-radius: 8px; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.em-account:hover { background: var(--mint, #E8F8F0); }
+.em-account-active { background: var(--mint, #E8F8F0); box-shadow: inset 3px 0 0 var(--primary, #16A66A); }
+.em-account-dot { width: 10px; height: 10px; flex: none; border-radius: 50%; background: #16A66A; }
+.em-account-provider { flex: none; color: var(--em-muted, #667168); font-size: 14px; }
+.em-account-text { display: flex; flex-direction: column; flex: 1; min-width: 0; font-size: 13px; line-height: 1.25; }
+.em-account-text strong, .em-account-text span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.em-badge-warn { display: inline-flex; align-items: center; gap: 4px; background: #FFF6DD; color: #6B4E00; }
+.em-acct-chip { display: inline-block; max-width: 150px; padding: 0 7px; margin-right: 6px; border-radius: 999px; border: 1px solid var(--acct, #16A66A); color: #17211D; font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+.em-note-warn { color: #6B4E00; background: #FFF6DD; margin: 0; padding: 8px 14px; font-size: 12.5px; }
+.em-attention { border: 0; border-bottom: 1px solid #F3B8B0; background: #FDECEA; color: #B42318; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left; }
+.em-account-line { margin: 8px 0 0; font-size: 12px; color: var(--em-muted, #667168); }
+.em-list-reconnect { align-items: center; justify-content: center; }
+
+.em-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 18px 0 8px; text-align: center; }
+.em-choice { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 14px; border: 1px solid #E2E9E5; border-radius: 14px; background: #fff; }
+.em-choice h3 { margin: 6px 0 0; font-size: 16px; }
+.em-choice p { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary, #53615A); max-width: 280px; }
+.em-connect-wide { max-width: 720px; }
+.em-help { text-align: left; margin-top: 12px; font-size: 13px; }
+.em-help summary { cursor: pointer; font-weight: 600; }
+.em-help ul { margin: 8px 0 0; padding-left: 18px; color: var(--text-secondary, #53615A); }
+.em-help li { margin: 5px 0; }
+
+.em-manage { width: min(760px, 100%); }
+.em-manage-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.em-manage-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #E2E9E5; border-radius: 12px; background: #fff; flex-wrap: wrap; }
+.em-manage-text { display: flex; flex-direction: column; flex: 1; min-width: 200px; font-size: 14px; }
+.em-manage-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.em-manage-add { margin-top: 10px; }
+.em-state-line { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; margin-top: 2px; }
+.em-state-ok { color: #0E744A; }
+.em-state-bad { color: #B42318; }
+
+.em-from { flex: 1; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 14px; padding: 6px 4px; background: transparent; }
+.em-compose-progress { display: flex; align-items: center; gap: 8px; margin: 0; padding: 4px 14px; font-size: 12.5px; color: var(--em-muted, #667168); }
+.em-compose-progress progress { width: 140px; height: 8px; }
+.em-attachment-new { border-style: dashed; }
+
+@media (max-width: 899px) {
+  .em-choices { grid-template-columns: 1fr; }
+  .em-manage-item { align-items: flex-start; }
+}

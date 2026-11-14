@@ -40,3 +40,6 @@
   .admin-ms-table td { border: 0; padding: 6px 12px; }
   .admin-ms-table td::before { content: attr(data-label); display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #667168; }
 }
+
+.admin-email-legacy { margin-top: 28px; padding-top: 14px; border-top: 1px solid #E2E9E5; }
+.admin-email-legacy > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }

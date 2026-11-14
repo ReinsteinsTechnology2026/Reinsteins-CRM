@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { FaReply, FaReplyAll, FaShare, FaTrashAlt, FaArchive, FaFlag, FaRegFlag, FaEnvelope, FaEnvelopeOpen, FaPaperclip, FaDownload, FaChevronLeft, FaUndoAlt, FaPen, FaFolder, FaExclamationTriangle } from "react-icons/fa";
 import { toast } from "react-toastify";
 
-import { mail, errorInfo } from "./emailApi";
+import { errorInfo } from "./emailApi";
 import { formatBytes, formatFullDate, initialsOf, recipientsLabel, senderLabel, threadSubject, saveBlob } from "./emailUtils";
 import MessageFrame from "./MessageFrame";
 
@@ -17,14 +17,14 @@ function Avatar({ person }) {
   return <span className="em-avatar" aria-hidden="true">{initialsOf(person)}</span>;
 }
 
-function Attachments({ messageId, attachments }) {
+function Attachments({ mailApi, messageId, attachments }) {
   const [busy, setBusy] = useState(null);
-  const files = attachments.filter((a) => !a.isInline || a.downloadable);
+  const files = attachments.filter((a) => !a.isInline);
 
   async function open(attachment, inline) {
     setBusy(attachment.id);
     try {
-      const response = await mail.attachmentBlob(messageId, attachment.id, inline);
+      const response = await mailApi.attachmentBlob(messageId, attachment.id, inline);
       const type = response.headers["content-type"] || "application/octet-stream";
       if (inline && type !== "application/octet-stream") {
         const url = URL.createObjectURL(response.data);
@@ -65,7 +65,7 @@ function Attachments({ messageId, attachments }) {
   );
 }
 
-function MessageCard({ message, expanded, onToggle, detail, loading, failed, onReload }) {
+function MessageCard({ mailApi, message, expanded, onToggle, detail, loading, failed, onReload }) {
   return (
     <article className={`em-card ${expanded ? "em-card-open" : ""}`}>
       <button type="button" className="em-card-head" aria-expanded={expanded} onClick={onToggle}>
@@ -98,7 +98,7 @@ function MessageCard({ message, expanded, onToggle, detail, loading, failed, onR
               )}
               <MessageFrame html={detail.body.html} title={`Message from ${senderLabel(detail.from)}`} />
               {detail.body.truncated && <p className="em-notice">This message is very large and was shortened.</p>}
-              <Attachments messageId={detail.id} attachments={detail.attachments} />
+              <Attachments mailApi={mailApi} messageId={detail.id} attachments={detail.attachments} />
             </>
           )}
         </div>
@@ -107,7 +107,7 @@ function MessageCard({ message, expanded, onToggle, detail, loading, failed, onR
   );
 }
 
-function MessageReader({ message, loading, error, folderKey, folders, onBack, onReply, onTrash, onRestore, onArchive, onToggleRead, onToggleFlag, onMove, onEditDraft, onSetCategories, onReload, categories }) {
+function MessageReader({ mailApi, capabilities = {}, accountLabel, message, loading, error, folderKey, folders, onBack, onReply, onTrash, onRestore, onArchive, onToggleRead, onToggleFlag, onMove, onEditDraft, onSetCategories, onReload, categories }) {
   const [thread, setThread] = useState([]);
   const [expanded, setExpanded] = useState(new Set());
   const [details, setDetails] = useState({});
@@ -115,7 +115,11 @@ function MessageReader({ message, loading, error, folderKey, folders, onBack, on
   const [moving, setMoving] = useState(false);
 
   const isDraft = folderKey === "drafts" || message?.isDraft;
-  const isDeleted = folderKey === "deleteditems";
+  const isDeleted = folderKey === "trash";
+  const canDeleteForever = capabilities.permanentDelete !== false;
+  const flagWord = capabilities.flag === "star" ? "Star" : "Flag";
+  const flagDone = capabilities.flag === "star" ? "Starred" : "Flagged";
+  const categoryWord = capabilities.categories === "labels" ? "label" : "category";
 
   // The open message's own detail is supplied by the parent; the rest of the conversation is fetched here.
   useEffect(() => {
@@ -125,7 +129,7 @@ function MessageReader({ message, loading, error, folderKey, folders, onBack, on
     setFailed(new Set());
     if (!message || !message.conversationId || isDraft) return undefined;
     let cancelled = false;
-    mail.conversation(message.conversationId)
+    mailApi.conversation(message.conversationId)
       .then((result) => { if (!cancelled) setThread(result.messages || []); })
       .catch(() => { /* a thread is an enhancement: the open message is still shown */ });
     return () => { cancelled = true; };
@@ -152,7 +156,7 @@ function MessageReader({ message, loading, error, folderKey, folders, onBack, on
   async function loadDetail(id) {
     setFailed((set) => { const copy = new Set(set); copy.delete(id); return copy; });
     try {
-      const result = await mail.message(id);
+      const result = await mailApi.message(id);
       setDetails((map) => ({ ...map, [id]: result.message }));
     } catch {
       setFailed((set) => new Set(set).add(id));
@@ -187,10 +191,10 @@ function MessageReader({ message, loading, error, folderKey, folders, onBack, on
               </>
             )}
             <button type="button" className="em-btn em-btn-small" onClick={onToggleRead}>{message.isRead ? <><FaEnvelope /> Unread</> : <><FaEnvelopeOpen /> Read</>}</button>
-            <button type="button" className="em-btn em-btn-small" aria-pressed={message.flag === "flagged"} onClick={onToggleFlag}>{message.flag === "flagged" ? <><FaFlag className="em-flag-on" /> Flagged</> : <><FaRegFlag /> Flag</>}</button>
+            <button type="button" className="em-btn em-btn-small" aria-pressed={message.flag === "flagged"} onClick={onToggleFlag}>{message.flag === "flagged" ? <><FaFlag className="em-flag-on" /> {flagDone}</> : <><FaRegFlag /> {flagWord}</>}</button>
             {!isDraft && !isDeleted && <button type="button" className="em-btn em-btn-small" onClick={onArchive}><FaArchive /> Archive</button>}
             {isDeleted && <button type="button" className="em-btn em-btn-small" onClick={onRestore}><FaUndoAlt /> Restore</button>}
-            <span className="em-move">
+            {folders.length > 0 && <span className="em-move">
               <button type="button" className="em-btn em-btn-small" aria-haspopup="menu" aria-expanded={moving} onClick={() => setMoving((v) => !v)}><FaFolder /> Move</button>
               {moving && (
                 <ul className="em-menu" role="menu">
@@ -201,8 +205,8 @@ function MessageReader({ message, loading, error, folderKey, folders, onBack, on
                   ))}
                 </ul>
               )}
-            </span>
-            <button type="button" className="em-btn em-btn-small em-btn-danger" onClick={onTrash}><FaTrashAlt /> {isDeleted ? "Delete forever" : "Delete"}</button>
+            </span>}
+            {(!isDeleted || canDeleteForever) && <button type="button" className="em-btn em-btn-small em-btn-danger" onClick={onTrash}><FaTrashAlt /> {isDeleted ? "Delete forever" : "Delete"}</button>}
           </div>
         )}
       </div>
@@ -217,6 +221,7 @@ function MessageReader({ message, loading, error, folderKey, folders, onBack, on
 
       {message && (
         <div className="em-reader-scroll">
+          {accountLabel && <p className="em-account-line">{accountLabel}</p>}
           <h2 className="em-reader-subject">{threadSubject(message.subject)}</h2>
           {message.importance === "high" && <p className="em-notice em-important-note">Sent with high importance</p>}
           {categories && (
@@ -227,12 +232,12 @@ function MessageReader({ message, loading, error, folderKey, folders, onBack, on
               )}
               {categories.length > 0 && (
                 <select id="em-cat-select" className="em-cat-select" value="" onChange={(e) => e.target.value && onSetCategories([...new Set([...(message.categories || []), e.target.value])])}>
-                  <option value="">Add category</option>
+                  <option value="">Add {categoryWord}</option>
                   {categories.filter((c) => !(message.categories || []).includes(c.name)).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               )}
               {(message.categories || []).length > 0 && (
-                <button type="button" className="em-link" onClick={() => onSetCategories([])}>Clear categories</button>
+                <button type="button" className="em-link" onClick={() => onSetCategories([])}>Clear {categoryWord}s</button>
               )}
             </div>
           )}
@@ -240,6 +245,7 @@ function MessageReader({ message, loading, error, folderKey, folders, onBack, on
           {cards.map((card) => (
             <MessageCard
               key={card.id}
+              mailApi={mailApi}
               message={card}
               expanded={expanded.has(card.id)}
               onToggle={() => toggle(card)}

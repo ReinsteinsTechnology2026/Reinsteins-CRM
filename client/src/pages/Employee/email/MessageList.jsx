@@ -16,13 +16,17 @@ function MessageList({
   folderName, folderKey, messages, loading, error, hasMore, loadingMore, filteredLocally,
   openId, selected, onToggleSelect, onSelectAll, onClearSelection, onOpen,
   filters, onFiltersChange, onSearch, onRefresh, onLoadMore, onBulk, refreshing,
+  showAccount = false, accountsById = {}, capabilities = {}, accountErrors = [],
 }) {
+  const keyOf = (m) => (m.accountId ? `${m.accountId}:${m.id}` : m.id);
+  const sortOldestOk = capabilities.sortOldest !== false && !showAccount;
+  const flagWord = capabilities.flag === "star" ? "Star" : "Flag";
   const [showFilters, setShowFilters] = useState(false);
   const [draftQuery, setDraftQuery] = useState(filters.q || "");
 
   const isDrafts = folderKey === "drafts";
-  const isDeleted = folderKey === "deleteditems";
-  const isSent = folderKey === "sentitems" || isDrafts;
+  const isDeleted = folderKey === "trash";
+  const isSent = folderKey === "sent" || isDrafts;
   const anySelected = selected.length > 0;
   const allSelected = messages.length > 0 && selected.length === messages.length;
   const activeFilters = [filters.unread, filters.flagged, filters.hasAttachments, filters.from, filters.to, filters.subject, filters.after, filters.before].filter(Boolean).length;
@@ -83,8 +87,8 @@ function MessageList({
           type="button"
           className="em-btn em-btn-small"
           onClick={() => onFiltersChange({ sort: filters.sort === "oldest" ? "newest" : "oldest" })}
-          title="Change sort order"
-          disabled={Boolean(filters.q || filters.to || filters.subject)}
+          title={sortOldestOk ? "Change sort order" : "This account can only list newest mail first"}
+          disabled={!sortOldestOk || Boolean(filters.q || filters.to || filters.subject)}
         >
           {filters.sort === "oldest" ? <FaSortAmountUp /> : <FaSortAmountDown />} {filters.sort === "oldest" ? "Oldest first" : "Newest first"}
         </button>
@@ -94,7 +98,7 @@ function MessageList({
         <div className="em-bulk" role="toolbar" aria-label="Actions for selected messages">
           <button type="button" className="em-btn em-btn-small" onClick={() => onBulk("read")}><FaEnvelopeOpen /> Mark read</button>
           <button type="button" className="em-btn em-btn-small" onClick={() => onBulk("unread")}><FaEnvelope /> Mark unread</button>
-          <button type="button" className="em-btn em-btn-small" onClick={() => onBulk("flag")}><FaFlag /> Flag</button>
+          <button type="button" className="em-btn em-btn-small" onClick={() => onBulk("flag")}><FaFlag /> {flagWord}</button>
           <button type="button" className="em-btn em-btn-small" onClick={() => onBulk("unflag")}>Clear flag</button>
           {!isDeleted && !isDrafts && <button type="button" className="em-btn em-btn-small" onClick={() => onBulk("archive")}><FaArchive /> Archive</button>}
           {isDeleted ? (
@@ -103,6 +107,12 @@ function MessageList({
             <button type="button" className="em-btn em-btn-small em-btn-danger" onClick={() => onBulk("delete")}><FaTrashAlt /> Delete</button>
           )}
         </div>
+      )}
+
+      {accountErrors.length > 0 && (
+        <p className="em-note em-note-warn" role="alert">
+          {accountErrors.length === 1 ? "One account" : `${accountErrors.length} accounts`} could not be loaded ({accountErrors.map((e) => (accountsById[e.accountId] ? accountsById[e.accountId].address : "account")).join(", ")}). Other accounts are shown.
+        </p>
       )}
 
       {filteredLocally && (filters.unread || filters.flagged || filters.hasAttachments) && (
@@ -129,25 +139,27 @@ function MessageList({
 
       <ul className="em-messages" role="listbox" aria-label="Messages" aria-multiselectable="true">
         {messages.map((message) => {
-          const checked = selected.includes(message.id);
+          const checked = selected.includes(keyOf(message));
+          const account = showAccount ? accountsById[message.accountId] : null;
           const person = isSent ? { name: recipientsLabel(message.to) } : message.from;
           return (
             <li
               key={message.id}
               role="option"
-              aria-selected={openId === message.id}
-              className={`em-message ${message.isRead ? "" : "em-unread"} ${openId === message.id ? "em-open" : ""}`}
+              aria-selected={openId === keyOf(message)}
+              className={`em-message ${message.isRead ? "" : "em-unread"} ${openId === keyOf(message) ? "em-open" : ""}`}
             >
               <input
                 type="checkbox"
                 className="em-message-check"
                 checked={checked}
                 aria-label={`Select message from ${senderLabel(message.from)}: ${message.subject || "no subject"}`}
-                onChange={() => onToggleSelect(message.id)}
+                onChange={() => onToggleSelect(keyOf(message))}
               />
               <button type="button" className="em-message-main" onClick={() => onOpen(message)}>
                 <span className="em-message-top">
                   <span className="em-message-sender">{isSent ? person.name : senderLabel(person)}</span>
+                  {account && <span className="em-acct-chip" style={{ "--acct": account.color }} title={account.address}>{account.displayName || account.address}</span>}
                   <span className="em-message-date">{formatListDate(message.receivedAt || message.sentAt)}</span>
                 </span>
                 <span className="em-message-subject">

@@ -40,6 +40,8 @@ import socket, {
 } from "../../services/socket";
 
 import { useTenantFeatures } from "../../context/tenantFeaturesContext";
+import useEmailUnread from "../../hooks/useEmailUnread";
+import EmailBadge from "./EmailBadge";
 import "./AdminSidebar.css";
 
 function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) {
@@ -64,6 +66,7 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
 
   // Which modules this company has (the server enforces it; the menu only hides what would be refused).
   const { isEnabled } = useTenantFeatures();
+  const emailUnread = useEmailUnread({ enabled: isEnabled("email") });
   const chatEnabled = isEnabled("chat");
 
   // Tenant-aware company name, cached at login time (Login.jsx) from
@@ -610,6 +613,8 @@ function AdminSidebar({ collapsed, onToggle, mobileNavOpen, onMobileNavClose }) 
           <span className="admin-sidebar-menu-name">
             Email
           </span>
+
+          <EmailBadge unread={emailUnread.unreadTotal} attention={emailUnread.needsAttention} />
         </button>
  )}
 

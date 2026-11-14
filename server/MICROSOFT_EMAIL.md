@@ -1,3 +1,8 @@
+> **Superseded for connecting email.** Employees now connect their OWN Gmail, Google Workspace, Outlook.com or Microsoft 365 account
+> without any company domain, admin mailbox link or licensed tenant: see [EMAIL_ACCOUNTS.md](EMAIL_ACCOUNTS.md). Everything below describes the
+> earlier **company-managed Microsoft 365 mailbox** flow. Its code, tables and routes (`/api/email/ms/*`) are unchanged and optional; the
+> Email page no longer uses them.
+
 # Company Email on Microsoft 365
 
 Employees read and send company email **inside ZioVenture**, using their own Microsoft 365 mailbox, through Microsoft Graph with

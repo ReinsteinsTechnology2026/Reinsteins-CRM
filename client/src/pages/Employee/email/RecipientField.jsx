@@ -1,7 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 
-import { mail } from "./emailApi";
 import { isValidAddress, parseAddressText } from "./emailUtils";
 
 // ==========================================
@@ -12,7 +11,7 @@ import { isValidAddress, parseAddressText } from "./emailUtils";
 // (the server validates again).
 // ==========================================
 
-function RecipientField({ label, value, onChange, autoFocus = false, placeholder = "" }) {
+function RecipientField({ mailApi, label, value, onChange, autoFocus = false, placeholder = "" }) {
   const [text, setText] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [active, setActive] = useState(-1);
@@ -29,7 +28,7 @@ function RecipientField({ label, value, onChange, autoFocus = false, placeholder
     const mine = ++requestId.current;
     const timer = setTimeout(async () => {
       try {
-        const result = await mail.contacts(query);
+        const result = await mailApi.contacts(query);
         if (mine === requestId.current) {
           const have = new Set(value.map((r) => r.address.toLowerCase()));
           setSuggestions((result.contacts || []).filter((c) => !have.has(c.address.toLowerCase())));
@@ -40,7 +39,7 @@ function RecipientField({ label, value, onChange, autoFocus = false, placeholder
       }
     }, 250);
     return () => clearTimeout(timer);
-  }, [text, value]);
+  }, [text, value, mailApi]);
 
   function addRecipients(parsed) {
     if (parsed.length === 0) return;

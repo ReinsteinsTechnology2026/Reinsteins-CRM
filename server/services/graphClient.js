@@ -67,6 +67,12 @@ function buildQuery(query) {
     return parts.length ? `?${parts.join("&")}` : "";
 }
 
+// Relative Graph targets must stay under /me (the signed-in user's own data), be the $batch endpoint, or be the caller's own
+// change-notification subscriptions. "//host" style targets are never relative.
+function isGraphRelativeTarget(target) {
+    return /^\/(me(\/|\?|$)|\$batch(\?|$)|subscriptions(\/|\?|$))/.test(target);
+}
+
 function isAllowedAbsoluteUrl(candidate) {
     let url;
     try {
@@ -85,6 +91,14 @@ function createGraphClient({
     maxAttempts = 4,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     random = Math.random,
+    // Provider hooks. The defaults are Microsoft Graph's; the Gmail client (services/mail/gmailClient.js) passes its own, so one
+    // retry / refresh / error-mapping implementation serves both providers.
+    baseUrl = GRAPH_BASE,
+    relativeOk = isGraphRelativeTarget,
+    absoluteOk = isAllowedAbsoluteUrl,
+    classify = (status, body) => (body && body.error && body.error.code) || null,
+    map = mapStatus,
+    retryableCodes = [],
 }) {
     async function send(url, init) {
         return fetchImpl(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
@@ -104,10 +118,16 @@ function createGraphClient({
      */
     async function request(method, target, options = {}) {
         let url;
-        // Relative targets must stay under /me (or be the $batch endpoint); "//host" style targets are never relative.
-        if (/^\/(me(\/|\?|$)|\$batch(\?|$))/.test(target)) {
-            url = `${GRAPH_BASE}${target}${buildQuery(options.query)}`;
-        } else if (isAllowedAbsoluteUrl(target)) {
+        // Path-traversal and smuggling guard: "." / ".." segments, encoded dots / slashes / backslashes, and control characters in the
+        // PATH are refused outright (a URL parser would otherwise collapse "/users/me/../../x" out of the allowed prefix).
+        const pathPart = String(target).split("?")[0];
+        if (/(^|\/)\.{1,2}(\/|$)|%2e|%2f|%5c|\\|[\x00-\x20]/i.test(pathPart)) {
+            throw new GraphError("BAD_REQUEST", "Invalid request target.", { status: 400 });
+        }
+        // Relative targets must stay under the provider's own-mailbox prefix; "//host" style targets are never relative.
+        if (relativeOk(target)) {
+            url = `${baseUrl}${target}${buildQuery(options.query)}`;
+        } else if (absoluteOk(target)) {
             url = target;
         } else {
             throw new GraphError("BAD_REQUEST", "Invalid request target.", { status: 400 });
@@ -148,10 +168,29 @@ function createGraphClient({
                 token = await refreshAccessToken(); // throws OAuthError/GraphError REAUTH_REQUIRED when the refresh token is dead
                 continue;
             }
-            if ((response.status === 429 || response.status === 503 || response.status === 504) && attempt < maxAttempts - 1) {
-                await sleep(retryDelayMs(response, attempt));
-                continue;
+            if (!response.ok) {
+                // Read the error body ONCE: it decides both the retry (a Google 403 can be a rate limit) and the mapped error.
+                let parsed = null;
+                try {
+                    parsed = await response.json();
+                } catch (_error) {
+                    parsed = null;
+                }
+                const graphCode = classify(response.status, parsed);
+                const retryable = response.status === 429 || response.status === 503 || response.status === 504 || (response.status === 403 && retryableCodes.includes(graphCode));
+                if (retryable && attempt < maxAttempts - 1) {
+                    await sleep(retryDelayMs(response, attempt));
+                    continue;
+                }
+                const [code, message] = map(response.status, graphCode);
+                const retryAfter = Number(response.headers.get("retry-after"));
+                throw new GraphError(code, message, {
+                    status: response.status,
+                    graphCode,
+                    retryAfterSeconds: Number.isFinite(retryAfter) ? retryAfter : undefined,
+                });
             }
+
 
             if (response.ok) {
                 if (response.status === 204 || response.status === 202) return options.raw ? { buffer: Buffer.alloc(0), contentType: null } : null;
@@ -170,25 +209,12 @@ function createGraphClient({
                 }
             }
 
-            let graphCode = null;
-            try {
-                graphCode = (await response.json()).error.code || null;
-            } catch (_error) {
-                graphCode = null;
-            }
-            const [code, message] = mapStatus(response.status, graphCode);
-            const retryAfter = Number(response.headers.get("retry-after"));
-            throw new GraphError(code, message, {
-                status: response.status,
-                graphCode,
-                retryAfterSeconds: Number.isFinite(retryAfter) ? retryAfter : undefined,
-            });
         }
 
         if (lastNetworkError && !lastResponse) {
             throw new GraphError("MICROSOFT_UNAVAILABLE", "Could not reach Microsoft. Try again shortly.", {});
         }
-        const [code, message] = mapStatus(lastResponse ? lastResponse.status : 503, null);
+        const [code, message] = map(lastResponse ? lastResponse.status : 503, null);
         throw new GraphError(code, message, { status: lastResponse ? lastResponse.status : 503 });
     }
 
@@ -202,4 +228,4 @@ function createGraphClient({
     };
 }
 
-module.exports = { createGraphClient, GraphError, buildQuery, isAllowedAbsoluteUrl };
+module.exports = { createGraphClient, GraphError, buildQuery, isAllowedAbsoluteUrl, isGraphRelativeTarget, mapStatus };

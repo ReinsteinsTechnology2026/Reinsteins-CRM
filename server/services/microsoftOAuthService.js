@@ -220,6 +220,78 @@ async function discoverTenantId(domain, fetchImpl = fetch) {
     return match[1].toLowerCase();
 }
 
+// ---------------------------------------------------------------- personal + work accounts (the "common" authority)
+// The unified client lets an employee connect ANY Microsoft account: Outlook.com / Hotmail (personal) or Microsoft 365 (work or
+// school). The sign-in goes to the "common" authority, so no company-managed tenant is needed beforehand. What the id_token then
+// proves is the account's own identity (tenant id, object id, address); the tenant is recorded, never assumed.
+const CONSUMER_TENANT = "9188040d-6c67-4c5b-b112-36a304b66dad";
+
+function buildAccountAuthorizeUrl({ config, state, nonce, challenge, loginHint }) {
+    const url = new URL(`${LOGIN_HOST}/common/oauth2/v2.0/authorize`);
+    url.searchParams.set("client_id", config.clientId);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("redirect_uri", config.redirectUri);
+    url.searchParams.set("response_mode", "query");
+    url.searchParams.set("scope", config.scopes.join(" "));
+    url.searchParams.set("state", state);
+    url.searchParams.set("nonce", nonce);
+    url.searchParams.set("code_challenge", challenge);
+    url.searchParams.set("code_challenge_method", "S256");
+    url.searchParams.set("prompt", "select_account");
+    if (loginHint) url.searchParams.set("login_hint", loginHint);
+    return url.toString();
+}
+
+async function exchangeAccountCode({ config, code, verifier, fetchImpl = fetch }) {
+    const result = await postForm(
+        `${LOGIN_HOST}/common/oauth2/v2.0/token`,
+        {
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            grant_type: "authorization_code",
+            code,
+            redirect_uri: config.redirectUri,
+            code_verifier: verifier,
+            scope: config.scopes.join(" "),
+        },
+        fetchImpl
+    );
+    if (!result.ok) throw mapTokenError(result);
+    return normalizeTokens(result.body);
+}
+
+// A refresh token belongs to the account's own tenant (for a personal account, the consumers tenant), which was recorded at connect.
+async function refreshAccountTokens({ config, tenantId, refreshToken, fetchImpl = fetch }) {
+    const tenant = assertTenantId(tenantId);
+    const result = await postForm(
+        `${LOGIN_HOST}/${tenant}/oauth2/v2.0/token`,
+        { client_id: config.clientId, client_secret: config.clientSecret, grant_type: "refresh_token", refresh_token: refreshToken, scope: config.scopes.join(" ") },
+        fetchImpl
+    );
+    if (!result.ok) throw mapTokenError(result);
+    return normalizeTokens(result.body);
+}
+
+function validateAccountIdToken(claims, { config, expectedNonceHash, now = Date.now(), sha256Hex }) {
+    if (claims.aud !== config.clientId) throw new OAuthError("ID_TOKEN_AUDIENCE", "The sign-in was issued for a different application.", 400);
+    const tid = String(claims.tid || "").toLowerCase();
+    if (!GUID_PATTERN.test(tid)) throw new OAuthError("ID_TOKEN_INVALID", "The sign-in did not identify an organisation.", 400);
+    if (claims.iss !== `${LOGIN_HOST}/${tid}/v2.0`) throw new OAuthError("ID_TOKEN_ISSUER", "The sign-in came from an unexpected issuer.", 400);
+    if (typeof claims.exp !== "number" || claims.exp * 1000 < now - 60000) throw new OAuthError("ID_TOKEN_EXPIRED", "The sign-in has expired. Try again.", 400);
+    if (!claims.nonce || sha256Hex(claims.nonce) !== expectedNonceHash) throw new OAuthError("NONCE_MISMATCH", "The sign-in could not be verified. Try again.", 400);
+    const subject = typeof claims.oid === "string" && claims.oid ? claims.oid : typeof claims.sub === "string" ? claims.sub : "";
+    if (!subject) throw new OAuthError("ID_TOKEN_INVALID", "The sign-in did not identify an account.", 400);
+    const address = [claims.email, claims.preferred_username, claims.upn].find((value) => typeof value === "string" && value.includes("@"));
+    if (!address) throw new OAuthError("EMAIL_NOT_AVAILABLE", "Microsoft did not return an email address for this account.", 400);
+    return {
+        subject,
+        tid,
+        email: address.trim().toLowerCase(),
+        name: typeof claims.name === "string" ? claims.name.slice(0, 255) : null,
+        kind: tid === CONSUMER_TENANT ? "outlook_personal" : "microsoft_365",
+    };
+}
+
 module.exports = {
     OAuthError,
     randomToken,
@@ -232,4 +304,9 @@ module.exports = {
     decodeJwtPayload,
     validateIdTokenClaims,
     discoverTenantId,
+    buildAccountAuthorizeUrl,
+    exchangeAccountCode,
+    refreshAccountTokens,
+    validateAccountIdToken,
+    CONSUMER_TENANT,
 };

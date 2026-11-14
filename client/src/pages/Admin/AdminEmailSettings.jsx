@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { FaEnvelope, FaCheckCircle, FaTrash, FaSync } from "react-icons/fa";
 
 import api from "../../services/api";
-import AdminMicrosoftEmail from "./AdminMicrosoftEmail";
+import AdminEmailConnections from "./AdminEmailConnections";
 
 // NOTE (UI audit, Batch 0): this file imports no CSS of its own. Its
 // "admin-settings-*" classes are defined only in AdminSettings.css --
@@ -160,16 +160,23 @@ function AdminEmailSettings() {
           <FaEnvelope />
         </div>
         <div>
-          <h2>Business Email</h2>
+          <h2>Email</h2>
           <p>
-            Give your company its own verified email domain and mailboxes
-            (e.g. you@{"{"}yourcompany.com{"}"}). Verify your domain, connect
-            your Microsoft 365 organisation, and link each employee's existing
-            Microsoft 365 mailbox. Employees then read and send company email
-            inside ZioVenture. Your domain's mail settings are never changed.
+            Employees read and send email from their own existing accounts
+            (Gmail, Google Workspace, Outlook.com / Hotmail, Microsoft 365)
+            inside ZioVenture. Nothing is hosted or licensed by ZioVenture.
           </p>
         </div>
       </div>
+
+      <AdminEmailConnections />
+
+      <details className="admin-email-legacy">
+        <summary>Company domains and mailbox records (optional, advanced)</summary>
+        <p className="admin-settings-hint">
+          Not needed for employees to connect their email. These earlier tools register a company domain and keep mailbox records; they never
+          change your domain's mail delivery.
+        </p>
 
       {loadError && <p className="admin-settings-error">{loadError}</p>}
 
@@ -286,9 +293,9 @@ function AdminEmailSettings() {
             ))}
           </ul>
 
-          <AdminMicrosoftEmail domains={domains} onMailboxChange={loadAll} />
         </>
       )}
+      </details>
     </section>
   );
 }

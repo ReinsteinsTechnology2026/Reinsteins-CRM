@@ -1,69 +1,87 @@
 import api from "../../../services/api";
 
 // ==========================================
-// COMPANY EMAIL API (Microsoft 365)
+// EMAIL API (unified client: Gmail, Google Workspace, Outlook.com / Hotmail, Microsoft 365)
 //
-// Thin wrappers over /api/email/ms/* and /api/email/mail/*. There is deliberately NO user, mailbox or company id in any
-// call: the server takes the signed-in employee from the session token, and the mailbox is always their own.
+// Thin wrappers over /api/email/accounts/* . There is deliberately NO user or company id in any call: the server takes the signed-in
+// employee from the session token, and an account id only selects one of THAT employee's own accounts.
 //
-// Microsoft sign-in problems are reported by the server as HTTP 409 (never 401), so a lapsed Microsoft connection does not
-// sign the employee out of the CRM; see errorInfo() for the codes the screens react to.
+// Provider sign-in problems come back as HTTP 409 (never 401), so a lapsed Google / Microsoft connection does not sign the employee
+// out of the CRM; see errorInfo() for the codes the screens react to.
 // ==========================================
 
 const data = (promise) => promise.then((response) => response.data);
 const enc = encodeURIComponent;
 
-export const connection = {
-  status: () => data(api.get("/email/ms/me")),
-  begin: (portal) => data(api.post("/email/ms/me/connect", { portal })),
-  disconnect: () => data(api.post("/email/ms/me/disconnect", {})),
+export const accounts = {
+  list: () => data(api.get("/email/accounts")),
+  summary: (refresh = false) => data(api.get("/email/accounts/summary", { params: refresh ? { refresh: "1" } : undefined })),
+  connect: (provider, portal, accountId) => data(api.post("/email/accounts/connect", { provider, portal, accountId })),
+  update: (id, changes) => data(api.patch(`/email/accounts/${enc(id)}`, changes)),
+  disconnect: (id) => data(api.delete(`/email/accounts/${enc(id)}`)),
 };
 
-export const mail = {
-  folders: () => data(api.get("/email/mail/folders")),
-  childFolders: (id) => data(api.get(`/email/mail/folders/${enc(id)}/children`)),
-  createFolder: (name, parentId) => data(api.post("/email/mail/folders", { name, parentId })),
-  renameFolder: (id, name) => data(api.patch(`/email/mail/folders/${enc(id)}`, { name })),
-  deleteFolder: (id) => data(api.delete(`/email/mail/folders/${enc(id)}`)),
-
-  messages: (params) => data(api.get("/email/mail/messages", { params })),
-  message: (id) => data(api.get(`/email/mail/messages/${enc(id)}`)),
-  conversation: (id) => data(api.get(`/email/mail/conversations/${enc(id)}`)),
-  update: (id, changes) => data(api.patch(`/email/mail/messages/${enc(id)}`, changes)),
-  move: (id, destination) => data(api.post(`/email/mail/messages/${enc(id)}/move`, { destination })),
-  remove: (id, permanent = false) => data(api.post(`/email/mail/messages/${enc(id)}/delete${permanent ? "?permanent=1" : ""}`, {})),
-  restore: (id) => data(api.post(`/email/mail/messages/${enc(id)}/restore`, {})),
-  archive: (id) => data(api.post(`/email/mail/messages/${enc(id)}/archive`, {})),
-  bulk: (ids, action, destination) => data(api.post("/email/mail/messages/bulk", { ids, action, destination })),
-
-  createDraft: (payload) => data(api.post("/email/mail/drafts", payload)),
-  getDraft: (id) => data(api.get(`/email/mail/drafts/${enc(id)}`)),
-  updateDraft: (id, payload) => data(api.put(`/email/mail/drafts/${enc(id)}`, payload)),
-  discardDraft: (id) => data(api.delete(`/email/mail/drafts/${enc(id)}`)),
-  sendDraft: (id) => data(api.post(`/email/mail/drafts/${enc(id)}/send`, {})),
-  replyDraft: (id, mode) => data(api.post(`/email/mail/messages/${enc(id)}/reply-draft`, { mode })),
-
-  addAttachment: (messageId, file, onProgress) => {
-    const form = new FormData();
-    form.append("file", file);
-    return data(api.post(`/email/mail/messages/${enc(messageId)}/attachments`, form, {
-      headers: { "Content-Type": "multipart/form-data" },
-      onUploadProgress: (event) => onProgress && event.total && onProgress(Math.round((event.loaded / event.total) * 100)),
-    }));
-  },
-  removeAttachment: (messageId, attachmentId) => data(api.delete(`/email/mail/messages/${enc(messageId)}/attachments/${enc(attachmentId)}`)),
-  // The download is authenticated (a bearer token), so it is fetched as a blob and saved from memory.
-  attachmentBlob: (messageId, attachmentId, inline = false) =>
-    api.get(`/email/mail/messages/${enc(messageId)}/attachments/${enc(attachmentId)}/download`, {
-      params: inline ? { inline: "1" } : undefined,
-      responseType: "blob",
-    }),
-
-  categories: () => data(api.get("/email/mail/categories")),
-  contacts: (q) => data(api.get("/email/mail/contacts", { params: { q } })),
-  settings: () => data(api.get("/email/mail/settings")),
-  saveSettings: (payload) => data(api.put("/email/mail/settings", payload)),
+export const unified = {
+  messages: (params) => data(api.get("/email/unified/messages", { params })),
 };
+
+// CRM-level preferences (signature, favourite folders): shared by all of the employee's accounts.
+export const prefs = {
+  get: () => data(api.get("/email/mailbox/settings")),
+  save: (payload) => data(api.put("/email/mailbox/settings", payload)),
+};
+
+// One account's mail. `mailFor(accountId)` returns an object with every operation already bound to that account.
+export function mailFor(accountId) {
+  const base = `/email/accounts/${enc(accountId)}/mail`;
+  return {
+    accountId,
+    folders: () => data(api.get(`${base}/folders`)),
+    createFolder: (name) => data(api.post(`${base}/folders`, { name })),
+    renameFolder: (id, name) => data(api.patch(`${base}/folders/${enc(id)}`, { name })),
+    deleteFolder: (id) => data(api.delete(`${base}/folders/${enc(id)}`)),
+
+    messages: (params) => data(api.get(`${base}/messages`, { params })),
+    message: (id) => data(api.get(`${base}/messages/${enc(id)}`)),
+    conversation: (id) => data(api.get(`${base}/conversations/${enc(id)}`)),
+    update: (id, changes) => data(api.patch(`${base}/messages/${enc(id)}`, changes)),
+    move: (id, destination) => data(api.post(`${base}/messages/${enc(id)}/move`, { destination })),
+    remove: (id, permanent = false) => data(api.post(`${base}/messages/${enc(id)}/delete${permanent ? "?permanent=1" : ""}`, {})),
+    restore: (id) => data(api.post(`${base}/messages/${enc(id)}/restore`, {})),
+    archive: (id) => data(api.post(`${base}/messages/${enc(id)}/archive`, {})),
+    bulk: (ids, action, destination) => data(api.post(`${base}/messages/bulk`, { ids, action, destination })),
+
+    // Compose: ONE request carries the message and any new files (multipart). The server returns the saved draft with its attachments.
+    saveDraft: (payload, files, onProgress) => data(api.post(`${base}/drafts`, form(payload, files), uploadOptions(onProgress))),
+    send: (payload, files, onProgress) => data(api.post(`${base}/send`, form(payload, files), uploadOptions(onProgress))),
+    getDraft: (id) => data(api.get(`${base}/drafts/${enc(id)}`)),
+    discardDraft: (id) => data(api.delete(`${base}/drafts/${enc(id)}`)),
+    replyDraft: (id, mode) => data(api.post(`${base}/messages/${enc(id)}/reply-draft`, { mode })),
+
+    // The download is authenticated (a bearer token), so it is fetched as a blob and saved from memory.
+    attachmentBlob: (messageId, attachmentId, inline = false) =>
+      api.get(`${base}/messages/${enc(messageId)}/attachments/${enc(attachmentId)}/download`, { params: inline ? { inline: "1" } : undefined, responseType: "blob" }),
+
+    categories: () => data(api.get(`${base}/categories`)),
+    contacts: (q) => data(api.get(`${base}/contacts`, { params: { q } })),
+    autoReply: () => data(api.get(`${base}/auto-reply`)),
+    saveAutoReply: (payload) => data(api.put(`${base}/auto-reply`, payload)),
+  };
+}
+
+function form(payload, files) {
+  const body = new FormData();
+  body.append("payload", JSON.stringify(payload));
+  for (const file of files || []) body.append("files", file);
+  return body;
+}
+
+function uploadOptions(onProgress) {
+  return {
+    headers: { "Content-Type": "multipart/form-data" },
+    onUploadProgress: (event) => onProgress && event.total && onProgress(Math.round((event.loaded / event.total) * 100)),
+  };
+}
 
 // What a failed call means for the screen. `message` comes from the server and is already safe to show.
 export function errorInfo(error) {
@@ -73,7 +91,11 @@ export function errorInfo(error) {
     code,
     status: error?.response?.status || 0,
     message: body.message || (error?.response ? "Something went wrong. Please try again." : "Could not reach the server. Check your connection."),
-    needsReconnect: code === "REAUTH_REQUIRED" || code === "NOT_CONNECTED",
-    notReady: ["COMPANY_NOT_READY", "NO_MAILBOX", "MAILBOX_DISABLED", "MS_NOT_CONFIGURED", "FEATURE_NOT_ENABLED"].includes(code),
+    needsReconnect: code === "REAUTH_REQUIRED",
+    unsupported: code === "UNSUPPORTED",
+    notAvailable: ["ACCOUNT_NOT_FOUND", "PROVIDER_NOT_CONFIGURED", "FEATURE_NOT_ENABLED"].includes(code),
+    throttled: code === "THROTTLED" || code === "READ_LIMIT",
   };
 }
+
+export const PROVIDER_NAME = { google: "Google", microsoft: "Microsoft" };
