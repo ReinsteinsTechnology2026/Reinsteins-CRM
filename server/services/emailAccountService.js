@@ -132,6 +132,24 @@ function createEmailAccountService(overrides = {}) {
         return { authorizationUrl: provider === "google" ? oauthGoogle.buildAuthorizeUrl(params) : oauthMs.buildAccountAuthorizeUrl(params) };
     }
 
+    // A refused sign-in must not leave a live grant behind. Revoking a Google token voids the WHOLE grant of that Google user for this
+    // app, so it is done only when the signing-in identity is known and NO connected account anywhere uses it (otherwise a valid
+    // connection would be broken). Microsoft has no revoke call; its tokens were never stored here and simply expire. Never throws.
+    async function discardGrant(provider, tokens, { companyId, userId }) {
+        let outcome = "skipped";
+        try {
+            if (provider === "google" && tokens) {
+                const sub = (() => { try { return String((oauthGoogle.decodeJwtPayload(tokens.idToken) || {}).sub || ""); } catch (_e) { return ""; } })();
+                const token = tokens.refreshToken || tokens.accessToken;
+                if (sub && token && !(await store.existsProviderAccount(provider, sub))) {
+                    outcome = (await oauthGoogle.revokeToken({ token, fetchImpl })).revoked ? "revoked" : "revoke_failed";
+                } else outcome = sub ? "kept_other_connection" : "identity_unknown";
+            }
+            await audit({ companyId, actorUserId: userId, action: "account_connect_grant_discarded", targetType: "account", detail: { provider, outcome } });
+        } catch (_error) { /* best effort */ }
+        return outcome;
+    }
+
     // The provider's redirect. Returns where to send the browser and what happened; never throws for an expected failure, never
     // echoes the provider's own error text.
     async function completeCallback({ provider, code, state, error: providerError }) {
@@ -154,11 +172,15 @@ function createEmailAccountService(overrides = {}) {
         }
         if (typeof code !== "string" || code.length < 10 || code.length > 4096) return fail("invalid_code", base);
 
+        let issued = null; // tokens Google/Microsoft handed us; if the connection is then refused they must not stay valid
+        let stored = false;
         try {
             const verifier = secretBox.decrypt(saved.code_verifier_enc, stateAad(companyId, userId), config.tokenKey);
             const tokens = provider === "google"
                 ? await oauthGoogle.exchangeCode({ config, code, verifier, fetchImpl })
                 : await oauthMs.exchangeAccountCode({ config, code, verifier, fetchImpl });
+            issued = tokens;
+            const reject = async (reason) => { await discardGrant(provider, tokens, { companyId, userId }); return fail(reason, base); };
 
             // Google (and some Microsoft tenants) let the user untick permissions: without the required ones the client cannot work.
             const grantedOk = provider === "google"
@@ -166,9 +188,9 @@ function createEmailAccountService(overrides = {}) {
                 : config.requiredScopes.every((s) => String(tokens.scope || "").toLowerCase().split(/\s+/).some((g) => g === s.toLowerCase() || g.endsWith(`/${s.toLowerCase()}`)));
             if (!grantedOk) {
                 await audit({ companyId, actorUserId: userId, action: "account_connect_insufficient_scopes", targetType: "account", detail: { provider } });
-                return fail("insufficient_scopes", base);
+                return reject("insufficient_scopes");
             }
-            if (!tokens.refreshToken) return fail("no_refresh_token", base);
+            if (!tokens.refreshToken) return reject("no_refresh_token");
 
             const claims = provider === "google"
                 ? oauthGoogle.decodeJwtPayload(tokens.idToken)
@@ -185,12 +207,12 @@ function createEmailAccountService(overrides = {}) {
                 const row = existing && (await store.getWithTokens(companyId, userId, saved.account_id));
                 if (!existing || existing.provider !== provider || row.provider_account_id !== providerAccountId) {
                     await audit({ companyId, actorUserId: userId, action: "account_connect_wrong_account", targetType: "account", targetId: saved.account_id, detail: { provider } });
-                    return fail("wrong_account", base);
+                    return reject("wrong_account");
                 }
             } else if ((await store.count(companyId, userId)) >= MAX_ACCOUNTS_PER_USER) {
                 // At the limit only an account ALREADY on file (same provider account) may complete: that is an update, not a new slot.
                 const known = await store.findByIdentity(companyId, userId, provider, providerAccountId);
-                if (!known) return fail("account_limit", base);
+                if (!known) return reject("account_limit");
             }
 
             const aad = tokenAad(companyId, userId, provider, providerAccountId);
@@ -205,6 +227,8 @@ function createEmailAccountService(overrides = {}) {
                 refreshTokenEnc: secretBox.encrypt(tokens.refreshToken, aad, config.tokenKey),
                 expiresInSeconds: tokens.expiresIn,
             });
+
+            stored = true;
 
             // Start tracking NOW (old mail must not notify) and register push if available. Neither may fail the connection.
             let note = null;
@@ -223,6 +247,7 @@ function createEmailAccountService(overrides = {}) {
         } catch (error) {
             const reason = error instanceof OAuthError ? error.code : "error";
             if (!(error instanceof OAuthError)) console.error("[email] account OAuth callback failed:", error.code || error.name);
+            if (issued && !stored) await discardGrant(provider, issued, { companyId, userId });
             await audit({ companyId, actorUserId: userId, action: "account_connect_failed", targetType: "account", detail: { provider, reason } });
             return fail(reason === "REAUTH_REQUIRED" ? "denied" : reason === "ID_TOKEN_INVALID" || reason === "EMAIL_NOT_VERIFIED" || reason === "EMAIL_NOT_AVAILABLE" ? "identity_failed" : "failed", base);
         }

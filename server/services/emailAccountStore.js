@@ -66,6 +66,12 @@ function createEmailAccountStore(pool = require("../config/platformDb")) {
         return rows[0] || null;
     }
 
+    // Is this provider identity connected by ANYONE (any company)? Used to decide whether revoking a Google grant is safe.
+    async function existsProviderAccount(provider, providerAccountId) {
+        const [rows] = await pool.query(`SELECT 1 AS "x" FROM email_accounts WHERE provider = ? AND provider_account_id = ? LIMIT 1`, [provider, providerAccountId]);
+        return rows.length > 0;
+    }
+
     async function count(companyId, userId) {
         const [[row]] = await pool.query(`SELECT COUNT(*) AS "n" FROM email_accounts WHERE company_id = ? AND tenant_user_id = ?`, [companyId, userId]);
         return Number(row.n);
@@ -285,6 +291,7 @@ function createEmailAccountStore(pool = require("../config/platformDb")) {
         getWithTokens,
         getWithTokensById,
         findByIdentity,
+        existsProviderAccount,
         count,
         upsert,
         updateTokens,

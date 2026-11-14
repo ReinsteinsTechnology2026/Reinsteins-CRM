@@ -460,6 +460,40 @@ function defineCases({ test, newPlatformDatabase }) {
         assert.equal(summary.accounts.find((a) => a.id === gId).unread, 0);
     });
 
+    test("refused sign-in: the newly issued Google grant is revoked, but never when another connection uses the same Google identity; Microsoft is left alone", async () => {
+        const world = await buildWorld(await newPlatformDatabase({ withAccountsSchema: true }));
+        // 1) Gmail permission unticked -> refused AND the partial grant is voided (refresh token preferred).
+        const denied = await gmailAccount(world, world.a, 1, "x@gmail.com", { scope: "openid email profile" });
+        assert.equal(denied.result.reason, "insufficient_scopes");
+        assert.deepEqual(world.net.revoked, [denied.refreshToken]);
+        assert.equal((await world.store.list(world.a.id, 1)).length, 0, "nothing stored");
+        // 2) No refresh token: the access token is revoked instead.
+        world.net.revoked.length = 0;
+        const noRefresh = await gmailAccount(world, world.a, 1, "y@gmail.com", { noRefresh: true });
+        assert.equal(noRefresh.result.reason, "no_refresh_token");
+        assert.deepEqual(world.net.revoked, [noRefresh.accessToken]);
+        // 3) A VALID connection of the same Google identity exists: a refused re-consent must NOT revoke (it would kill the valid one).
+        const good = await gmailAccount(world, world.a, 1, "z@gmail.com");
+        assert.equal(good.result.ok, true);
+        world.net.revoked.length = 0;
+        const again = await gmailAccount(world, world.a, 1, "z@gmail.com", { scope: "openid email profile" });
+        assert.equal(again.result.reason, "insufficient_scopes");
+        assert.deepEqual(world.net.revoked, [], "the valid connection's grant is untouched");
+        assert.equal((await world.store.list(world.a.id, 1)).length, 1);
+        assert.ok((await world.store.getWithTokens(world.a.id, 1, good.result.accountId)).refresh_token_enc, "its tokens are still stored");
+        // ...also when the other connection belongs to another company (the Google grant is per Google user, not per company).
+        const other = await gmailAccount(world, world.b, 1, "z@gmail.com", { scope: "openid email profile" });
+        assert.equal(other.result.reason, "insufficient_scopes");
+        assert.deepEqual(world.net.revoked, []);
+        // 4) Microsoft has no revoke call: refused sign-in makes none.
+        const ms = await outlookAccount(world, world.a, 1, "x@outlook.com", { scope: "User.Read openid" });
+        assert.equal(ms.result.reason, "insufficient_scopes");
+        assert.deepEqual(world.net.revoked, []);
+        // 5) The audit records the outcome without any token.
+        const audit = JSON.stringify((await world.pool.query(`SELECT detail FROM email_audit_log WHERE action = account_connect_grant_discarded`).catch(() => [[]]))[0]);
+        assert.ok(!audit.includes("RT|") && !audit.includes("AT|"));
+    });
+
     test("disconnect: Google's grant is revoked, push is stopped, the local row and every token are DELETED; Microsoft has nothing to revoke; audit records it", async () => {
         const world = await buildWorld(await newPlatformDatabase({ withAccountsSchema: true }), { push: true });
         const g = await gmailAccount(world, world.a, 1, "jane@gmail.com");
