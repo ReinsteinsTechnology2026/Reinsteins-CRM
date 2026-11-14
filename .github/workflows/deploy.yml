@@ -144,6 +144,21 @@ jobs:
           # as the steps above. `--dry-run` previews it (never used here).
           node server/_migrate_add_ziovault.js
 
+          # Microsoft 365 company email (platform database only). Safe, idempotent, additive-only: new tables, four
+          # new columns (mailboxes.provider/link_state/linked_at, email_domains.mail_hosting) and guarded constraints.
+          # Never reads or rewrites a row, never touches a tenant database, never changes a domain's DNS. It stops
+          # (non-zero exit) if email_domains/mailboxes do not exist yet; `set -e` then stops the deploy before the
+          # build/restart steps. The feature stays inert until the MS_EMAIL_* variables are set -- see
+          # server/MICROSOFT_EMAIL.md.
+          node server/_migrate_add_microsoft_email.js
+
+          # Unified email accounts (platform database only): every employee connects their OWN Gmail / Google Workspace /
+          # Outlook.com / Microsoft 365 account. Four NEW tables (email_accounts, email_account_oauth_states,
+          # email_push_subscriptions, email_new_mail_events); nothing existing is altered, no row is read, no tenant database is
+          # touched, DNS is never involved. Same `set -e` reasoning as the steps above. The feature stays inert until the
+          # GOOGLE_EMAIL_* / MS_EMAIL_* settings are present -- see server/EMAIL_ACCOUNTS.md.
+          node server/_migrate_add_email_accounts.js
+
           cd client
           npm ci
           VITE_API_URL=https://crm.zioventure.com npm run build

@@ -185,6 +185,8 @@ const ADMIN_ROUTES = [
   { path: "meetings", Component: MeetingsList },
   { path: "meetings/:id", Component: MeetingDetails },
   { path: "meetings/:id/room", Component: MeetingLobby },
+  // Admins who have a company mailbox of their own use the same mail client as employees.
+  { path: "email", Component: EmployeeEmail },
   { path: "settings", Component: AdminSettings },
   { path: "organization", Component: Organization },
   { path: "organization/:tab", Component: Organization },

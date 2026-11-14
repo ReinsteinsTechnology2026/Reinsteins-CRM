@@ -1,62 +1,108 @@
-import { useEffect, useState } from "react";
-import { FaEnvelope, FaInbox } from "react-icons/fa";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { FaEnvelope } from "react-icons/fa";
 
-import api from "../../services/api";
+import { accounts as accountsApi, errorInfo } from "./email/emailApi";
+import { subscribeEmailEvents } from "../../services/emailEvents";
+import AddAccountPanel from "./email/AddAccountPanel";
+import EmailClient from "./email/EmailClient";
 
 import "./EmployeeEmail.css";
+import "./email/emailClient.css";
 
 // ==========================================
-// EMPLOYEE EMAIL (Phase 16A foundation)
+// EMAIL -- one place for ALL of the employee's own email accounts.
 //
-// Placeholder only, per Phase 16A Step 19 -- shows the employee's own
-// mailbox status (if their company admin has created one for them);
-// the real inbox/compose/threading UI arrives once mail
-// infrastructure is connected (see the Phase 16A report).
+// Every employee (and every admin who wants it) connects their EXISTING Gmail, Google Workspace, Outlook.com / Hotmail or
+// Microsoft 365 account; nothing is created, licensed or hosted by ZioVenture and no company domain is needed. The page asks the
+// server for the employee's own connected accounts and shows either "connect your email" (none yet) or the mail client (one or more).
+// Access is checked on the server for every call; nothing here is trusted for access.
+//
+// Coming back from Google / Microsoft sign-in the URL carries ?ea=connected or ?ea=error&reason=<code>. Only a short code is ever
+// passed, never the provider's own error text.
 // ==========================================
+
+const REASONS = {
+  denied: "The sign-in was cancelled. You can try again whenever you like.",
+  admin_consent_required: "Your organisation requires an administrator to approve ZioVenture before it can connect. Ask your IT administrator to approve it, then try again.",
+  insufficient_scopes: "Reading and sending mail needs the mail permission. Connect again and keep the mail permission ticked.",
+  wrong_account: "You signed in with a different account than the one you are reconnecting. Sign in with the same account.",
+  identity_failed: "The provider did not confirm a verified email address for this account.",
+  invalid_state: "That sign-in link has expired or was already used. Start again.",
+  invalid_code: "The provider did not complete the sign-in. Start again.",
+  no_refresh_token: "The provider did not grant ongoing access. Connect again and accept the permissions.",
+  account_limit: "You have reached the maximum number of connected accounts. Disconnect one to add another.",
+  not_configured: "This provider's sign-in has not been set up on this server yet.",
+  failed: "The sign-in could not be completed. Try again, or ask your administrator.",
+};
 
 function EmployeeEmail() {
-  const [mailbox, setMailbox] = useState(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const portal = location.pathname.includes("/admin") ? "admin" : "employee";
+
+  const [state, setState] = useState({ accounts: [], providers: null });
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [banner, setBanner] = useState(null);
+  const loadingRef = useRef(false);
 
-  useEffect(() => {
-    api.get("/email/mailboxes/me")
-      .then((res) => setMailbox(res.data?.mailbox || null))
-      .catch((err) => {
-        if (err.response?.status === 404) {
-          setMessage("You don't have a company mailbox yet. Ask your admin to set one up in Settings.");
-        } else if (err.response?.status === 401) {
-          setMessage("Business email is only available when signed in through your company's own login link.");
-        } else {
-          setMessage("Unable to load your mailbox right now.");
-        }
-      })
-      .finally(() => setLoading(false));
+  const load = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    try {
+      const result = await accountsApi.list();
+      setState({ accounts: result.accounts || [], providers: result.providers || null });
+      setMessage("");
+    } catch (error) {
+      const info = errorInfo(error);
+      if (info.status === 401) setMessage("Business email is only available when signed in through your company's own login link.");
+      else if (info.code === "FEATURE_NOT_ENABLED") setMessage("Company Email is not enabled for your organization.");
+      else setMessage(info.message || "Unable to load your email accounts right now.");
+    } finally {
+      loadingRef.current = false;
+      setLoading(false);
+    }
   }, []);
 
+  // Read the result of a provider sign-in once, then clean the URL so a refresh does not repeat the message.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const result = params.get("ea");
+    if (result) {
+      if (result === "connected") setBanner({ kind: "ok", text: "Account connected." });
+      else setBanner({ kind: "error", text: REASONS[params.get("reason")] || REASONS.failed });
+      navigate(location.pathname, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => subscribeEmailEvents((name) => { if (name !== "email:new") load(); }), [load]);
+
+  // The mail client calls this when a provider says the sign-in is gone, or an account is no longer available.
+  const handleProblem = useCallback(() => { load(); }, [load]);
+
   return (
-    <div className="employee-email-page">
+    <div className="employee-email-page em-page">
       <div className="employee-email-header">
-        <FaEnvelope />
+        <FaEnvelope aria-hidden="true" />
         <h1>Email</h1>
       </div>
 
-      {!loading && mailbox && (
-        <div className="employee-email-card">
-          <FaInbox />
-          <div>
-            <p className="employee-email-address">{mailbox.email_address}</p>
-            <p className="employee-email-status">
-              Status: {mailbox.status} &middot;{" "}
-              {mailbox.provisioning_status === "provisioned"
-                ? "Connected to mail server"
-                : "Mail delivery is not connected yet -- coming in a later update."}
-            </p>
-          </div>
-        </div>
+      {loading && <p className="employee-email-hint" role="status">Loading your email accounts...</p>}
+      {!loading && message && <p className="employee-email-hint" role="alert">{message}</p>}
+
+      {!loading && !message && state.accounts.length === 0 && (
+        <AddAccountPanel providers={state.providers} portal={portal} banner={banner} />
       )}
 
-      {!loading && !mailbox && <p className="employee-email-hint">{message}</p>}
+      {!loading && !message && state.accounts.length > 0 && (
+        <>
+          {banner && <p className={`em-banner ${banner.kind === "ok" ? "em-banner-ok" : "em-banner-error"}`} role="status">{banner.text}</p>}
+          <EmailClient accounts={state.accounts} providers={state.providers} portal={portal} onAccountsChanged={load} onProblem={handleProblem} />
+        </>
+      )}
     </div>
   );
 }

@@ -227,6 +227,9 @@ const platformEmailRoutes = require(
 const tenantEmailRoutes = require(
   "./routes/tenantEmailRoutes"
 );
+const msEmailRoutes = require("./routes/msEmailRoutes");
+const emailAccountRoutes = require("./routes/emailAccountRoutes");
+const { bus: emailEventBus } = require("./services/emailEvents");
 
 const meetingService = require(
   "./services/meetingService"
@@ -2461,6 +2464,21 @@ app.use(
   tenantEmailRoutes
 );
 
+// Microsoft 365 company email (OAuth connection, mailbox linking and the mail client API). Same /api/email prefix, so the
+// existing "email" company feature gate covers it. See routes/msEmailRoutes.js and server/MICROSOFT_EMAIL.md.
+app.use(
+  "/api/email",
+  msEmailRoutes
+);
+
+// Unified email client: every employee connects their OWN Gmail / Google Workspace / Outlook.com / Microsoft 365 account (no
+// company domain, no hosted mailbox). Same /api/email prefix and feature gate. See routes/emailAccountRoutes.js and
+// server/EMAIL_ACCOUNTS.md.
+app.use(
+  "/api/email",
+  emailAccountRoutes
+);
+
 // ==========================================
 // GROWORGS PUBLIC WEBSITE (Phase 6)
 // No authentication -- this is the public marketing site's backend
@@ -2546,6 +2564,42 @@ app.use(
 
   }
 );
+
+// ==========================================
+// EMAIL: new-mail notifications to the owner's browser + background synchronisation
+//
+// The sync service (services/emailSyncService.js) emits events on an in-process bus; here they become Socket.IO messages to the
+// OWNER's personal room only (tenant-namespaced, like every other private notification). The browser shows the unread badge and a
+// toast; the user's own Gmail / Outlook notifications are untouched. The scheduler polls accounts as a safe fallback and renews
+// provider push subscriptions; it does nothing until at least one provider is configured.
+// ==========================================
+{
+  const slugCache = new Map();
+  const slugOf = async (companyId) => {
+    if (!slugCache.has(companyId)) {
+      const company = await platformCompanyService.getCompanyById(companyId);
+      slugCache.set(companyId, company && company.company_slug);
+      setTimeout(() => slugCache.delete(companyId), 10 * 60 * 1000).unref();
+    }
+    return slugCache.get(companyId);
+  };
+  const toOwner = (event, name) => {
+    slugOf(event.companyId)
+      .then((slug) => {
+        if (slug) io.to(userRoom(slug, event.userId)).emit(name, { accountId: event.accountId, provider: event.provider, count: event.count, latest: event.latest, unreadTotal: event.unreadTotal, unread: event.unread, message: event.message });
+      })
+      .catch((error) => console.error("[email] could not notify the browser:", error.message));
+  };
+  emailEventBus.on("new-mail", (e) => toOwner(e, "email:new"));
+  emailEventBus.on("reauth", (e) => toOwner(e, "email:reauth"));
+  emailEventBus.on("sync-error", (e) => toOwner(e, "email:sync-error"));
+  emailEventBus.on("accounts", (e) => toOwner(e, "email:accounts"));
+
+  const { getProviderConfig } = require("./config/emailProvidersConfig");
+  if (process.env.EMAIL_SYNC_DISABLED !== "1" && ["google", "microsoft"].some((p) => getProviderConfig(p).configured)) {
+    require("./controllers/emailAccountController").sync.start({ intervalMs: Number(process.env.EMAIL_SYNC_INTERVAL_MS) || 30000 });
+  }
+}
 
 // ==========================================
 // START HTTP + SOCKET.IO SERVER

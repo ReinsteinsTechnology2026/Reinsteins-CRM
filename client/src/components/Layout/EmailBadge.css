@@ -1,0 +1,19 @@
+/* Unread-mail badge shown next to "Email" in the portal sidebars. Emerald / red only. */
+.zv-email-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #16A66A;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.zv-email-badge-attention {
+  background: #B42318;
+}
